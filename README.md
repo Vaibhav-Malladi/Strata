@@ -1,18 +1,26 @@
 # Strata
 
-Strata is a lightweight repository structure and dependency inspector.
+**Know before you edit.**
 
-It scans a Python codebase, extracts files/classes/functions/imports, builds a dependency graph, and saves the result to:
+Strata is a local-first repository intelligence layer for AI coding agents.
+
+It scans a Python codebase, builds a dependency graph, and generates focused context that can be used before editing code with tools like Aider, ChatGPT, Claude, Copilot, local models, or other AI coding assistants.
+
+Strata is **not** an autonomous coding agent.
+
+It does not edit files by itself.  
+It helps humans and AI coding tools understand a repository before making changes.
+
+---
+
+## Current Version
 
 ```text
-.aidc/graph.json
+Strata v0.2-alpha
 ```
 
-Strata is currently at:
-
-```text
-MVP v0.1
-```
+This is the current V2 feature set.  
+Do not treat this as final `v0.2` until final smoke checks and release tagging are complete.
 
 ---
 
@@ -25,34 +33,47 @@ What files exist in this repo?
 Which functions and classes are inside each file?
 Which files import other local files?
 Which imports are external or unresolved?
-Where are unresolved imports located?
+Which files are most relevant for this task?
+What might break if I edit this file?
+Which tests should I run after changing this file?
+Are there circular dependencies?
+Is the repository dependency graph healthy?
+Are generated Strata context files missing or stale?
+What prompt should I give to an AI coding assistant?
 ```
 
-It is designed to become the foundation for a future AI coding assistant that can understand a project before editing it.
+Strata is designed for:
+
+```text
+local-first AI coding workflows
+small local model support
+low-token context generation
+safe pre-edit planning
+repository structure inspection
+impact analysis
+verification planning
+agent-ready prompt generation
+```
 
 ---
 
-## Current Scope
-
-Strata v0.1 supports:
+## Core Positioning
 
 ```text
-Python repository scanning
-Python AST parsing
-File/function/class extraction
-Import extraction
-Internal dependency edge detection
-Standard-library import classification
-Unresolved import detection
-Unresolved import line numbers
-Graph validation
-Pretty CLI output
-Colored terminal output
-Scanning current folder
-Scanning a custom folder path
-Saved graph inspection
-Single-file graph inspection
-No external dependencies
+Strata tells your coding assistant what it needs to know before it edits.
+```
+
+It is useful when working with:
+
+```text
+Aider
+ChatGPT
+Claude
+GitHub Copilot
+local LLMs
+manual code review
+repository refactoring
+test planning
 ```
 
 ---
@@ -81,6 +102,46 @@ Check your version:
 py --version
 ```
 
+Strata currently uses only the Python standard library.
+
+No external dependencies are required.
+
+---
+
+## Quick Start
+
+From the project root:
+
+```powershell
+py cli.py help
+py cli.py scan
+py cli.py map
+py cli.py health
+py cli.py preflight "add tests for map command"
+```
+
+Generated files are written under:
+
+```text
+.aidc/
+```
+
+---
+
+## Generated Files
+
+Strata can generate:
+
+```text
+.aidc/graph.json
+.aidc/project_map.md
+.aidc/task_brief.md
+.aidc/preflight.md
+.aidc/agent_prompt.md
+```
+
+These files are generated context outputs and should normally not be edited manually.
+
 ---
 
 ## Commands
@@ -91,19 +152,23 @@ py --version
 py cli.py help
 ```
 
-### Scan the current project
+Shows all available commands.
+
+---
+
+### Scan repository
 
 ```powershell
 py cli.py scan
 ```
 
-This scans the current folder and writes:
+Scan the current folder and write:
 
 ```text
 .aidc/graph.json
 ```
 
-### Scan a specific folder
+Scan a specific folder:
 
 ```powershell
 py cli.py scan tmp_repo
@@ -121,13 +186,19 @@ Scan complete
   Warnings           1 unresolved import(s)
 ```
 
-### Show the saved graph summary
+---
+
+### Show saved graph summary
 
 ```powershell
 py cli.py show
 ```
 
-### Show one file from the graph
+Shows summary information from the saved graph.
+
+---
+
+### Show one file from graph
 
 ```powershell
 py cli.py show tmp_repo/main.py
@@ -145,98 +216,528 @@ File details
   Imports            os, helper, missing_module
   External imports   os
   Unresolved imports missing_module
+```
 
-Warnings
-─────────────────
-  Unresolved imports found in tmp_repo\main.py:
-  ! missing_module at line 3
+---
 
-Outgoing dependencies
-─────────────────────
-  tmp_repo\main.py -> tmp_repo\helper.py [helper]
+### Generate project map
 
-Incoming dependencies
-─────────────────────
-  none
+```powershell
+py cli.py map
+```
+
+Generate:
+
+```text
+.aidc/project_map.md
+```
+
+For a specific folder:
+
+```powershell
+py cli.py map tmp_repo
+```
+
+The project map includes:
+
+```text
+repository summary
+file list
+symbols
+imports
+external imports
+unresolved imports
+incoming dependencies
+outgoing dependencies
+warnings
+```
+
+---
+
+### Generate task brief
+
+```powershell
+py cli.py brief "change helper behavior"
+```
+
+Generate:
+
+```text
+.aidc/task_brief.md
+```
+
+For a specific folder:
+
+```powershell
+py cli.py brief tmp_repo "change helper behavior"
+```
+
+The task brief includes:
+
+```text
+task summary
+relevant files
+relevance reasons
+risks
+impact notes
+suggested tests
+AI agent instructions
+```
+
+Current relevance scoring is keyword-based.  
+It matches task words against file paths, symbols, imports, and known command-related terms.
+
+---
+
+### Check dependency cycles
+
+```powershell
+py cli.py cycles
+```
+
+For a specific folder:
+
+```powershell
+py cli.py cycles tmp_repo
+```
+
+Reports circular dependencies detected in the repository graph.
+
+---
+
+### Check dependency health
+
+```powershell
+py cli.py health
+```
+
+For a specific folder:
+
+```powershell
+py cli.py health tmp_repo
+```
+
+Reports:
+
+```text
+file count
+edge count
+unresolved imports
+cycle count
+top incoming dependencies
+top outgoing dependencies
+overall dependency health status
+```
+
+---
+
+### Analyze impact of changing a file
+
+```powershell
+py cli.py impact helper.py
+```
+
+For a specific folder:
+
+```powershell
+py cli.py impact tmp_repo helper.py
+```
+
+Impact analysis reports:
+
+```text
+direct dependents
+direct dependencies
+transitive dependents
+risk level
+summary
+```
+
+Risk levels:
+
+```text
+low
+medium
+high
+```
+
+---
+
+### Suggest tests for a changed file
+
+```powershell
+py cli.py tests-for map_writer.py
+```
+
+For a specific folder:
+
+```powershell
+py cli.py tests-for tmp_repo helper.py
+```
+
+This recommends verification commands and likely related test files.
+
+Example command suggestions may include:
+
+```powershell
+py tests.py
+py cli.py map tmp_repo
+py cli.py health tmp_repo
+```
+
+---
+
+### Generate preflight report
+
+```powershell
+py cli.py preflight "add tests for map command"
+```
+
+For a specific folder:
+
+```powershell
+py cli.py preflight tmp_repo "change helper behavior"
+```
+
+Generate:
+
+```text
+.aidc/preflight.md
+```
+
+Preflight is the main V2 super-command.
+
+It combines:
+
+```text
+repository summary
+repository health
+relevant source files
+relevant test files
+entry points / runners
+impact notes
+verification plan
+AI agent instructions
+```
+
+Use this before giving an AI coding assistant a task.
+
+---
+
+### Generate agent-specific prompt
+
+```powershell
+py cli.py agent-prompt "add tests for map command" local
+```
+
+For a specific folder:
+
+```powershell
+py cli.py agent-prompt tmp_repo "change helper behavior" aider
+```
+
+Generate:
+
+```text
+.aidc/agent_prompt.md
+```
+
+Supported agents:
+
+```text
+generic
+local
+aider
+chatgpt
+```
+
+Agent prompt styles:
+
+```text
+generic  -> balanced general-purpose prompt
+local    -> compact prompt for smaller local models
+aider    -> concise edit-focused prompt
+chatgpt  -> fuller context prompt for ChatGPT-style assistants
+```
+
+This command helps adapt Strata context to different coding assistant workflows.
+
+---
+
+### Check generated output status
+
+```powershell
+py cli.py status
+```
+
+For a specific folder:
+
+```powershell
+py cli.py status tmp_repo
+```
+
+Reports whether generated Strata outputs are:
+
+```text
+current
+incomplete
+stale
+```
+
+The status command checks:
+
+```text
+.aidc/graph.json
+.aidc/project_map.md
+.aidc/task_brief.md
+.aidc/preflight.md
+.aidc/agent_prompt.md
+```
+
+If generated files are missing or older than source files, Strata recommends regeneration steps.
+
+---
+
+## Recommended Workflow
+
+Before editing a repository with an AI coding assistant:
+
+```powershell
+py cli.py scan
+py cli.py health
+py cli.py preflight "describe your task here"
+py cli.py agent-prompt "describe your task here" local
+```
+
+After editing:
+
+```powershell
+py tests.py
+py tests\run.py
+py cli.py status
+```
+
+For a specific changed file:
+
+```powershell
+py cli.py impact path\to\file.py
+py cli.py tests-for path\to\file.py
 ```
 
 ---
 
 ## Running Tests
 
-Run:
+Run the compatibility test entry point:
 
 ```powershell
 py tests.py
 ```
 
-Expected output:
+Run the modular test runner directly:
+
+```powershell
+py tests\run.py
+```
+
+Expected current output:
 
 ```text
-All tests passed.
+All tests passed. (70 tests)
 ```
 
-Recommended full verification:
+The exact number may increase as new features are added.
+
+Recommended verification:
 
 ```powershell
 py tests.py
+py tests\run.py
 py cli.py help
-py cli.py scan
-py cli.py show
-py cli.py show tmp_repo/main.py
 py cli.py scan tmp_repo
-py cli.py show
+py cli.py show tmp_repo/main.py
+py cli.py map tmp_repo
+py cli.py brief "change helper behavior"
+py cli.py cycles tmp_repo
+py cli.py health tmp_repo
+py cli.py impact tmp_repo helper.py
+py cli.py tests-for map_writer.py
+py cli.py preflight "add map command tests"
+py cli.py agent-prompt "add agent prompt command" local
+py cli.py status
 ```
 
 ---
 
-## Project Files
+## Project Structure
+
+Approximate source layout:
 
 ```text
 cli.py
-```
+cli_help.py
+cli_ui.py
+cli_core.py
 
-Command-line interface for scanning and viewing the graph.
-
-```text
-scanner.py
-```
-
-Walks the repository, scans supported files, resolves imports, and builds dependency edges.
-
-```text
 python_parser.py
-```
-
-Parses Python files using the standard-library `ast` module.
-
-```text
 languages.py
-```
-
-Routes files to the correct parser based on file extension.
-
-```text
+scanner.py
 graph.py
-```
 
-Validates graph structure and catches broken graph data.
+map_writer.py
+brief.py
+brief_impact.py
+cycles.py
+health.py
+impact.py
+test_mapper.py
+preflight.py
+agent_export.py
+status.py
 
-```text
+commands/
+  __init__.py
+  scan_command.py
+  map_command.py
+  brief_command.py
+  preflight_command.py
+  cycles_command.py
+  health_command.py
+  impact_command.py
+  tests_for_command.py
+  show_command.py
+  agent_prompt_command.py
+  status_command.py
+
 tests.py
-```
 
-Lightweight no-framework test runner using `assert`.
+tests/
+  __init__.py
+  helpers.py
+  run.py
+  test_parser.py
+  test_scanner.py
+  test_graph.py
+  test_cli_core.py
+  test_map_writer.py
+  test_brief.py
+  test_brief_impact.py
+  test_cycles.py
+  test_health.py
+  test_impact.py
+  test_test_mapper.py
+  test_preflight.py
+  test_agent_export.py
+  test_status.py
 
-```text
 tmp_repo/
+  helper.py
+  main.py
 ```
-
-Small controlled test repository used by the test suite.
 
 ---
 
-## Output File
+## Main Module Responsibilities
+
+### `cli.py`
+
+Routes command-line arguments to command handlers.
+
+### `cli_help.py`
+
+Prints CLI usage and command help.
+
+### `cli_ui.py`
+
+Shared terminal formatting helpers.
+
+### `cli_core.py`
+
+Shared CLI filesystem and graph helpers.
+
+### `python_parser.py`
+
+Parses Python files using the standard-library `ast` module.
+
+Detects:
+
+```text
+imports
+classes
+functions
+syntax errors
+line numbers
+```
+
+### `languages.py`
+
+Routes supported source files to the correct parser.
+
+Currently Python only.
+
+### `scanner.py`
+
+Walks a repository and builds graph data.
+
+It detects:
+
+```text
+Python files
+classes
+functions
+imports
+internal dependencies
+external imports
+unresolved imports
+```
+
+### `graph.py`
+
+Validates graph structure and schema.
+
+### `map_writer.py`
+
+Generates `.aidc/project_map.md`.
+
+### `brief.py`
+
+Generates task-specific context and ranks relevant files.
+
+### `brief_impact.py`
+
+Adds impact notes to task briefs.
+
+### `cycles.py`
+
+Finds circular dependencies.
+
+### `health.py`
+
+Generates dependency health summaries.
+
+### `impact.py`
+
+Analyzes the impact of changing a file.
+
+### `test_mapper.py`
+
+Suggests verification commands for changed files.
+
+### `preflight.py`
+
+Generates the combined pre-edit report.
+
+### `agent_export.py`
+
+Generates agent-specific prompts.
+
+### `status.py`
+
+Checks whether generated Strata outputs are missing or stale.
+
+---
+
+## Graph Output
 
 After scanning, Strata writes:
 
@@ -253,7 +754,7 @@ files
 edges
 ```
 
-Each file entry contains:
+Each file entry may contain:
 
 ```text
 path
@@ -284,7 +785,7 @@ Strata classifies imports into three groups.
 
 ### Internal imports
 
-Imports that point to another scanned file in the repo.
+Imports that point to another scanned file in the repository.
 
 Example:
 
@@ -346,50 +847,78 @@ __pycache__
 
 ## Current Limitations
 
-Strata v0.1 does not yet support:
+Strata currently focuses on Python repositories.
+
+It does not yet support:
 
 ```text
 JavaScript or TypeScript parsing
-Third-party package detection
-Package-aware Python import resolution
-Graph visualization
-Function-level dependency edges
-AI-generated summaries
-Memory or abstraction layers
-Automatic code editing
-Configuration files
+third-party package metadata analysis
+package-aware Python import resolution
+graph visualization
+symbol-level call graph analysis
+automatic code editing
+cloud indexing
+autonomous agent execution
+configuration files
 ```
 
-These are intentionally deferred until after MVP v0.1.
+These are intentionally deferred.
 
 ---
 
-## MVP v0.1 Status
+## Design Principles
 
-Strata MVP v0.1 is complete when:
-
-```text
-py tests.py
-```
-
-prints:
+Strata should remain:
 
 ```text
-All tests passed.
+local-first
+standard-library-only
+lightweight
+transparent
+agent-neutral
+incremental
+inspectable
+easy to test
+easy to reason about
 ```
 
-and the following commands work:
+Development priorities:
 
-```powershell
-py cli.py help
-py cli.py scan
-py cli.py scan tmp_repo
-py cli.py show
-py cli.py show tmp_repo/main.py
+```text
+practical repository understanding
+low hallucination risk
+small local model compatibility
+low token usage
+safe AI-assisted editing
+repeatable verification
 ```
+
+---
+
+## Release Status
 
 Current status:
 
 ```text
-MVP v0.1 complete
+v0.2-alpha feature set complete through V2.6
+```
+
+Before tagging final `v0.2`, run final smoke checks and confirm a clean Git state.
+
+Do not tag final `v0.2` until:
+
+```text
+README is updated
+tests pass
+CLI smoke checks pass
+git status is clean
+release tag is created and pushed
+```
+
+Planned final tag:
+
+```powershell
+git tag v0.2
+git push origin v0.2
 ```
