@@ -3,11 +3,13 @@ import os
 import sys
 
 from graph import validate_graph
+from map_writer import write_project_map
 from scanner import scan_repo
 
 
 OUTPUT_DIR = ".aidc"
 OUTPUT_FILE = os.path.join(OUTPUT_DIR, "graph.json")
+PROJECT_MAP_FILE = os.path.join(OUTPUT_DIR, "project_map.md")
 
 
 USE_COLOR = sys.stdout.isatty() and os.environ.get("NO_COLOR") is None
@@ -74,6 +76,8 @@ def print_usage() -> None:
     print("  py cli.py scan <path>")
     print("  py cli.py show")
     print("  py cli.py show <path>")
+    print("  py cli.py map")
+    print("  py cli.py map <path>")
     print("  py cli.py help")
     print()
     print(bold("Examples"))
@@ -81,20 +85,22 @@ def print_usage() -> None:
     print("  py cli.py scan tmp_repo")
     print("  py cli.py show")
     print("  py cli.py show tmp_repo/main.py")
+    print("  py cli.py map")
+    print("  py cli.py map tmp_repo")
 
 
-def write_graph(root_path: str) -> int:
+def build_graph(root_path: str) -> dict | None:
     root_path = normalize_path(root_path)
 
     if not os.path.exists(root_path):
         print_title(red("Scan failed"))
         print_kv("Reason", f"path does not exist: {root_path}")
-        return 1
+        return None
 
     if not os.path.isdir(root_path):
         print_title(red("Scan failed"))
         print_kv("Reason", f"path is not a directory: {root_path}")
-        return 1
+        return None
 
     graph = scan_repo(root_path)
     problems = validate_graph(graph)
@@ -105,20 +111,65 @@ def write_graph(root_path: str) -> int:
         for problem in problems:
             print(f"  {red('✗')} {problem}")
 
-        return 1
+        return None
 
+    return graph
+
+
+def save_graph(graph: dict) -> None:
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     with open(OUTPUT_FILE, "w", encoding="utf-8") as file:
         json.dump(graph, file, indent=2)
 
+
+def count_unresolved_imports(graph: dict) -> int:
     unresolved_count = 0
 
     for file_info in graph["files"]:
         unresolved_count += len(file_info["unresolved_imports"])
 
+    return unresolved_count
+
+
+def write_graph(root_path: str) -> int:
+    graph = build_graph(root_path)
+
+    if graph is None:
+        return 1
+
+    save_graph(graph)
+
+    unresolved_count = count_unresolved_imports(graph)
+
     print_title(green("Scan complete"))
     print_kv("Output", OUTPUT_FILE)
+    print_kv("Root", graph["root"])
+    print_kv("Files", len(graph["files"]))
+    print_kv("Edges", len(graph["edges"]))
+
+    if unresolved_count:
+        print_kv("Warnings", yellow(f"{unresolved_count} unresolved import(s)"))
+    else:
+        print_kv("Warnings", green("none"))
+
+    return 0
+
+
+def write_map(root_path: str) -> int:
+    graph = build_graph(root_path)
+
+    if graph is None:
+        return 1
+
+    save_graph(graph)
+    write_project_map(graph, PROJECT_MAP_FILE)
+
+    unresolved_count = count_unresolved_imports(graph)
+
+    print_title(green("Project map generated"))
+    print_kv("Graph", OUTPUT_FILE)
+    print_kv("Project map", PROJECT_MAP_FILE)
     print_kv("Root", graph["root"])
     print_kv("Files", len(graph["files"]))
     print_kv("Edges", len(graph["edges"]))
@@ -298,6 +349,9 @@ def main() -> int:
         if command == "show":
             return show_graph_summary()
 
+        if command == "map":
+            return write_map(".")
+
         if command in {"help", "--help", "-h"}:
             print_usage()
             return 0
@@ -310,6 +364,9 @@ def main() -> int:
 
         if command == "show":
             return show_file(sys.argv[2])
+
+        if command == "map":
+            return write_map(sys.argv[2])
 
     print_usage()
     return 1
