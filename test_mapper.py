@@ -62,9 +62,6 @@ def suggest_tests_for_file(graph: dict, target_path: str) -> dict:
     commands = [DEFAULT_TEST_COMMAND]
     commands.extend(COMMAND_RULES.get(basename, []))
 
-    if related_test_files:
-        commands.append(_specific_test_hint(related_test_files))
-
     return {
         "target": matching_path,
         "found": True,
@@ -165,11 +162,6 @@ def _find_related_test_files(graph: dict, target_path: str) -> list[str]:
             continue
 
     return sorted(_dedupe(candidates))
-
-
-def _specific_test_hint(related_test_files: list[str]) -> str:
-    files = ", ".join(related_test_files)
-    return f"Review related test file(s): {files}"
 
 
 def _summary(target_path: str, related_test_files: list[str]) -> str:
