@@ -3,7 +3,10 @@ import os
 import sys
 
 from brief import write_task_brief
+from cycles import find_cycles, format_cycles
 from graph import validate_graph
+from health import analyze_health, format_health_report
+from impact import analyze_impact, format_impact_report
 from map_writer import write_project_map
 from scanner import scan_repo
 
@@ -82,6 +85,12 @@ def print_usage() -> None:
     print("  py cli.py map <path>")
     print('  py cli.py brief "<task>"')
     print('  py cli.py brief <path> "<task>"')
+    print("  py cli.py cycles")
+    print("  py cli.py cycles <path>")
+    print("  py cli.py health")
+    print("  py cli.py health <path>")
+    print("  py cli.py impact <file>")
+    print("  py cli.py impact <root> <file>")
     print("  py cli.py help")
     print()
     print(bold("Examples"))
@@ -93,6 +102,12 @@ def print_usage() -> None:
     print("  py cli.py map tmp_repo")
     print('  py cli.py brief "add map command tests"')
     print('  py cli.py brief tmp_repo "add unresolved import warning"')
+    print("  py cli.py cycles")
+    print("  py cli.py cycles tmp_repo")
+    print("  py cli.py health")
+    print("  py cli.py health tmp_repo")
+    print("  py cli.py impact helper.py")
+    print("  py cli.py impact tmp_repo helper.py")
 
 
 def build_graph(root_path: str) -> dict | None:
@@ -210,6 +225,77 @@ def write_brief(root_path: str, task: str) -> int:
         print_kv("Warnings", yellow(f"{unresolved_count} unresolved import(s)"))
     else:
         print_kv("Warnings", green("none"))
+
+    return 0
+
+
+def show_cycles(root_path: str) -> int:
+    graph = build_graph(root_path)
+
+    if graph is None:
+        return 1
+
+    save_graph(graph)
+
+    cycles = find_cycles(graph)
+
+    if cycles:
+        print_title(yellow("Circular dependencies found"))
+        print(format_cycles(cycles))
+        return 1
+
+    print_title(green("Cycle check complete"))
+    print_kv("Root", graph["root"])
+    print_kv("Files", len(graph["files"]))
+    print_kv("Edges", len(graph["edges"]))
+    print_kv("Cycles", green("none"))
+
+    return 0
+
+
+def show_health(root_path: str) -> int:
+    graph = build_graph(root_path)
+
+    if graph is None:
+        return 1
+
+    save_graph(graph)
+
+    health = analyze_health(graph)
+
+    if health["status"] == "healthy":
+        print_title(green("Dependency health complete"))
+    else:
+        print_title(yellow("Dependency health warnings"))
+
+    print(format_health_report(health))
+
+    return 0
+
+
+def show_impact(root_path: str, target_path: str) -> int:
+    graph = build_graph(root_path)
+
+    if graph is None:
+        return 1
+
+    save_graph(graph)
+
+    impact = analyze_impact(graph, target_path)
+
+    if not impact["found"]:
+        print_title(red("Impact analysis failed"))
+        print(format_impact_report(impact))
+        return 1
+
+    if impact["risk_level"] == "low":
+        print_title(green("Impact analysis complete"))
+    elif impact["risk_level"] == "medium":
+        print_title(yellow("Impact analysis warning"))
+    else:
+        print_title(red("Impact analysis high risk"))
+
+    print(format_impact_report(impact))
 
     return 0
 
@@ -384,6 +470,12 @@ def main() -> int:
         if command == "map":
             return write_map(".")
 
+        if command == "cycles":
+            return show_cycles(".")
+
+        if command == "health":
+            return show_health(".")
+
         if command in {"help", "--help", "-h"}:
             print_usage()
             return 0
@@ -403,11 +495,23 @@ def main() -> int:
         if command == "brief":
             return write_brief(".", sys.argv[2])
 
+        if command == "cycles":
+            return show_cycles(sys.argv[2])
+
+        if command == "health":
+            return show_health(sys.argv[2])
+
+        if command == "impact":
+            return show_impact(".", sys.argv[2])
+
     if len(sys.argv) == 4:
         command = sys.argv[1]
 
         if command == "brief":
             return write_brief(sys.argv[2], sys.argv[3])
+
+        if command == "impact":
+            return show_impact(sys.argv[2], sys.argv[3])
 
     print_usage()
     return 1
