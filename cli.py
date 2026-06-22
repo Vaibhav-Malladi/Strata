@@ -1,22 +1,19 @@
 import sys
 
-from brief import write_task_brief
+from commands.brief_command import write_brief
+from commands.map_command import write_map
+from commands.preflight_command import write_preflight
+from commands.scan_command import write_graph
+
 from cycles import find_cycles, format_cycles
 from health import analyze_health, format_health_report
 from impact import analyze_impact, format_impact_report
-from map_writer import write_project_map
-from preflight import write_preflight_report
 from test_mapper import suggest_tests_for_file, format_test_suggestions
 
 from cli_core import (
-    OUTPUT_FILE,
-    PROJECT_MAP_FILE,
-    TASK_BRIEF_FILE,
-    PREFLIGHT_FILE,
     build_graph,
     save_graph,
     load_saved_graph,
-    count_unresolved_imports,
     normalize_path,
 )
 
@@ -77,108 +74,6 @@ def print_usage() -> None:
     print("  py cli.py tests-for tmp_repo helper.py")
     print('  py cli.py preflight "add map command tests"')
     print('  py cli.py preflight tmp_repo "change helper behavior"')
-
-
-def write_graph(root_path: str) -> int:
-    graph = build_graph(root_path)
-
-    if graph is None:
-        return 1
-
-    save_graph(graph)
-
-    unresolved_count = count_unresolved_imports(graph)
-
-    print_title(green("Scan complete"))
-    print_kv("Output", OUTPUT_FILE)
-    print_kv("Root", graph["root"])
-    print_kv("Files", len(graph["files"]))
-    print_kv("Edges", len(graph["edges"]))
-
-    if unresolved_count:
-        print_kv("Warnings", yellow(f"{unresolved_count} unresolved import(s)"))
-    else:
-        print_kv("Warnings", green("none"))
-
-    return 0
-
-
-def write_map(root_path: str) -> int:
-    graph = build_graph(root_path)
-
-    if graph is None:
-        return 1
-
-    save_graph(graph)
-    write_project_map(graph, PROJECT_MAP_FILE)
-
-    unresolved_count = count_unresolved_imports(graph)
-
-    print_title(green("Project map generated"))
-    print_kv("Graph", OUTPUT_FILE)
-    print_kv("Project map", PROJECT_MAP_FILE)
-    print_kv("Root", graph["root"])
-    print_kv("Files", len(graph["files"]))
-    print_kv("Edges", len(graph["edges"]))
-
-    if unresolved_count:
-        print_kv("Warnings", yellow(f"{unresolved_count} unresolved import(s)"))
-    else:
-        print_kv("Warnings", green("none"))
-
-    return 0
-
-
-def write_brief(root_path: str, task: str) -> int:
-    graph = build_graph(root_path)
-
-    if graph is None:
-        return 1
-
-    save_graph(graph)
-    write_task_brief(graph, task, TASK_BRIEF_FILE)
-
-    unresolved_count = count_unresolved_imports(graph)
-
-    print_title(green("Task brief generated"))
-    print_kv("Graph", OUTPUT_FILE)
-    print_kv("Task brief", TASK_BRIEF_FILE)
-    print_kv("Root", graph["root"])
-    print_kv("Files", len(graph["files"]))
-    print_kv("Edges", len(graph["edges"]))
-
-    if unresolved_count:
-        print_kv("Warnings", yellow(f"{unresolved_count} unresolved import(s)"))
-    else:
-        print_kv("Warnings", green("none"))
-
-    return 0
-
-
-def write_preflight(root_path: str, task: str) -> int:
-    graph = build_graph(root_path)
-
-    if graph is None:
-        return 1
-
-    save_graph(graph)
-    write_preflight_report(graph, task, PREFLIGHT_FILE)
-
-    unresolved_count = count_unresolved_imports(graph)
-
-    print_title(green("Preflight report generated"))
-    print_kv("Graph", OUTPUT_FILE)
-    print_kv("Preflight", PREFLIGHT_FILE)
-    print_kv("Root", graph["root"])
-    print_kv("Files", len(graph["files"]))
-    print_kv("Edges", len(graph["edges"]))
-
-    if unresolved_count:
-        print_kv("Warnings", yellow(f"{unresolved_count} unresolved import(s)"))
-    else:
-        print_kv("Warnings", green("none"))
-
-    return 0
 
 
 def show_cycles(root_path: str) -> int:
