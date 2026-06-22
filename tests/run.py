@@ -22,6 +22,7 @@ import test_impact
 import test_brief_impact
 import test_test_mapper
 import test_preflight
+import test_agent_export
 
 
 TEST_MODULES = [
@@ -37,6 +38,7 @@ TEST_MODULES = [
     test_brief_impact,
     test_test_mapper,
     test_preflight,
+    test_agent_export,
 ]
 
 

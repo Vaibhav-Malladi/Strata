@@ -1,6 +1,7 @@
 import sys
 
 from cli_help import print_usage
+from commands.agent_prompt_command import write_agent_prompt_command
 from commands.brief_command import write_brief
 from commands.cycles_command import show_cycles
 from commands.health_command import show_health
@@ -111,6 +112,16 @@ def main() -> None:
             return
         if len(args) == 3:
             write_preflight(args[1], args[2])
+            return
+        print_usage()
+        return
+
+    if command == "agent-prompt":
+        if len(args) == 3:
+            write_agent_prompt_command(".", args[1], args[2])
+            return
+        if len(args) == 4:
+            write_agent_prompt_command(args[1], args[2], args[3])
             return
         print_usage()
         return
