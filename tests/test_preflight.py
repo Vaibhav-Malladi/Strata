@@ -2,7 +2,6 @@ import os
 
 from cli import write_preflight
 from preflight import generate_preflight_report, write_preflight_report
-from scanner import scan_repo
 from tests.helpers import run_silently
 
 
@@ -53,6 +52,16 @@ def preflight_test_graph():
                 "unresolved_imports": [],
                 "unresolved_import_details": [],
             },
+            {
+                "path": "tests.py",
+                "language": "python",
+                "classes": [],
+                "functions": [],
+                "imports": ["tests.run"],
+                "external_imports": [],
+                "unresolved_imports": [],
+                "unresolved_import_details": [],
+            },
         ],
         "edges": [
             {
@@ -67,6 +76,12 @@ def preflight_test_graph():
                 "type": "imports",
                 "import": "map_writer",
             },
+            {
+                "from": "tests.py",
+                "to": "tests/run.py",
+                "type": "imports",
+                "import": "tests.run",
+            },
         ],
     }
 
@@ -80,10 +95,35 @@ def test_generate_preflight_report_includes_main_sections():
     assert "## Task" in content
     assert "## Repository Summary" in content
     assert "## Repository Health" in content
-    assert "## Relevant Files" in content
+    assert "## Relevant Source Files" in content
+    assert "## Relevant Test Files" in content
+    assert "## Entry Points / Runners" in content
     assert "## Impact Notes" in content
     assert "## Verification Plan" in content
     assert "## AI Agent Instructions" in content
+
+
+def test_generate_preflight_report_groups_relevant_files():
+    graph = preflight_test_graph()
+    content = generate_preflight_report(graph, "add map command tests")
+
+    source_section_start = content.find("## Relevant Source Files")
+    test_section_start = content.find("## Relevant Test Files")
+    entrypoint_section_start = content.find("## Entry Points / Runners")
+
+    assert source_section_start != -1
+    assert test_section_start != -1
+    assert entrypoint_section_start != -1
+
+    assert source_section_start < test_section_start < entrypoint_section_start
+
+    source_section = content[source_section_start:test_section_start]
+    test_section = content[test_section_start:entrypoint_section_start]
+    entrypoint_section = content[entrypoint_section_start:content.find("## Impact Notes")]
+
+    assert "map_writer.py" in source_section
+    assert "tests/test_map_writer.py" in test_section
+    assert "cli.py" in entrypoint_section or "tests.py" in entrypoint_section
 
 
 def test_generate_preflight_report_includes_relevant_files():
@@ -139,6 +179,9 @@ def test_cli_write_preflight_creates_preflight_file():
     assert "# Preflight Report" in content
     assert "add map command tests" in content
     assert "## Repository Health" in content
+    assert "## Relevant Source Files" in content
+    assert "## Relevant Test Files" in content
+    assert "## Entry Points / Runners" in content
     assert "## Impact Notes" in content
     assert "## Verification Plan" in content
     assert "## AI Agent Instructions" in content
@@ -146,6 +189,7 @@ def test_cli_write_preflight_creates_preflight_file():
 
 TESTS = [
     test_generate_preflight_report_includes_main_sections,
+    test_generate_preflight_report_groups_relevant_files,
     test_generate_preflight_report_includes_relevant_files,
     test_generate_preflight_report_includes_verification_plan,
     test_write_preflight_report_creates_file,

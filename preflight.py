@@ -11,6 +11,7 @@ def generate_preflight_report(graph: dict, task: str, max_files: int = 5) -> str
 
     scored_files = score_relevant_files(graph, task)
     relevant_files = scored_files[:max_files]
+    grouped_files = _group_relevant_files(relevant_files)
     health = analyze_health(graph)
     verification = _generate_verification_plan(graph, relevant_files)
 
@@ -55,21 +56,7 @@ def generate_preflight_report(graph: dict, task: str, max_files: int = 5) -> str
             lines.append(f"- {' -> '.join(f'`{path}`' for path in cycle)}")
 
     lines.append("")
-    lines.append("## Relevant Files")
-    lines.append("")
-
-    if relevant_files:
-        for index, item in enumerate(relevant_files, start=1):
-            file_info = item["file"]
-            score = item["score"]
-            reason = explain_relevance(file_info, task)
-
-            lines.append(f"{index}. `{file_info.get('path', '')}`")
-            lines.append(f"   - Relevance score: `{score}`")
-            lines.append(f"   - Reason: {reason}")
-    else:
-        lines.append("No strongly relevant files found.")
-
+    lines.extend(_format_grouped_relevant_files(graph, task, grouped_files))
     lines.append("")
     lines.append(generate_impact_notes(graph, relevant_files))
     lines.append("")
@@ -108,14 +95,17 @@ def generate_preflight_report(graph: dict, task: str, max_files: int = 5) -> str
     lines.append("")
     lines.append("Before editing:")
     lines.append("- Review repository health warnings.")
+    lines.append("- Review relevant source files before test files.")
     lines.append("- Review impact notes for each relevant file.")
     lines.append("- Prefer the smallest safe change.")
     lines.append("- Do not edit unrelated files.")
     lines.append("- Use only the Python standard library.")
     lines.append("")
     lines.append("After editing, run:")
+
     for command in verification["commands"]:
         lines.append(f"- {command}")
+
     lines.append("```")
 
     return "\n".join(lines).rstrip() + "\n"
@@ -133,6 +123,80 @@ def write_preflight_report(graph: dict, task: str, output_path: str) -> None:
 
     with open(output_path, "w", encoding="utf-8") as file:
         file.write(content)
+
+
+def _format_grouped_relevant_files(
+    graph: dict,
+    task: str,
+    grouped_files: dict[str, list[dict]],
+) -> list[str]:
+    lines = []
+
+    lines.append("## Relevant Source Files")
+    lines.append("")
+
+    if grouped_files["source"]:
+        lines.extend(_format_relevant_file_group(graph, task, grouped_files["source"]))
+    else:
+        lines.append("No strongly relevant source files found.")
+
+    lines.append("")
+    lines.append("## Relevant Test Files")
+    lines.append("")
+
+    if grouped_files["tests"]:
+        lines.extend(_format_relevant_file_group(graph, task, grouped_files["tests"]))
+    else:
+        lines.append("No strongly relevant test files found.")
+
+    lines.append("")
+    lines.append("## Entry Points / Runners")
+    lines.append("")
+
+    if grouped_files["entrypoints"]:
+        lines.extend(_format_relevant_file_group(graph, task, grouped_files["entrypoints"]))
+    else:
+        lines.append("No relevant entry points or runners found.")
+
+    return lines
+
+
+def _format_relevant_file_group(graph: dict, task: str, files: list[dict]) -> list[str]:
+    lines = []
+
+    for index, item in enumerate(files, start=1):
+        file_info = item["file"]
+        score = item["score"]
+        reason = explain_relevance(file_info, task)
+
+        lines.append(f"{index}. `{file_info.get('path', '')}`")
+        lines.append(f"   - Relevance score: `{score}`")
+        lines.append(f"   - Reason: {reason}")
+
+    return lines
+
+
+def _group_relevant_files(relevant_files: list[dict]) -> dict[str, list[dict]]:
+    groups = {
+        "source": [],
+        "tests": [],
+        "entrypoints": [],
+    }
+
+    for item in relevant_files:
+        file_info = item.get("file", {})
+        path = file_info.get("path", "")
+        normalized_path = _normalize_path(path)
+        basename = os.path.basename(normalized_path)
+
+        if _is_entrypoint_file(normalized_path, basename):
+            groups["entrypoints"].append(item)
+        elif _is_test_file(normalized_path, basename):
+            groups["tests"].append(item)
+        else:
+            groups["source"].append(item)
+
+    return groups
 
 
 def _generate_verification_plan(graph: dict, relevant_files: list[dict]) -> dict:
@@ -158,6 +222,27 @@ def _generate_verification_plan(graph: dict, relevant_files: list[dict]) -> dict
         "commands": _dedupe(commands),
         "test_files": _dedupe(test_files),
     }
+
+
+def _is_test_file(normalized_path: str, basename: str) -> bool:
+    if normalized_path.startswith("tests/") and basename.startswith("test_"):
+        return True
+
+    return False
+
+
+def _is_entrypoint_file(normalized_path: str, basename: str) -> bool:
+    if basename == "tests.py":
+        return True
+
+    if basename == "cli.py":
+        return True
+
+    return False
+
+
+def _normalize_path(path: str) -> str:
+    return path.replace("\\", "/").strip()
 
 
 def _dedupe(values: list[str]) -> list[str]:
