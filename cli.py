@@ -2,6 +2,7 @@ import json
 import os
 import sys
 
+from brief import write_task_brief
 from graph import validate_graph
 from map_writer import write_project_map
 from scanner import scan_repo
@@ -10,6 +11,7 @@ from scanner import scan_repo
 OUTPUT_DIR = ".aidc"
 OUTPUT_FILE = os.path.join(OUTPUT_DIR, "graph.json")
 PROJECT_MAP_FILE = os.path.join(OUTPUT_DIR, "project_map.md")
+TASK_BRIEF_FILE = os.path.join(OUTPUT_DIR, "task_brief.md")
 
 
 USE_COLOR = sys.stdout.isatty() and os.environ.get("NO_COLOR") is None
@@ -78,6 +80,8 @@ def print_usage() -> None:
     print("  py cli.py show <path>")
     print("  py cli.py map")
     print("  py cli.py map <path>")
+    print('  py cli.py brief "<task>"')
+    print('  py cli.py brief <path> "<task>"')
     print("  py cli.py help")
     print()
     print(bold("Examples"))
@@ -87,6 +91,8 @@ def print_usage() -> None:
     print("  py cli.py show tmp_repo/main.py")
     print("  py cli.py map")
     print("  py cli.py map tmp_repo")
+    print('  py cli.py brief "add map command tests"')
+    print('  py cli.py brief tmp_repo "add unresolved import warning"')
 
 
 def build_graph(root_path: str) -> dict | None:
@@ -170,6 +176,32 @@ def write_map(root_path: str) -> int:
     print_title(green("Project map generated"))
     print_kv("Graph", OUTPUT_FILE)
     print_kv("Project map", PROJECT_MAP_FILE)
+    print_kv("Root", graph["root"])
+    print_kv("Files", len(graph["files"]))
+    print_kv("Edges", len(graph["edges"]))
+
+    if unresolved_count:
+        print_kv("Warnings", yellow(f"{unresolved_count} unresolved import(s)"))
+    else:
+        print_kv("Warnings", green("none"))
+
+    return 0
+
+
+def write_brief(root_path: str, task: str) -> int:
+    graph = build_graph(root_path)
+
+    if graph is None:
+        return 1
+
+    save_graph(graph)
+    write_task_brief(graph, task, TASK_BRIEF_FILE)
+
+    unresolved_count = count_unresolved_imports(graph)
+
+    print_title(green("Task brief generated"))
+    print_kv("Graph", OUTPUT_FILE)
+    print_kv("Task brief", TASK_BRIEF_FILE)
     print_kv("Root", graph["root"])
     print_kv("Files", len(graph["files"]))
     print_kv("Edges", len(graph["edges"]))
@@ -367,6 +399,15 @@ def main() -> int:
 
         if command == "map":
             return write_map(sys.argv[2])
+
+        if command == "brief":
+            return write_brief(".", sys.argv[2])
+
+    if len(sys.argv) == 4:
+        command = sys.argv[1]
+
+        if command == "brief":
+            return write_brief(sys.argv[2], sys.argv[3])
 
     print_usage()
     return 1
