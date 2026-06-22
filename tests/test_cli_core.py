@@ -105,10 +105,42 @@ def test_cli_agent_prompt_command_smoke():
     assert "local" in result.stdout
     assert output_path.exists()
 
+def test_cli_status_command_smoke():
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    project_root = Path(__file__).resolve().parents[1]
+    cli_path = project_root / "cli.py"
+
+    env = os.environ.copy()
+    env["PYTHONIOENCODING"] = "utf-8"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(cli_path),
+            "status",
+        ],
+        cwd=project_root,
+        env=env,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "Strata status" in result.stdout
+    assert "# Strata Status" in result.stdout
+    assert "## Generated Files" in result.stdout
+    assert "## Recommended Actions" in result.stdout
+
 TESTS = [
     test_cli_write_graph_creates_output_file,
     test_cli_show_file_finds_saved_file,
     test_cli_show_file_returns_error_for_missing_file,
     test_cli_show_file_displays_unresolved_import_line_number,
     test_cli_agent_prompt_command_smoke,
+    test_cli_status_command_smoke,
 ]

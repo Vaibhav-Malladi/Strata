@@ -22,6 +22,7 @@ def print_usage() -> None:
     print('  py cli.py preflight <root> "<task>"')
     print('  py cli.py agent-prompt "<task>" <agent>')
     print('  py cli.py agent-prompt <root> "<task>" <agent>')
+    print("  py cli.py status [path]")
     print("  py cli.py help")
     print()
 
@@ -36,6 +37,7 @@ def print_usage() -> None:
     print(f"  {cyan('tests-for')}     Suggest tests for a changed file")
     print(f"  {cyan('preflight')}     Generate .aidc/preflight.md")
     print(f"  {cyan('agent-prompt')}  Generate .aidc/agent_prompt.md")
+    print(f"  {cyan('status')}        Check generated Strata output status")
     print(f"  {cyan('help')}          Show this help message")
     print()
 

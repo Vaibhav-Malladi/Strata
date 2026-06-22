@@ -10,6 +10,7 @@ from commands.map_command import write_map
 from commands.preflight_command import write_preflight
 from commands.scan_command import write_graph
 from commands.show_command import show_file, show_graph_summary
+from commands.status_command import show_status
 from commands.tests_for_command import show_tests_for
 
 
@@ -122,6 +123,16 @@ def main() -> None:
             return
         if len(args) == 4:
             write_agent_prompt_command(args[1], args[2], args[3])
+            return
+        print_usage()
+        return
+
+    if command == "status":
+        if len(args) == 1:
+            show_status(".")
+            return
+        if len(args) == 2:
+            show_status(args[1])
             return
         print_usage()
         return
