@@ -8,6 +8,7 @@ from graph import validate_graph
 from health import analyze_health, format_health_report
 from impact import analyze_impact, format_impact_report
 from map_writer import write_project_map
+from preflight import write_preflight_report
 from scanner import scan_repo
 from test_mapper import suggest_tests_for_file, format_test_suggestions
 
@@ -16,6 +17,7 @@ OUTPUT_DIR = ".aidc"
 OUTPUT_FILE = os.path.join(OUTPUT_DIR, "graph.json")
 PROJECT_MAP_FILE = os.path.join(OUTPUT_DIR, "project_map.md")
 TASK_BRIEF_FILE = os.path.join(OUTPUT_DIR, "task_brief.md")
+PREFLIGHT_FILE = os.path.join(OUTPUT_DIR, "preflight.md")
 
 
 USE_COLOR = sys.stdout.isatty() and os.environ.get("NO_COLOR") is None
@@ -94,6 +96,8 @@ def print_usage() -> None:
     print("  py cli.py impact <root> <file>")
     print("  py cli.py tests-for <file>")
     print("  py cli.py tests-for <root> <file>")
+    print('  py cli.py preflight "<task>"')
+    print('  py cli.py preflight <root> "<task>"')
     print("  py cli.py help")
     print()
     print(bold("Examples"))
@@ -113,6 +117,8 @@ def print_usage() -> None:
     print("  py cli.py impact tmp_repo helper.py")
     print("  py cli.py tests-for map_writer.py")
     print("  py cli.py tests-for tmp_repo helper.py")
+    print('  py cli.py preflight "add map command tests"')
+    print('  py cli.py preflight tmp_repo "change helper behavior"')
 
 
 def build_graph(root_path: str) -> dict | None:
@@ -222,6 +228,32 @@ def write_brief(root_path: str, task: str) -> int:
     print_title(green("Task brief generated"))
     print_kv("Graph", OUTPUT_FILE)
     print_kv("Task brief", TASK_BRIEF_FILE)
+    print_kv("Root", graph["root"])
+    print_kv("Files", len(graph["files"]))
+    print_kv("Edges", len(graph["edges"]))
+
+    if unresolved_count:
+        print_kv("Warnings", yellow(f"{unresolved_count} unresolved import(s)"))
+    else:
+        print_kv("Warnings", green("none"))
+
+    return 0
+
+
+def write_preflight(root_path: str, task: str) -> int:
+    graph = build_graph(root_path)
+
+    if graph is None:
+        return 1
+
+    save_graph(graph)
+    write_preflight_report(graph, task, PREFLIGHT_FILE)
+
+    unresolved_count = count_unresolved_imports(graph)
+
+    print_title(green("Preflight report generated"))
+    print_kv("Graph", OUTPUT_FILE)
+    print_kv("Preflight", PREFLIGHT_FILE)
     print_kv("Root", graph["root"])
     print_kv("Files", len(graph["files"]))
     print_kv("Edges", len(graph["edges"]))
@@ -533,6 +565,9 @@ def main() -> int:
         if command == "tests-for":
             return show_tests_for(".", sys.argv[2])
 
+        if command == "preflight":
+            return write_preflight(".", sys.argv[2])
+
     if len(sys.argv) == 4:
         command = sys.argv[1]
 
@@ -544,6 +579,9 @@ def main() -> int:
 
         if command == "tests-for":
             return show_tests_for(sys.argv[2], sys.argv[3])
+
+        if command == "preflight":
+            return write_preflight(sys.argv[2], sys.argv[3])
 
     print_usage()
     return 1
