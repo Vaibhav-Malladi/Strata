@@ -1,78 +1,36 @@
-import json
-import os
 import sys
 
 from brief import write_task_brief
 from cycles import find_cycles, format_cycles
-from graph import validate_graph
 from health import analyze_health, format_health_report
 from impact import analyze_impact, format_impact_report
 from map_writer import write_project_map
 from preflight import write_preflight_report
-from scanner import scan_repo
 from test_mapper import suggest_tests_for_file, format_test_suggestions
 
+from cli_core import (
+    OUTPUT_FILE,
+    PROJECT_MAP_FILE,
+    TASK_BRIEF_FILE,
+    PREFLIGHT_FILE,
+    build_graph,
+    save_graph,
+    load_saved_graph,
+    count_unresolved_imports,
+    normalize_path,
+)
 
-OUTPUT_DIR = ".aidc"
-OUTPUT_FILE = os.path.join(OUTPUT_DIR, "graph.json")
-PROJECT_MAP_FILE = os.path.join(OUTPUT_DIR, "project_map.md")
-TASK_BRIEF_FILE = os.path.join(OUTPUT_DIR, "task_brief.md")
-PREFLIGHT_FILE = os.path.join(OUTPUT_DIR, "preflight.md")
-
-
-USE_COLOR = sys.stdout.isatty() and os.environ.get("NO_COLOR") is None
-
-
-def color(text: str, code: str) -> str:
-    if not USE_COLOR:
-        return text
-
-    return f"\033[{code}m{text}\033[0m"
-
-
-def green(text: str) -> str:
-    return color(text, "32")
-
-
-def yellow(text: str) -> str:
-    return color(text, "33")
-
-
-def red(text: str) -> str:
-    return color(text, "31")
-
-
-def cyan(text: str) -> str:
-    return color(text, "36")
-
-
-def dim(text: str) -> str:
-    return color(text, "90")
-
-
-def bold(text: str) -> str:
-    return color(text, "1")
-
-
-def normalize_path(path: str) -> str:
-    return os.path.normpath(path)
-
-
-def print_title(title: str) -> None:
-    print()
-    print(bold(cyan(title)))
-    print(dim("─" * len(title)))
-
-
-def print_kv(label: str, value) -> None:
-    print(f"  {dim(label.ljust(18))} {value}")
-
-
-def print_list(label: str, values: list[str]) -> None:
-    if values:
-        print_kv(label, ", ".join(values))
-    else:
-        print_kv(label, dim("none"))
+from cli_ui import (
+    green,
+    yellow,
+    red,
+    cyan,
+    dim,
+    bold,
+    print_title,
+    print_kv,
+    print_list,
+)
 
 
 def print_usage() -> None:
@@ -119,49 +77,6 @@ def print_usage() -> None:
     print("  py cli.py tests-for tmp_repo helper.py")
     print('  py cli.py preflight "add map command tests"')
     print('  py cli.py preflight tmp_repo "change helper behavior"')
-
-
-def build_graph(root_path: str) -> dict | None:
-    root_path = normalize_path(root_path)
-
-    if not os.path.exists(root_path):
-        print_title(red("Scan failed"))
-        print_kv("Reason", f"path does not exist: {root_path}")
-        return None
-
-    if not os.path.isdir(root_path):
-        print_title(red("Scan failed"))
-        print_kv("Reason", f"path is not a directory: {root_path}")
-        return None
-
-    graph = scan_repo(root_path)
-    problems = validate_graph(graph)
-
-    if problems:
-        print_title(red("Graph validation failed"))
-
-        for problem in problems:
-            print(f"  {red('✗')} {problem}")
-
-        return None
-
-    return graph
-
-
-def save_graph(graph: dict) -> None:
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-
-    with open(OUTPUT_FILE, "w", encoding="utf-8") as file:
-        json.dump(graph, file, indent=2)
-
-
-def count_unresolved_imports(graph: dict) -> int:
-    unresolved_count = 0
-
-    for file_info in graph["files"]:
-        unresolved_count += len(file_info["unresolved_imports"])
-
-    return unresolved_count
 
 
 def write_graph(root_path: str) -> int:
@@ -356,18 +271,6 @@ def show_tests_for(root_path: str, target_path: str) -> int:
     print(format_test_suggestions(result))
 
     return 0
-
-
-def load_saved_graph() -> dict | None:
-    if not os.path.exists(OUTPUT_FILE):
-        print_title(red("No saved graph found"))
-        print("  Run this first:")
-        print()
-        print("    py cli.py scan")
-        return None
-
-    with open(OUTPUT_FILE, "r", encoding="utf-8") as file:
-        return json.load(file)
 
 
 def show_graph_summary() -> int:
