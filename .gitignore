@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+
+# Strata generated output
+.aidc/
+
+# Editor/system files
+.vscode/
+.DS_Store
+Thumbs.db
