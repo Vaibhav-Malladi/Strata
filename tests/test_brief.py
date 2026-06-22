@@ -16,6 +16,7 @@ def test_task_brief_generation_includes_main_sections():
     assert "add map command tests" in content
     assert "## Relevant Files" in content
     assert "## File Context" in content
+    assert "## Impact Notes" in content
     assert "## Risks" in content
     assert "## Suggested Tests" in content
     assert "## Suggested Prompt for AI Agent" in content
@@ -25,12 +26,17 @@ def test_task_brief_relevance_for_map_command_tests_is_focused():
     graph = scan_repo(".")
     scored_files = score_relevant_files(graph, "add map command tests")
 
-    selected_filenames = [
-        os.path.basename(item["file"]["path"])
+    selected_paths = [
+        item["file"]["path"].replace("\\", "/")
         for item in scored_files[:3]
     ]
 
-    assert "tests.py" in selected_filenames
+    selected_filenames = [
+        os.path.basename(path)
+        for path in selected_paths
+    ]
+
+    assert any(path.endswith("tests/test_map_writer.py") for path in selected_paths)
     assert "map_writer.py" in selected_filenames
     assert "cli.py" in selected_filenames
     assert "brief.py" not in selected_filenames
@@ -41,7 +47,7 @@ def test_task_brief_generation_includes_prompt_and_tests():
     content = generate_task_brief(graph, "add map command tests")
 
     assert "Read these files first:" in content
-    assert "- tests.py" in content
+    assert "tests/test_map_writer.py" in content or "tests\\test_map_writer.py" in content
     assert "- map_writer.py" in content
     assert "- cli.py" in content
 
@@ -65,9 +71,10 @@ def test_cli_write_brief_creates_task_brief_file():
 
     assert "# Task Brief" in content
     assert "add map command tests" in content
-    assert "tests.py" in content
+    assert "tests/test_map_writer.py" in content or "tests\\test_map_writer.py" in content
     assert "map_writer.py" in content
     assert "cli.py" in content
+    assert "## Impact Notes" in content
     assert "Suggested Prompt for AI Agent" in content
 
 

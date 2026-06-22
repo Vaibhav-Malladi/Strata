@@ -1,50 +1,26 @@
 import os
 import re
 
-
-DEFAULT_TEST_COMMANDS = [
-    "py tests.py",
-]
+from brief_impact import generate_impact_notes
 
 
-CLI_TEST_COMMANDS = [
-    "py cli.py help",
-    "py cli.py scan tmp_repo",
-    "py cli.py show tmp_repo/main.py",
-]
-
+TASK_WORD_STOP_WORDS = {
+    "a", "an", "and", "are", "as", "at", "be", "by", "for", "from",
+    "in", "into", "is", "it", "of", "on", "or", "the", "this", "to",
+    "with",
+}
 
 SYMBOL_MATCH_STOP_WORDS = {
-    "add",
-    "fix",
-    "change",
-    "update",
-    "remove",
-    "create",
-    "make",
-    "command",
-    "commands",
-    "test",
-    "tests",
-    "testing",
+    "add", "fix", "change", "update", "remove", "create", "make",
+    "command", "commands", "test", "tests", "testing",
 }
 
 
 def generate_task_brief(graph: dict, task: str, max_files: int = 5) -> str:
-    """Generate a Markdown task brief for an AI coding agent."""
-
-    task = task.strip()
-    files = graph.get("files", [])
-    edges = graph.get("edges", [])
+    """Generate a task-specific Markdown brief from a Strata graph."""
 
     scored_files = score_relevant_files(graph, task)
-    relevant_files = [item["file"] for item in scored_files[:max_files]]
-
-    if not relevant_files:
-        relevant_files = files[:max_files]
-
-    outgoing_edges = _group_edges_by_key(edges, "from")
-    incoming_edges = _group_edges_by_key(edges, "to")
+    relevant_files = scored_files[:max_files]
 
     lines = []
 
@@ -54,112 +30,103 @@ def generate_task_brief(graph: dict, task: str, max_files: int = 5) -> str:
     lines.append("")
     lines.append("## Task")
     lines.append("")
-    lines.append(task if task else "No task provided.")
+    lines.append(task)
     lines.append("")
-
+    lines.append("## Repository Summary")
+    lines.append("")
+    lines.append(f"- Project root: `{graph.get('root', '')}`")
+    lines.append(f"- Schema version: `{graph.get('schema_version', '')}`")
+    lines.append(f"- Files scanned: `{len(graph.get('files', []))}`")
+    lines.append(f"- Dependency edges: `{len(graph.get('edges', []))}`")
+    lines.append("")
     lines.append("## Relevant Files")
     lines.append("")
 
     if relevant_files:
-        for file_info in relevant_files:
-            path = file_info.get("path", "")
+        for index, item in enumerate(relevant_files, start=1):
+            file_info = item["file"]
+            score = item["score"]
             reason = explain_relevance(file_info, task)
-            lines.append(f"- `{path}`")
-            lines.append(f"  - Why: {reason}")
+
+            lines.append(f"{index}. `{file_info['path']}`")
+            lines.append(f"   - Relevance score: `{score}`")
+            lines.append(f"   - Reason: {reason}")
     else:
-        lines.append("No relevant files found.")
+        lines.append("No strongly relevant files found.")
 
     lines.append("")
-
     lines.append("## File Context")
     lines.append("")
 
-    for file_info in relevant_files:
-        path = file_info.get("path", "")
-        lines.append(f"### `{path}`")
+    if relevant_files:
+        for item in relevant_files:
+            file_info = item["file"]
+            lines.extend(_format_file_context(file_info, graph))
+            lines.append("")
+    else:
+        lines.append("No file context available.")
         lines.append("")
 
-        _add_named_items(lines, "Classes", file_info.get("classes", []))
-        _add_named_items(lines, "Functions", file_info.get("functions", []))
-        _add_simple_items(lines, "Imports", file_info.get("imports", []))
-        _add_simple_items(lines, "External imports", file_info.get("external_imports", []))
-        _add_unresolved_imports(lines, file_info.get("unresolved_import_details", []))
-
-        file_outgoing_edges = outgoing_edges.get(path, [])
-        file_incoming_edges = incoming_edges.get(path, [])
-
-        if file_outgoing_edges:
-            lines.append("- Outgoing dependencies:")
-
-            for edge in file_outgoing_edges:
-                lines.append(f"  - depends on `{edge.get('to', '')}` via `{edge.get('import', '')}`")
-
-        if file_incoming_edges:
-            lines.append("- Incoming dependencies:")
-
-            for edge in file_incoming_edges:
-                lines.append(f"  - used by `{edge.get('from', '')}` via `{edge.get('import', '')}`")
-
-        if file_info.get("error"):
-            lines.append(f"- Parse warning: `{file_info.get('error')}`")
-
-        lines.append("")
+    lines.append(generate_impact_notes(graph, relevant_files))
+    lines.append("")
 
     lines.append("## Risks")
     lines.append("")
 
-    for risk in generate_risks(relevant_files):
-        lines.append(f"- {risk}")
+    risks = generate_risks(relevant_files)
+
+    if risks:
+        for risk in risks:
+            lines.append(f"- {risk}")
+    else:
+        lines.append("- No obvious risks detected from the current graph.")
 
     lines.append("")
-
     lines.append("## Suggested Tests")
     lines.append("")
 
-    for command in suggest_tests(relevant_files):
-        lines.append(f"- `{command}`")
+    tests = suggest_tests(relevant_files)
+
+    if tests:
+        for test in tests:
+            lines.append(f"- `{test}`")
+    else:
+        lines.append("- `py tests.py`")
 
     lines.append("")
-
     lines.append("## Suggested Prompt for AI Agent")
     lines.append("")
-    lines.append("```text")
-    lines.append("You are editing the Strata repository.")
+    lines.append("Use this prompt with your coding assistant:")
     lines.append("")
-    lines.append("Task:")
-    lines.append(task if task else "No task provided.")
+    lines.append("```text")
+    lines.append(f"Task: {task}")
     lines.append("")
     lines.append("Read these files first:")
 
-    for file_info in relevant_files:
-        lines.append(f"- {file_info.get('path', '')}")
+    if relevant_files:
+        for item in relevant_files:
+            lines.append(f"- {item['file']['path']}")
+    else:
+        lines.append("- No specific files selected. Inspect the project map first.")
 
     lines.append("")
-    lines.append("Important constraints:")
+    lines.append("Follow these rules:")
     lines.append("- Use only the Python standard library.")
-    lines.append("- Keep the implementation small and focused.")
     lines.append("- Do not touch unrelated files.")
     lines.append("- Preserve existing CLI behavior unless the task requires changing it.")
-    lines.append("- Keep tests in tests.py using simple assert statements.")
-    lines.append("")
-    lines.append("After editing, run:")
-
-    for command in suggest_tests(relevant_files):
-        lines.append(f"- {command}")
-
+    lines.append("- Run the suggested tests before finishing.")
     lines.append("```")
-    lines.append("")
 
-    return "\n".join(lines)
+    return "\n".join(lines).rstrip() + "\n"
 
 
 def write_task_brief(graph: dict, task: str, output_path: str) -> None:
-    """Write a Markdown task brief to disk."""
+    """Write a task-specific brief to disk."""
 
-    output_dir = os.path.dirname(output_path)
+    directory = os.path.dirname(output_path)
 
-    if output_dir:
-        os.makedirs(output_dir, exist_ok=True)
+    if directory:
+        os.makedirs(directory, exist_ok=True)
 
     content = generate_task_brief(graph, task)
 
@@ -168,299 +135,334 @@ def write_task_brief(graph: dict, task: str, output_path: str) -> None:
 
 
 def score_relevant_files(graph: dict, task: str) -> list[dict]:
-    """Return files ordered by simple task relevance score."""
+    """Score files by how relevant they appear to be for a task."""
 
     task_words = _task_words(task)
     scored_files = []
 
     for file_info in graph.get("files", []):
-        path = file_info.get("path", "")
-        filename = os.path.basename(path).lower()
         score = 0
+        path = file_info.get("path", "")
+        basename = os.path.basename(path)
+        path_text = _normalize_text(path)
+        basename_text = _normalize_text(basename)
 
-        score += _score_file_name(filename, task_words)
-        score += _score_file_purpose(filename, task_words)
-        score += _score_public_symbols(file_info, task_words)
-        score += _score_imports(file_info, task_words)
+        for word in task_words:
+            if word in path_text:
+                score += 5
 
-        scored_files.append(
-            {
-                "score": score,
-                "file": file_info,
-            }
-        )
+            if word in basename_text:
+                score += 4
+        
+        if "command" in task_words and basename == "cli.py":
+            score += 8
+
+        if "commands" in task_words and basename == "cli.py":
+            score += 8
+
+        if "cli" in task_words and basename == "cli.py":
+            score += 8
+
+        for class_info in file_info.get("classes", []):
+            class_name = _normalize_text(class_info.get("name", ""))
+
+            for word in task_words:
+                if word in SYMBOL_MATCH_STOP_WORDS:
+                    continue
+
+                if word in class_name:
+                    score += 3
+
+        for function_info in file_info.get("functions", []):
+            function_name = _normalize_text(function_info.get("name", ""))
+
+            for word in task_words:
+                if word in SYMBOL_MATCH_STOP_WORDS:
+                    continue
+
+                if word in function_name:
+                    score += 3
+
+        for import_name in file_info.get("imports", []):
+            import_text = _normalize_text(import_name)
+
+            for word in task_words:
+                if word in SYMBOL_MATCH_STOP_WORDS:
+                    continue
+
+                if word in import_text:
+                    score += 1
+
+        if score:
+            scored_files.append(
+                {
+                    "file": file_info,
+                    "score": score,
+                }
+            )
 
     scored_files.sort(
         key=lambda item: (
             item["score"],
-            item["file"].get("path", ""),
+            os.path.basename(item["file"].get("path", "")),
         ),
         reverse=True,
     )
 
-    return [item for item in scored_files if item["score"] > 0]
+    return scored_files
 
 
 def explain_relevance(file_info: dict, task: str) -> str:
-    filename = os.path.basename(file_info.get("path", "")).lower()
+    """Explain why a file was selected."""
+
     task_words = _task_words(task)
+    path = file_info.get("path", "")
+    basename = os.path.basename(path)
+
+    path_text = _normalize_text(path)
+    basename_text = _normalize_text(basename)
+
+    matched_path_words = [
+        word for word in task_words
+        if word in path_text or word in basename_text
+    ]
+
+    matched_symbols = []
+
+    for class_info in file_info.get("classes", []):
+        name = class_info.get("name", "")
+        normalized_name = _normalize_text(name)
+
+        for word in task_words:
+            if word in SYMBOL_MATCH_STOP_WORDS:
+                continue
+
+            if word in normalized_name:
+                matched_symbols.append(name)
+
+    for function_info in file_info.get("functions", []):
+        name = function_info.get("name", "")
+        normalized_name = _normalize_text(name)
+
+        for word in task_words:
+            if word in SYMBOL_MATCH_STOP_WORDS:
+                continue
+
+            if word in normalized_name:
+                matched_symbols.append(name)
+
     reasons = []
 
-    if filename == "tests.py" and _task_mentions_any(task_words, {"test", "tests", "testing"}):
-        reasons.append("the task is test-related")
-
-    if filename == "cli.py" and _task_mentions_any(task_words, {"cli", "command", "commands", "terminal"}):
-        reasons.append("this file handles Strata commands and user-facing output")
-
-    if filename == "map_writer.py" and _task_mentions_any(task_words, {"map", "markdown", "project"}):
-        reasons.append("this file generates the Markdown project map")
-
-    if filename == "brief.py" and _task_mentions_any(task_words, {"brief", "task", "agent", "prompt", "context"}):
-        reasons.append("this file generates task-specific AI context")
-
-    if filename == "scanner.py" and _task_mentions_any(task_words, {"scan", "scanner", "graph", "import", "dependency"}):
-        reasons.append("this file builds repository graph data")
-
-    if filename == "graph.py" and _task_mentions_any(task_words, {"graph", "validate", "validation", "schema"}):
-        reasons.append("this file validates graph structure and schema")
-
-    matched_symbols = _matching_public_symbols(file_info, task_words)
+    if matched_path_words:
+        reasons.append(
+            "path matched task word(s): "
+            + ", ".join(f"`{word}`" for word in sorted(set(matched_path_words)))
+        )
 
     if matched_symbols:
-        shown = ", ".join(f"`{name}`" for name in matched_symbols[:3])
-        reasons.append(f"the task matches public symbol(s): {shown}")
+        reasons.append(
+            "symbol matched task language: "
+            + ", ".join(f"`{name}`" for name in sorted(set(matched_symbols)))
+        )
+
+    if file_info.get("unresolved_imports"):
+        reasons.append("file has unresolved imports that may need attention")
 
     if not reasons:
-        reasons.append("it matched the task relevance heuristic")
+        return "connected to the task by repository context"
 
-    return _dedupe_sentence_parts(reasons)
+    return "; ".join(reasons)
 
 
 def generate_risks(relevant_files: list[dict]) -> list[str]:
+    """Generate simple risk notes for relevant files."""
+
     risks = []
-    filenames = [os.path.basename(file_info.get("path", "")).lower() for file_info in relevant_files]
 
-    if "cli.py" in filenames:
-        risks.append("CLI behavior may change, so command output should be checked manually.")
+    for item in relevant_files:
+        file_info = item["file"]
+        path = file_info.get("path", "")
 
-    if "scanner.py" in filenames:
-        risks.append("Graph generation may change, so import edges and unresolved imports should be verified.")
+        if file_info.get("unresolved_imports"):
+            unresolved = ", ".join(file_info["unresolved_imports"])
+            risks.append(f"`{path}` has unresolved import(s): `{unresolved}`.")
 
-    if "graph.py" in filenames:
-        risks.append("Graph schema validation may reject valid data if checks become too strict.")
+        if file_info.get("error"):
+            risks.append(f"`{path}` has a parse error and may need manual inspection.")
 
-    if "tests.py" in filenames:
-        risks.append("Tests should check important behavior without depending too much on exact formatting.")
+        if path.endswith("cli.py"):
+            risks.append("Changes to `cli.py` may affect user-facing commands.")
 
-    if "map_writer.py" in filenames:
-        risks.append("Markdown output should stay readable for both humans and AI agents.")
+        if path.endswith("scanner.py"):
+            risks.append("Changes to `scanner.py` may affect graph generation.")
 
-    if "brief.py" in filenames:
-        risks.append("Task relevance may be imperfect because this version uses simple heuristics.")
+        if path.endswith("brief.py"):
+            risks.append("Changes to `brief.py` may affect generated task briefs.")
 
-    if not risks:
-        risks.append("The change may affect files not selected by the simple relevance heuristic.")
+        if path.endswith("map_writer.py"):
+            risks.append("Changes to `map_writer.py` may affect project map output.")
 
-    return risks
+    return _dedupe(risks)
 
 
 def suggest_tests(relevant_files: list[dict]) -> list[str]:
-    commands = list(DEFAULT_TEST_COMMANDS)
-    filenames = [os.path.basename(file_info.get("path", "")).lower() for file_info in relevant_files]
+    """Suggest commands to verify a task."""
 
-    if "cli.py" in filenames:
-        commands.extend(CLI_TEST_COMMANDS)
+    tests = ["py tests.py"]
 
-    if "map_writer.py" in filenames:
-        commands.append("py cli.py map tmp_repo")
+    paths = [
+        item["file"].get("path", "")
+        for item in relevant_files
+    ]
 
-    if "brief.py" in filenames:
-        commands.append('py cli.py brief "add map command tests"')
+    basenames = {
+        os.path.basename(path)
+        for path in paths
+    }
 
-    return _dedupe_list(commands)
+    if "cli.py" in basenames:
+        tests.append("py cli.py help")
 
+    if "scanner.py" in basenames:
+        tests.append("py cli.py scan tmp_repo")
 
-def _score_file_name(filename: str, task_words: set[str]) -> int:
-    score = 0
-    file_stem = filename.replace(".py", "")
+    if "map_writer.py" in basenames:
+        tests.append("py cli.py map tmp_repo")
 
-    for word in task_words:
-        if word == file_stem:
-            score += 10
-        elif word in file_stem:
-            score += 4
+    if "brief.py" in basenames:
+        tests.append('py cli.py brief "add map command tests"')
 
-    return score
+    if "cycles.py" in basenames:
+        tests.append("py cli.py cycles tmp_repo")
 
+    if "health.py" in basenames:
+        tests.append("py cli.py health tmp_repo")
 
-def _score_file_purpose(filename: str, task_words: set[str]) -> int:
-    score = 0
+    if "impact.py" in basenames:
+        tests.append("py cli.py impact tmp_repo helper.py")
 
-    if filename == "tests.py" and _task_mentions_any(task_words, {"test", "tests", "testing"}):
-        score += 20
-
-    if filename == "cli.py" and _task_mentions_any(task_words, {"cli", "command", "commands", "terminal"}):
-        score += 18
-
-    if filename == "map_writer.py" and _task_mentions_any(task_words, {"map", "markdown", "project"}):
-        score += 18
-
-    if filename == "brief.py" and _task_mentions_any(task_words, {"brief", "task", "agent", "prompt", "context"}):
-        score += 18
-
-    if filename == "scanner.py" and _task_mentions_any(task_words, {"scan", "scanner", "import", "dependency"}):
-        score += 16
-
-    if filename == "graph.py" and _task_mentions_any(task_words, {"graph", "validate", "validation", "schema"}):
-        score += 16
-
-    return score
+    return _dedupe(tests)
 
 
-def _score_public_symbols(file_info: dict, task_words: set[str]) -> int:
-    score = 0
-    useful_task_words = task_words - SYMBOL_MATCH_STOP_WORDS
+def _format_file_context(file_info: dict, graph: dict) -> list[str]:
+    lines = []
 
-    for function in file_info.get("functions", []):
-        name = function.get("name", "")
+    path = file_info.get("path", "")
 
-        if name.startswith("_"):
+    lines.append(f"### `{path}`")
+    lines.append("")
+    lines.append(f"- Language: `{file_info.get('language', '')}`")
+
+    classes = [
+        item.get("name", "")
+        for item in file_info.get("classes", [])
+    ]
+
+    functions = [
+        item.get("name", "")
+        for item in file_info.get("functions", [])
+    ]
+
+    lines.append(f"- Classes: {_format_inline_list(classes)}")
+    lines.append(f"- Functions: {_format_inline_list(functions)}")
+    lines.append(f"- Imports: {_format_inline_list(file_info.get('imports', []))}")
+    lines.append(f"- External imports: {_format_inline_list(file_info.get('external_imports', []))}")
+
+    unresolved_details = file_info.get("unresolved_import_details", [])
+
+    if unresolved_details:
+        unresolved = []
+
+        for item in unresolved_details:
+            unresolved.append(f"{item.get('name', '')} at line {item.get('line', '')}")
+
+        lines.append(f"- Unresolved imports: {_format_inline_list(unresolved)}")
+    else:
+        lines.append("- Unresolved imports: none")
+
+    outgoing = _outgoing_edges(graph, path)
+    incoming = _incoming_edges(graph, path)
+
+    if outgoing:
+        lines.append("- Outgoing dependencies:")
+
+        for edge in outgoing:
+            lines.append(f"  - depends on `{edge['to']}` via `{edge['import']}`")
+    else:
+        lines.append("- Outgoing dependencies: none")
+
+    if incoming:
+        lines.append("- Incoming dependencies:")
+
+        for edge in incoming:
+            lines.append(f"  - used by `{edge['from']}` via `{edge['import']}`")
+    else:
+        lines.append("- Incoming dependencies: none")
+
+    return lines
+
+
+def _outgoing_edges(graph: dict, path: str) -> list[dict]:
+    edges = []
+
+    for edge in graph.get("edges", []):
+        if edge.get("from") == path:
+            edges.append(edge)
+
+    return edges
+
+
+def _incoming_edges(graph: dict, path: str) -> list[dict]:
+    edges = []
+
+    for edge in graph.get("edges", []):
+        if edge.get("to") == path:
+            edges.append(edge)
+
+    return edges
+
+
+def _task_words(task: str) -> list[str]:
+    words = []
+
+    for word in re.findall(r"[a-zA-Z0-9_]+", task.lower()):
+        if word in TASK_WORD_STOP_WORDS:
             continue
 
-        name_lower = name.lower()
-
-        for word in useful_task_words:
-            if word in name_lower:
-                score += 3
-
-    for class_info in file_info.get("classes", []):
-        name = class_info.get("name", "")
-        name_lower = name.lower()
-
-        for word in useful_task_words:
-            if word in name_lower:
-                score += 4
-
-    return score
-
-
-def _score_imports(file_info: dict, task_words: set[str]) -> int:
-    score = 0
-
-    for import_name in file_info.get("imports", []):
-        import_lower = import_name.lower()
-
-        for word in task_words:
-            if word == import_lower:
-                score += 2
-
-    return score
-
-
-def _matching_public_symbols(file_info: dict, task_words: set[str]) -> list[str]:
-    matches = []
-    useful_task_words = task_words - SYMBOL_MATCH_STOP_WORDS
-
-    for function in file_info.get("functions", []):
-        name = function.get("name", "")
-
-        if name.startswith("_"):
+        if len(word) <= 1:
             continue
 
-        name_lower = name.lower()
+        words.append(word)
 
-        for word in useful_task_words:
-            if word in name_lower:
-                matches.append(name)
-                break
-
-    for class_info in file_info.get("classes", []):
-        name = class_info.get("name", "")
-        name_lower = name.lower()
-
-        for word in useful_task_words:
-            if word in name_lower:
-                matches.append(name)
-                break
-
-    return _dedupe_list(matches)
+    return _dedupe(words)
 
 
-def _task_words(task: str) -> set[str]:
-    words = set()
-
-    for word in re.findall(r"[A-Za-z_][A-Za-z0-9_]*", task.lower()):
-        if len(word) >= 3:
-            words.add(word)
-
-    return words
+def _normalize_text(text: str) -> str:
+    return text.replace("\\", "/").replace("_", " ").replace("-", " ").lower()
 
 
-def _task_mentions_any(task_words: set[str], candidates: set[str]) -> bool:
-    return bool(task_words.intersection(candidates))
+def _format_inline_list(values: list[str]) -> str:
+    cleaned = []
+
+    for value in values:
+        if value:
+            cleaned.append(str(value))
+
+    if not cleaned:
+        return "none"
+
+    return ", ".join(f"`{value}`" for value in cleaned)
 
 
-def _group_edges_by_key(edges: list[dict], key: str) -> dict:
-    grouped = {}
-
-    for edge in edges:
-        value = edge.get(key)
-
-        if not value:
-            continue
-
-        grouped.setdefault(value, []).append(edge)
-
-    return grouped
-
-
-def _add_named_items(lines: list[str], label: str, items: list[dict]) -> None:
-    if not items:
-        return
-
-    names = []
-
-    for item in items:
-        name = item.get("name")
-
-        if name:
-            names.append(name)
-
-    if names:
-        lines.append(f"- {label}: {', '.join(f'`{name}`' for name in names)}")
-
-
-def _add_simple_items(lines: list[str], label: str, items: list[str]) -> None:
-    if not items:
-        return
-
-    lines.append(f"- {label}: {', '.join(f'`{item}`' for item in items)}")
-
-
-def _add_unresolved_imports(lines: list[str], items: list[dict]) -> None:
-    if not items:
-        return
-
-    formatted_items = []
-
-    for item in items:
-        name = item.get("name", "")
-        line = item.get("line", "")
-        formatted_items.append(f"`{name}` at line `{line}`")
-
-    if formatted_items:
-        lines.append(f"- Unresolved imports: {', '.join(formatted_items)}")
-
-
-def _dedupe_list(items: list[str]) -> list[str]:
+def _dedupe(values: list[str]) -> list[str]:
+    seen = set()
     result = []
 
-    for item in items:
-        if item not in result:
-            result.append(item)
+    for value in values:
+        if value in seen:
+            continue
+
+        seen.add(value)
+        result.append(value)
 
     return result
-
-
-def _dedupe_sentence_parts(items: list[str]) -> str:
-    return "; ".join(_dedupe_list(items)) + "."
