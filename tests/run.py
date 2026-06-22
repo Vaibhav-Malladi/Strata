@@ -20,6 +20,7 @@ import test_cycles
 import test_health
 import test_impact
 import test_brief_impact
+import test_test_mapper
 
 
 TEST_MODULES = [
@@ -33,6 +34,7 @@ TEST_MODULES = [
     test_health,
     test_impact,
     test_brief_impact,
+    test_test_mapper,
 ]
 
 

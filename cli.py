@@ -9,6 +9,7 @@ from health import analyze_health, format_health_report
 from impact import analyze_impact, format_impact_report
 from map_writer import write_project_map
 from scanner import scan_repo
+from test_mapper import suggest_tests_for_file, format_test_suggestions
 
 
 OUTPUT_DIR = ".aidc"
@@ -91,6 +92,8 @@ def print_usage() -> None:
     print("  py cli.py health <path>")
     print("  py cli.py impact <file>")
     print("  py cli.py impact <root> <file>")
+    print("  py cli.py tests-for <file>")
+    print("  py cli.py tests-for <root> <file>")
     print("  py cli.py help")
     print()
     print(bold("Examples"))
@@ -108,6 +111,8 @@ def print_usage() -> None:
     print("  py cli.py health tmp_repo")
     print("  py cli.py impact helper.py")
     print("  py cli.py impact tmp_repo helper.py")
+    print("  py cli.py tests-for map_writer.py")
+    print("  py cli.py tests-for tmp_repo helper.py")
 
 
 def build_graph(root_path: str) -> dict | None:
@@ -296,6 +301,27 @@ def show_impact(root_path: str, target_path: str) -> int:
         print_title(red("Impact analysis high risk"))
 
     print(format_impact_report(impact))
+
+    return 0
+
+
+def show_tests_for(root_path: str, target_path: str) -> int:
+    graph = build_graph(root_path)
+
+    if graph is None:
+        return 1
+
+    save_graph(graph)
+
+    result = suggest_tests_for_file(graph, target_path)
+
+    if not result["found"]:
+        print_title(red("Test suggestion warning"))
+        print(format_test_suggestions(result))
+        return 1
+
+    print_title(green("Test suggestions generated"))
+    print(format_test_suggestions(result))
 
     return 0
 
@@ -504,6 +530,9 @@ def main() -> int:
         if command == "impact":
             return show_impact(".", sys.argv[2])
 
+        if command == "tests-for":
+            return show_tests_for(".", sys.argv[2])
+
     if len(sys.argv) == 4:
         command = sys.argv[1]
 
@@ -512,6 +541,9 @@ def main() -> int:
 
         if command == "impact":
             return show_impact(sys.argv[2], sys.argv[3])
+
+        if command == "tests-for":
+            return show_tests_for(sys.argv[2], sys.argv[3])
 
     print_usage()
     return 1

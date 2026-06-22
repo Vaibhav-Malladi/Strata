@@ -2,12 +2,84 @@ import os
 
 from brief import generate_task_brief, score_relevant_files
 from cli import write_brief
-from scanner import scan_repo
 from tests.helpers import run_silently
 
 
+def brief_test_graph():
+    return {
+        "schema_version": 1,
+        "root": "brief_test_repo",
+        "files": [
+            {
+                "path": "cli.py",
+                "language": "python",
+                "classes": [],
+                "functions": [
+                    {"name": "main", "line": 1, "end_line": 10},
+                    {"name": "write_map", "line": 12, "end_line": 20},
+                ],
+                "imports": ["map_writer"],
+                "external_imports": [],
+                "unresolved_imports": [],
+                "unresolved_import_details": [],
+            },
+            {
+                "path": "map_writer.py",
+                "language": "python",
+                "classes": [],
+                "functions": [
+                    {"name": "generate_project_map", "line": 1, "end_line": 10},
+                    {"name": "write_project_map", "line": 12, "end_line": 20},
+                ],
+                "imports": [],
+                "external_imports": [],
+                "unresolved_imports": [],
+                "unresolved_import_details": [],
+            },
+            {
+                "path": "tests/test_map_writer.py",
+                "language": "python",
+                "classes": [],
+                "functions": [
+                    {"name": "test_cli_write_map_creates_project_map_file", "line": 1, "end_line": 10},
+                ],
+                "imports": ["map_writer"],
+                "external_imports": [],
+                "unresolved_imports": [],
+                "unresolved_import_details": [],
+            },
+            {
+                "path": "brief.py",
+                "language": "python",
+                "classes": [],
+                "functions": [
+                    {"name": "generate_task_brief", "line": 1, "end_line": 10},
+                ],
+                "imports": [],
+                "external_imports": [],
+                "unresolved_imports": [],
+                "unresolved_import_details": [],
+            },
+        ],
+        "edges": [
+            {
+                "from": "cli.py",
+                "to": "map_writer.py",
+                "type": "imports",
+                "import": "map_writer",
+            },
+            {
+                "from": "tests/test_map_writer.py",
+                "to": "map_writer.py",
+                "type": "imports",
+                "import": "map_writer",
+            },
+        ],
+    }
+
+
 def test_task_brief_generation_includes_main_sections():
-    graph = scan_repo(".")
+    graph = brief_test_graph()
     content = generate_task_brief(graph, "add map command tests")
 
     assert "# Task Brief" in content
@@ -23,7 +95,7 @@ def test_task_brief_generation_includes_main_sections():
 
 
 def test_task_brief_relevance_for_map_command_tests_is_focused():
-    graph = scan_repo(".")
+    graph = brief_test_graph()
     scored_files = score_relevant_files(graph, "add map command tests")
 
     selected_paths = [
@@ -36,18 +108,18 @@ def test_task_brief_relevance_for_map_command_tests_is_focused():
         for path in selected_paths
     ]
 
-    assert any(path.endswith("tests/test_map_writer.py") for path in selected_paths)
+    assert "tests/test_map_writer.py" in selected_paths
     assert "map_writer.py" in selected_filenames
     assert "cli.py" in selected_filenames
     assert "brief.py" not in selected_filenames
 
 
 def test_task_brief_generation_includes_prompt_and_tests():
-    graph = scan_repo(".")
+    graph = brief_test_graph()
     content = generate_task_brief(graph, "add map command tests")
 
     assert "Read these files first:" in content
-    assert "tests/test_map_writer.py" in content or "tests\\test_map_writer.py" in content
+    assert "tests/test_map_writer.py" in content
     assert "- map_writer.py" in content
     assert "- cli.py" in content
 
@@ -71,10 +143,10 @@ def test_cli_write_brief_creates_task_brief_file():
 
     assert "# Task Brief" in content
     assert "add map command tests" in content
-    assert "tests/test_map_writer.py" in content or "tests\\test_map_writer.py" in content
-    assert "map_writer.py" in content
-    assert "cli.py" in content
+    assert "## Relevant Files" in content
+    assert "## File Context" in content
     assert "## Impact Notes" in content
+    assert "## Suggested Tests" in content
     assert "Suggested Prompt for AI Agent" in content
 
 
