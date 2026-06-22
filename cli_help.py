@@ -1,0 +1,36 @@
+from cli_ui import bold, cyan, dim
+
+
+def print_usage() -> None:
+    print(bold("Strata"))
+    print(dim("Local-first repository intelligence for AI coding agents."))
+    print()
+
+    print(bold("Usage:"))
+    print("  py cli.py scan [path]")
+    print("  py cli.py show [path]")
+    print("  py cli.py map [path]")
+    print('  py cli.py brief "<task>"')
+    print('  py cli.py brief <path> "<task>"')
+    print("  py cli.py cycles [path]")
+    print("  py cli.py health [path]")
+    print("  py cli.py impact <file>")
+    print("  py cli.py impact <root> <file>")
+    print("  py cli.py tests-for <file>")
+    print("  py cli.py tests-for <root> <file>")
+    print('  py cli.py preflight "<task>"')
+    print('  py cli.py preflight <root> "<task>"')
+    print("  py cli.py help")
+    print()
+
+    print(bold("Commands:"))
+    print(f"  {cyan('scan')}       Build .aidc/graph.json")
+    print(f"  {cyan('show')}       Show saved graph summary or one file")
+    print(f"  {cyan('map')}        Generate .aidc/project_map.md")
+    print(f"  {cyan('brief')}      Generate .aidc/task_brief.md")
+    print(f"  {cyan('cycles')}     Check circular dependencies")
+    print(f"  {cyan('health')}     Show dependency health summary")
+    print(f"  {cyan('impact')}     Analyze impact of changing a file")
+    print(f"  {cyan('tests-for')}  Suggest tests for a changed file")
+    print(f"  {cyan('preflight')}  Generate .aidc/preflight.md")
+    print(f"  {cyan('help')}       Show this help message")
