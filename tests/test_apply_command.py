@@ -15,6 +15,13 @@ def _create_patch_file(root: Path, content: str) -> Path:
     return patch_path
 
 
+def _write_file(root: Path, relative_path: str, content: str) -> Path:
+    file_path = root / relative_path
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    file_path.write_text(content, encoding="utf-8")
+    return file_path
+
+
 @contextlib.contextmanager
 def change_argv(args: list[str]):
     original = sys.argv[:]
@@ -157,15 +164,60 @@ def test_apply_dry_run_missing_does_not_create_aidc():
         assert "Patch file not found." in output
 
 
-def test_apply_without_dry_run_returns_nonzero_and_says_not_implemented():
+def test_apply_returns_zero_and_prints_changed_files_for_valid_patch():
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
+        _write_file(root, "main.py", 'print("old")\n')
+        _create_patch_file(
+            root,
+            (
+                "diff --git a/main.py b/main.py\n"
+                "--- a/main.py\n"
+                "+++ b/main.py\n"
+                "@@ -1 +1 @@\n"
+                '-print("old")\n'
+                '+print("new")\n'
+            ),
+        )
 
         exit_code, output = _run_apply_cli(root)
 
-        assert exit_code == 1
-        assert "Apply" in output
-        assert "real apply is not implemented yet" in output
+        assert exit_code == 0
+        assert "Apply patch" in output
+        assert re.search(r"Status\s+.*applied", output)
+        assert re.search(r"Validation\s+.*valid", output)
+        assert re.search(r"Targets\s+main.py", output)
+        assert re.search(r"Changed files\s+main.py", output)
+        assert re.search(r"Applies patch\s+yes", output)
+        assert "Patch applied successfully." in output
+        assert "diff --git" not in output
+        assert 'print("old")' not in output
+        assert 'print("new")' not in output
+        assert (root / "main.py").read_text(encoding="utf-8") == 'print("new")\n'
+
+
+def test_apply_dry_run_real_patch_still_does_not_modify_files():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _write_file(root, "main.py", 'print("old")\n')
+        _create_patch_file(
+            root,
+            (
+                "diff --git a/main.py b/main.py\n"
+                "--- a/main.py\n"
+                "+++ b/main.py\n"
+                "@@ -1 +1 @@\n"
+                '-print("old")\n'
+                '+print("new")\n'
+            ),
+        )
+
+        exit_code, output = _run_apply_cli(root, "--dry-run")
+
+        assert exit_code == 0
+        assert "Apply dry-run" in output
+        assert re.search(r"Applies patch\s+no", output)
+        assert (root / "main.py").read_text(encoding="utf-8") == 'print("old")\n'
 
 
 def test_apply_unknown_flag_returns_nonzero_and_shows_usage():
@@ -187,6 +239,7 @@ TESTS = [
     test_apply_dry_run_invalid_patch_prints_errors,
     test_apply_dry_run_optional_root_argument_works,
     test_apply_dry_run_missing_does_not_create_aidc,
-    test_apply_without_dry_run_returns_nonzero_and_says_not_implemented,
+    test_apply_returns_zero_and_prints_changed_files_for_valid_patch,
+    test_apply_dry_run_real_patch_still_does_not_modify_files,
     test_apply_unknown_flag_returns_nonzero_and_shows_usage,
 ]

@@ -1,3 +1,4 @@
+from patch_applier import apply_patch_file
 from patch_contract import inspect_patch
 from patch_validator import validate_patch_file
 from ui import (
@@ -50,14 +51,62 @@ def write_apply_dry_run_command(root_path: str = ".") -> int:
 
 
 def write_apply_command(root_path: str = ".") -> int:
-    _ = root_path
+    patch_summary = inspect_patch(root_path)
+    summary_status = str(patch_summary.get("status", "missing")).lower()
+    validation = None
+    apply_result = None
+
+    if summary_status == "ready":
+        validation = validate_patch_file(root_path)
+        summary_status = str(validation.get("status", "invalid")).lower()
+
+        if validation.get("valid"):
+            apply_result = apply_patch_file(root_path)
+            summary_status = str(apply_result.get("status", "failed")).lower()
 
     print(build_banner())
     print()
-    print(build_section("Apply"))
-    print(format_error("real apply is not implemented yet. Use `strata apply --dry-run`."))
+    print(build_section("Apply patch"))
 
-    return 1
+    validation_status = (
+        str(validation.get("status", patch_summary.get("status", "missing"))).lower()
+        if validation is not None
+        else str(patch_summary.get("status", "missing")).lower()
+    )
+    targets = validation.get("targets", []) if validation is not None else []
+    changed_files = apply_result.get("changed_files", []) if apply_result is not None else []
+    applies_patch = "yes" if apply_result is not None and apply_result.get("applied") else "no"
+    message = (
+        apply_result.get("message")
+        if apply_result is not None
+        else validation.get("message")
+        if validation is not None
+        else patch_summary.get("message", "")
+    )
+    errors = (
+        apply_result.get("errors", [])
+        if apply_result is not None
+        else validation.get("errors", [])
+        if validation is not None
+        else []
+    )
+
+    rows = [
+        ("Status", _format_apply_status(summary_status)),
+        ("Patch", format_path(patch_summary.get("patch_path", ".aidc/agent_patch.diff"))),
+        ("Validation", _format_validation(validation_status)),
+        ("Targets", _format_targets(targets)),
+        ("Changed files", _format_targets(changed_files)),
+        ("Applies patch", applies_patch),
+        ("Message", message),
+    ]
+
+    if errors:
+        rows.append(("Errors", _format_notes(errors)))
+
+    print(build_kv_table(rows))
+
+    return 0 if apply_result is not None and apply_result.get("applied") else 1
 
 
 def _format_status(status: str) -> str:
@@ -105,6 +154,25 @@ def _format_validation(status: object) -> str:
         return format_warning("empty")
 
     return format_warning("missing")
+
+
+def _format_apply_status(status: str) -> str:
+    if status == "applied":
+        return format_success("applied")
+
+    if status == "failed":
+        return format_error("failed")
+
+    if status == "invalid":
+        return format_error("invalid")
+
+    if status == "empty":
+        return format_warning("empty")
+
+    if status == "missing":
+        return format_warning("missing")
+
+    return format_warning(status)
 
 
 def _format_targets(targets: object) -> str:
