@@ -4,7 +4,7 @@ from cli_core import (
     build_graph,
     save_graph,
 )
-from cli_ui import green, print_kv, print_title
+from ui import build_banner, build_kv_table, build_section, format_path
 from routes import (
     collect_routes,
     find_duplicate_routes,
@@ -28,13 +28,20 @@ def write_routes(root_path: str) -> int:
     duplicates = find_duplicate_routes(routes)
     route_import_risks = route_files_with_unresolved_imports(graph)
 
-    print_title("Route map generated")
-    print_kv("Markdown", ROUTES_MD_FILE)
-    print_kv("JSON", ROUTES_JSON_FILE)
-    print_kv("Root", graph.get("root", ""))
-    print_kv("Backend routes", len(routes))
-    print_kv("Duplicate warnings", len(duplicates))
-    print_kv("Import risks", len(route_import_risks))
-    print_kv("Status", green("complete"))
+    print(build_banner())
+    print()
+    print(build_section("Routes complete"))
+    print(
+        build_kv_table(
+            [
+                ("Markdown", format_path(ROUTES_MD_FILE)),
+                ("JSON", format_path(ROUTES_JSON_FILE)),
+                ("Root", format_path(graph.get("root", ""))),
+                ("Routes", len(routes)),
+                ("Duplicate warnings", len(duplicates)),
+                ("Import risks", len(route_import_risks)),
+            ]
+        )
+    )
 
     return 0

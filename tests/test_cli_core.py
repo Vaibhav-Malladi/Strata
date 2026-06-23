@@ -5,7 +5,7 @@ from pathlib import Path
 
 from cli import write_graph, show_file
 from cli_help import print_usage
-from tests.helpers import run_silently, capture_output
+from tests.helpers import run_silently, capture_output, change_directory
 
 
 def _create_cli_core_repo(root: Path) -> None:
@@ -29,15 +29,16 @@ def _create_cli_core_repo(root: Path) -> None:
 
 def test_cli_write_graph_creates_output_file():
     with tempfile.TemporaryDirectory() as temp_dir:
-        repo_root = Path(temp_dir) / "repo"
+        repo_root = Path(temp_dir)
         _create_cli_core_repo(repo_root)
 
-        exit_code = run_silently(write_graph, str(repo_root))
+        with change_directory(repo_root):
+            exit_code = run_silently(write_graph, str(repo_root))
 
         assert exit_code == 0
-        assert os.path.exists(".aidc/graph.json")
+        assert (repo_root / ".aidc" / "graph.json").exists()
 
-        with open(".aidc/graph.json", "r", encoding="utf-8") as file:
+        with open(repo_root / ".aidc" / "graph.json", "r", encoding="utf-8") as file:
             graph = json.load(file)
 
         assert graph["schema_version"] == 1
@@ -71,36 +72,39 @@ def test_cli_write_graph_creates_output_file():
 
 def test_cli_show_file_finds_saved_file():
     with tempfile.TemporaryDirectory() as temp_dir:
-        repo_root = Path(temp_dir) / "repo"
+        repo_root = Path(temp_dir)
         _create_cli_core_repo(repo_root)
 
-        run_silently(write_graph, str(repo_root))
+        with change_directory(repo_root):
+            run_silently(write_graph, str(repo_root))
 
-        exit_code = run_silently(show_file, str(repo_root / "main.py"))
+            exit_code = run_silently(show_file, str(repo_root / "main.py"))
 
         assert exit_code == 0
 
 
 def test_cli_show_file_returns_error_for_missing_file():
     with tempfile.TemporaryDirectory() as temp_dir:
-        repo_root = Path(temp_dir) / "repo"
+        repo_root = Path(temp_dir)
         _create_cli_core_repo(repo_root)
 
-        run_silently(write_graph, str(repo_root))
+        with change_directory(repo_root):
+            run_silently(write_graph, str(repo_root))
 
-        exit_code = run_silently(show_file, "missing.py")
+            exit_code = run_silently(show_file, "missing.py")
 
         assert exit_code == 1
 
 
 def test_cli_show_file_displays_unresolved_import_line_number():
     with tempfile.TemporaryDirectory() as temp_dir:
-        repo_root = Path(temp_dir) / "repo"
+        repo_root = Path(temp_dir)
         _create_cli_core_repo(repo_root)
 
-        run_silently(write_graph, str(repo_root))
+        with change_directory(repo_root):
+            run_silently(write_graph, str(repo_root))
 
-        exit_code, output = capture_output(show_file, str(repo_root / "main.py"))
+            exit_code, output = capture_output(show_file, str(repo_root / "main.py"))
 
         assert exit_code == 0
         assert "Warnings" in output
@@ -143,21 +147,25 @@ def test_cli_show_file_displays_backend_routes():
         "edges": [],
     }
 
-    os.makedirs(".aidc", exist_ok=True)
+    with tempfile.TemporaryDirectory() as temp_dir:
+        repo_root = Path(temp_dir)
 
-    with open(".aidc/graph.json", "w", encoding="utf-8") as file:
-        json.dump(graph, file)
+        with change_directory(repo_root):
+            os.makedirs(".aidc", exist_ok=True)
 
-    exit_code, output = capture_output(show_file, "api.py")
+            with open(".aidc/graph.json", "w", encoding="utf-8") as file:
+                json.dump(graph, file)
 
-    assert exit_code == 0
-    assert "Backend routes" in output
-    assert "GET" in output
-    assert "/health" in output
-    assert "POST" in output
-    assert "/users" in output
-    assert "@app.get" in output
-    assert "@router.post" in output
+            exit_code, output = capture_output(show_file, "api.py")
+
+        assert exit_code == 0
+        assert "Backend routes" in output
+        assert "GET" in output
+        assert "/health" in output
+        assert "POST" in output
+        assert "/users" in output
+        assert "@app.get" in output
+        assert "@router.post" in output
 
 
 def test_cli_agent_prompt_command_smoke():
@@ -166,33 +174,40 @@ def test_cli_agent_prompt_command_smoke():
     import sys
     from pathlib import Path
 
-    project_root = Path(__file__).resolve().parents[1]
-    cli_path = project_root / "cli.py"
-    output_path = project_root / ".aidc" / "agent_prompt.md"
+    cli_path = Path(__file__).resolve().parents[1] / "cli.py"
 
-    env = os.environ.copy()
-    env["PYTHONIOENCODING"] = "utf-8"
+    with tempfile.TemporaryDirectory() as temp_dir:
+        project_root = Path(temp_dir)
+        _create_cli_core_repo(project_root)
+        output_path = project_root / ".aidc" / "agent_prompt.md"
 
-    result = subprocess.run(
-        [
-            sys.executable,
-            str(cli_path),
-            "agent-prompt",
-            "add agent prompt command",
-            "local",
-        ],
-        cwd=project_root,
-        env=env,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-    )
+        env = os.environ.copy()
+        env["PYTHONIOENCODING"] = "utf-8"
 
-    assert result.returncode == 0, result.stderr
-    assert "Agent prompt generated" in result.stdout
-    assert "Agent" in result.stdout
-    assert "local" in result.stdout
-    assert output_path.exists()
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(cli_path),
+                "agent-prompt",
+                "add agent prompt command",
+                "local",
+            ],
+            cwd=project_root,
+            env=env,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert "Strata" in result.stdout
+        assert "Agent prompt complete" in result.stdout
+        assert "Task" in result.stdout
+        assert "add agent prompt command" in result.stdout
+        assert "Agent" in result.stdout
+        assert "local" in result.stdout
+        assert ".aidc/agent_prompt.md" in result.stdout.replace("\\", "/")
+        assert output_path.exists()
 
 
 def test_cli_status_command_smoke():
@@ -201,30 +216,39 @@ def test_cli_status_command_smoke():
     import sys
     from pathlib import Path
 
-    project_root = Path(__file__).resolve().parents[1]
-    cli_path = project_root / "cli.py"
+    cli_path = Path(__file__).resolve().parents[1] / "cli.py"
 
-    env = os.environ.copy()
-    env["PYTHONIOENCODING"] = "utf-8"
+    with tempfile.TemporaryDirectory() as temp_dir:
+        project_root = Path(temp_dir)
+        _create_cli_core_repo(project_root)
 
-    result = subprocess.run(
-        [
-            sys.executable,
-            str(cli_path),
-            "status",
-        ],
-        cwd=project_root,
-        env=env,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-    )
+        env = os.environ.copy()
+        env["PYTHONIOENCODING"] = "utf-8"
 
-    assert result.returncode == 0, result.stderr
-    assert "Strata status" in result.stdout
-    assert "# Strata Status" in result.stdout
-    assert "## Generated Files" in result.stdout
-    assert "## Recommended Actions" in result.stdout
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(cli_path),
+                "status",
+            ],
+            cwd=project_root,
+            env=env,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert "Strata" in result.stdout
+        assert "Strata status" in result.stdout
+        assert "Root" in result.stdout
+        assert "State" in result.stdout
+        assert "Missing" in result.stdout
+        assert "Stale" in result.stdout
+        assert "# Strata Status" in result.stdout
+        assert "## Generated Files" in result.stdout
+        assert "## Missing Outputs" in result.stdout
+        assert "## Recommended Actions" in result.stdout
 
 
 def test_cli_help_prefers_strata_commands():

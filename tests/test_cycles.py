@@ -69,39 +69,36 @@ def test_cli_show_cycles_returns_success_for_no_cycles():
             exit_code, output = capture_output(show_cycles, str(root))
 
     assert exit_code == 0
-    assert "Cycle check complete" in output
+    assert "Strata" in output
+    assert "Cycles complete" in output
+    assert "Root" in output
+    assert "Graph" in output
+    assert ".aidc/graph.json" in output.replace("\\", "/")
+    assert "Files" in output
+    assert "Edges" in output
     assert "Cycles" in output
-    assert "none" in output
+    assert "0" in output
 
 
 def test_cli_show_cycles_returns_error_for_cycle_graph():
-    graph = {
-        "schema_version": 1,
-        "root": "cycle_repo",
-        "files": [],
-        "edges": [
-            {
-                "from": "a.py",
-                "to": "b.py",
-                "type": "imports",
-                "import": "b",
-            },
-            {
-                "from": "b.py",
-                "to": "a.py",
-                "type": "imports",
-                "import": "a",
-            },
-        ],
-    }
+    with temporary_repo(
+        {
+            "a.py": "import b\n",
+            "b.py": "import a\n",
+        }
+    ) as root:
+        with change_directory(root):
+            exit_code, output = capture_output(show_cycles, str(root))
 
-    cycles = find_cycles(graph)
-    output = format_cycles(cycles)
-
-    assert cycles
+    assert exit_code == 1
+    assert "Strata" in output
+    assert "Circular dependencies found" in output
+    assert "Root" in output
+    assert "Graph" in output
+    assert ".aidc/graph.json" in output.replace("\\", "/")
+    assert "Cycles" in output
+    assert "1" in output
     assert "Cycle 1:" in output
-    assert "a.py" in output
-    assert "b.py" in output
 
 
 TESTS = [

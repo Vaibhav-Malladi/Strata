@@ -75,8 +75,16 @@ def test_cli_show_impact_displays_report():
             exit_code, output = capture_output(show_impact, str(root), "helper.py")
 
     assert exit_code == 0
+    assert "Strata" in output
     assert "Impact analysis warning" in output
-    assert "Impact analysis" in output
+    assert "Target" in output
+    assert "Graph" in output
+    assert ".aidc/graph.json" in output.replace("\\", "/")
+    assert "Found" in output
+    assert "Risk level" in output
+    assert "Direct dependents" in output
+    assert "Direct dependencies" in output
+    assert "Transitive dependents" in output
     assert "Risk level: medium" in output
     assert "main.py" in output
 
@@ -87,7 +95,13 @@ def test_cli_show_impact_returns_error_for_missing_file():
             exit_code, output = capture_output(show_impact, str(root), "missing.py")
 
     assert exit_code == 1
+    assert "Strata" in output
     assert "Impact analysis failed" in output
+    assert "Target" in output
+    assert "Graph" in output
+    assert "Found" in output
+    assert "Risk level" in output
+    assert "Summary" in output
     assert "File not found in graph" in output
 
 

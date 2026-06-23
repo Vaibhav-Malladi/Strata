@@ -6,7 +6,7 @@ from pathlib import Path
 from cli import write_map
 from map_writer import generate_project_map
 from scanner import scan_repo
-from tests.helpers import run_silently
+from tests.helpers import capture_output
 
 
 @contextlib.contextmanager
@@ -101,11 +101,22 @@ def test_cli_write_map_creates_project_map_file():
         _create_map_repo(repo_root)
 
         with change_directory(temp_root):
-            exit_code = run_silently(write_map, str(repo_root))
+            exit_code, output = capture_output(write_map, str(repo_root))
 
         assert exit_code == 0
         assert (temp_root / ".aidc" / "graph.json").exists()
         assert (temp_root / ".aidc" / "project_map.md").exists()
+        normalized_output = output.replace("\\", "/")
+
+        assert "Strata" in output
+        assert "Map complete" in output
+        assert "Output" in output
+        assert ".aidc/project_map.md" in normalized_output
+        assert ".aidc/graph.json" in normalized_output
+        assert "Root" in output
+        assert "Files" in output
+        assert "Edges" in output
+        assert "Warnings" in output
 
         content = (temp_root / ".aidc" / "project_map.md").read_text(
             encoding="utf-8"

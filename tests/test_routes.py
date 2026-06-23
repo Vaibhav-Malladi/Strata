@@ -11,6 +11,7 @@ from routes import (
     write_routes_json,
     write_routes_report,
 )
+from tests.helpers import capture_output, change_directory
 
 
 def route_test_graph() -> dict:
@@ -155,7 +156,8 @@ def test_write_routes_report_and_json_create_files():
 
 def test_cli_write_routes_creates_route_outputs():
     with tempfile.TemporaryDirectory() as temp_dir:
-        api_path = Path(temp_dir) / "api.py"
+        temp_root = Path(temp_dir)
+        api_path = temp_root / "api.py"
         api_path.write_text(
             '@app.get("/health")\n'
             'def health_check():\n'
@@ -163,14 +165,26 @@ def test_cli_write_routes_creates_route_outputs():
             encoding="utf-8",
         )
 
-        exit_code = write_routes(temp_dir)
+        with change_directory(temp_root):
+            exit_code, output = capture_output(write_routes, temp_dir)
 
         assert exit_code == 0
-        assert Path(".aidc/routes.md").exists()
-        assert Path(".aidc/routes.json").exists()
+        assert (temp_root / ".aidc" / "routes.md").exists()
+        assert (temp_root / ".aidc" / "routes.json").exists()
+        normalized_output = output.replace("\\", "/")
 
-        content = Path(".aidc/routes.md").read_text(encoding="utf-8")
-        payload = json.loads(Path(".aidc/routes.json").read_text(encoding="utf-8"))
+        assert "Strata" in output
+        assert "Routes complete" in output
+        assert "Markdown" in output
+        assert ".aidc/routes.md" in normalized_output
+        assert ".aidc/routes.json" in normalized_output
+        assert "Root" in output
+        assert "Routes" in output
+        assert "Duplicate warnings" in output
+        assert "Import risks" in output
+
+        content = (temp_root / ".aidc" / "routes.md").read_text(encoding="utf-8")
+        payload = json.loads((temp_root / ".aidc" / "routes.json").read_text(encoding="utf-8"))
 
         assert "# Route Map" in content
         assert "- Backend routes: `1`" in content

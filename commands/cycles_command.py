@@ -1,6 +1,6 @@
-from cli_core import build_graph, save_graph
-from cli_ui import green, yellow, print_title, print_kv
+from cli_core import OUTPUT_FILE, build_graph, save_graph
 from cycles import find_cycles, format_cycles
+from ui import build_banner, build_kv_table, build_section, format_path
 
 
 def show_cycles(root_path: str) -> int:
@@ -14,14 +14,37 @@ def show_cycles(root_path: str) -> int:
     cycles = find_cycles(graph)
 
     if cycles:
-        print_title(yellow("Circular dependencies found"))
+        print(build_banner())
+        print()
+        print(build_section("Circular dependencies found"))
+        print(
+            build_kv_table(
+                [
+                    ("Root", format_path(graph["root"])),
+                    ("Graph", format_path(OUTPUT_FILE)),
+                    ("Files", len(graph["files"])),
+                    ("Edges", len(graph["edges"])),
+                    ("Cycles", len(cycles)),
+                ]
+            )
+        )
+        print()
         print(format_cycles(cycles))
         return 1
 
-    print_title(green("Cycle check complete"))
-    print_kv("Root", graph["root"])
-    print_kv("Files", len(graph["files"]))
-    print_kv("Edges", len(graph["edges"]))
-    print_kv("Cycles", green("none"))
+    print(build_banner())
+    print()
+    print(build_section("Cycles complete"))
+    print(
+        build_kv_table(
+            [
+                ("Root", format_path(graph["root"])),
+                ("Graph", format_path(OUTPUT_FILE)),
+                ("Files", len(graph["files"])),
+                ("Edges", len(graph["edges"])),
+                ("Cycles", 0),
+            ]
+        )
+    )
 
     return 0

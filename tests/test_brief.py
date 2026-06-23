@@ -2,7 +2,7 @@ import os
 
 from brief import generate_task_brief, score_relevant_files
 from cli import write_brief
-from tests.helpers import run_silently, change_directory, temporary_repo
+from tests.helpers import capture_output, change_directory, temporary_repo
 
 
 def brief_test_graph():
@@ -144,11 +144,28 @@ def test_cli_write_brief_creates_task_brief_file():
         }
     ) as root:
         with change_directory(root):
-            exit_code = run_silently(write_brief, str(root), "add map command tests")
+            exit_code, output = capture_output(
+                write_brief,
+                str(root),
+                "add map command tests",
+            )
 
         assert exit_code == 0
         assert (root / ".aidc" / "graph.json").exists()
         assert (root / ".aidc" / "task_brief.md").exists()
+        normalized_output = output.replace("\\", "/")
+
+        assert "Strata" in output
+        assert "Brief complete" in output
+        assert "Task" in output
+        assert "add map command tests" in output
+        assert "Output" in output
+        assert ".aidc/task_brief.md" in normalized_output
+        assert ".aidc/graph.json" in normalized_output
+        assert "Root" in output
+        assert "Files" in output
+        assert "Edges" in output
+        assert "Warnings" in output
 
         with open(root / ".aidc" / "task_brief.md", "r", encoding="utf-8") as file:
             content = file.read()

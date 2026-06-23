@@ -6,7 +6,7 @@ from cli_core import (
     save_graph,
     count_unresolved_imports,
 )
-from cli_ui import green, yellow, print_title, print_kv
+from ui import build_banner, build_kv_table, build_section, format_path
 
 
 def write_brief(root_path: str, task: str) -> int:
@@ -20,16 +20,26 @@ def write_brief(root_path: str, task: str) -> int:
 
     unresolved_count = count_unresolved_imports(graph)
 
-    print_title(green("Task brief generated"))
-    print_kv("Graph", OUTPUT_FILE)
-    print_kv("Task brief", TASK_BRIEF_FILE)
-    print_kv("Root", graph["root"])
-    print_kv("Files", len(graph["files"]))
-    print_kv("Edges", len(graph["edges"]))
-
-    if unresolved_count:
-        print_kv("Warnings", yellow(f"{unresolved_count} unresolved import(s)"))
-    else:
-        print_kv("Warnings", green("none"))
+    print(build_banner())
+    print()
+    print(build_section("Brief complete"))
+    print(
+        build_kv_table(
+            [
+                ("Task", task),
+                ("Output", format_path(TASK_BRIEF_FILE)),
+                ("Graph", format_path(OUTPUT_FILE)),
+                ("Root", format_path(graph["root"])),
+                ("Files", len(graph["files"])),
+                ("Edges", len(graph["edges"])),
+                (
+                    "Warnings",
+                    f"{unresolved_count} unresolved import(s)"
+                    if unresolved_count
+                    else "none",
+                ),
+            ]
+        )
+    )
 
     return 0

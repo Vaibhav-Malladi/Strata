@@ -106,7 +106,15 @@ def test_cli_show_health_displays_report():
             exit_code, output = capture_output(show_health, str(root))
 
     assert exit_code == 0
+    assert "Strata" in output
     assert "Dependency health warnings" in output
+    assert "Root" in output
+    assert "Graph" in output
+    assert ".aidc/graph.json" in output.replace("\\", "/")
+    assert "Files" in output
+    assert "Edges" in output
+    assert "Status" in output
+    assert "Warnings" in output
     assert "Dependency health summary" in output
     assert f"Root: {root}" in output
     assert "Unresolved imports: 1" in output

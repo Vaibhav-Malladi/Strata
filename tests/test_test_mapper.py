@@ -127,7 +127,12 @@ def test_cli_show_tests_for_displays_report():
             exit_code, output = capture_output(show_tests_for, ".", "map_writer.py")
 
     assert exit_code == 0
-    assert "Test suggestions generated" in output
+    assert "Strata" in output
+    assert "Tests complete" in output
+    assert "File" in output
+    assert "Found" in output
+    assert "Commands" in output
+    assert "Tests" in output
     assert "Test suggestions" in output
     assert "py cli.py map" in output
     assert "test_map_writer.py" in output
@@ -144,7 +149,12 @@ def test_cli_show_tests_for_returns_error_for_missing_file():
             exit_code, output = capture_output(show_tests_for, ".", "missing.py")
 
     assert exit_code == 1
+    assert "Strata" in output
     assert "Test suggestion warning" in output
+    assert "File" in output
+    assert "Found" in output
+    assert "Commands" in output
+    assert "Tests" in output
     assert "File not found in graph" in output
 
 
