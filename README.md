@@ -57,13 +57,53 @@ strata config set mode hybrid
 strata config set agent codex
 strata config set auto_snapshot false
 
-strata prepare "fix helper bug"
+strata run "fix helper bug"
 # Paste .aidc\agent_prompt.md into your AI coding tool.
-# Let Codex/Aider/your editor make changes.
+# Then run strata review.
 
 strata review
 strata gate
 ```
+
+## Model-agnostic Run Workflow
+
+`strata run` is the recommended high-level workflow command for AI-assisted changes.
+It does not lock Strata to one AI model or tool. Instead, it reads the local workflow
+config, builds a deterministic task plan, runs prepare, and routes through the configured
+adapter.
+
+Today, the safe default adapter is `prompt_file`. That means Strata prepares
+`.aidc/agent_prompt.md` and tells you where to paste it next. It does not execute AI
+automatically yet.
+
+Future adapter support may include `command`, `ollama`, `openai_compatible_http`,
+`aider`, and `codex_cli`.
+
+Safe example:
+
+```powershell
+strata run "fix broken helper import"
+```
+
+Dry-run example:
+
+```powershell
+strata run --dry-run "fix broken helper import"
+```
+
+This shows the detected task type and planned steps. It does not write files, create
+`.aidc`, run prepare, call adapters, or execute AI.
+
+## Adapter Status
+
+| Adapter | Status | Behavior |
+|---|---|---|
+| `prompt_file` | Implemented | Writes/uses `.aidc/agent_prompt.md`; user pastes it into an AI tool manually. |
+| `command` | Planned | Future generic CLI adapter. |
+| `ollama` | Planned | Future local model adapter. |
+| `openai_compatible_http` | Planned | Future local/remote HTTP model adapter. |
+| `aider` | Planned | Future Aider adapter. |
+| `codex_cli` | Planned | Future Codex CLI adapter. |
 
 Manual safety loop:
 
@@ -169,6 +209,7 @@ If review passes, inspect the reports and commit if expected. If review fails, i
 | `strata config [root]` | Show workflow config for the repository. |
 | `strata config init [root]` | Create `.aidc/config.json` if missing; validate and preserve an existing valid config. |
 | `strata config set <key> <value> [root]` | Set a workflow config value. |
+| `strata run "<task>" [root]` | Model-agnostic workflow shell. Plans the task, prepares context, writes `.aidc/agent_prompt.md`, and routes through the configured adapter. Currently uses `prompt_file`, so AI is not executed automatically yet. |
 | `strata prepare "<task>" [root]` | Generate task context and prompt files before editing. |
 | `strata review [root]` | Run diff, verify, and gate after editing. |
 | `strata scan` | Build `.aidc/graph.json`. |
@@ -251,8 +292,8 @@ All tests passed.
 ## Limitations / Roadmap
 
 - `mode=auto` is planned workflow state, not autonomous execution.
-- `strata run` is not implemented yet.
-- Agent adapters are not implemented yet.
+- `strata run` currently uses `prompt_file`, so AI is not executed automatically yet.
+- Additional agent adapters are not implemented yet.
 - Interactive setup prompts are not implemented yet.
 - Richer language support is still growing.
 - Optional spinners and animations are future polish work.
@@ -261,8 +302,8 @@ All tests passed.
 Planned future improvements include:
 
 - interactive setup
-- `strata run`
 - agent adapters
+- `strata run` adapter backends beyond `prompt_file`
 - richer language support
 - optional spinners and animations
 - package structure cleanup
@@ -313,4 +354,3 @@ Strata is not:
 - `strata gate` is useful when you want a readiness check without thinking about a snapshot.
 - `strata status` helps confirm whether generated artifacts are current.
 - `py cli.py ...` can be used if the console entry point is unavailable.
-
