@@ -29,6 +29,8 @@ import test_context_matching
 import test_context_pack
 import test_snapshot
 import test_snapshot_command
+import test_diff_engine
+import test_diff_command
 from tests import test_languages
 from tests import test_javascript_parser
 from tests import test_typescript_parser
@@ -57,6 +59,8 @@ TEST_MODULES = [
     test_context_pack,
     test_snapshot,
     test_snapshot_command,
+    test_diff_engine,
+    test_diff_command,
     test_languages,
     test_javascript_parser,
     test_typescript_parser,

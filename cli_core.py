@@ -13,6 +13,8 @@ TASK_BRIEF_FILE = os.path.join(OUTPUT_DIR, "task_brief.md")
 PREFLIGHT_FILE = os.path.join(OUTPUT_DIR, "preflight.md")
 ROUTES_MD_FILE = os.path.join(OUTPUT_DIR, "routes.md")
 ROUTES_JSON_FILE = os.path.join(OUTPUT_DIR, "routes.json")
+DIFF_REPORT_MD_FILE = os.path.join(OUTPUT_DIR, "diff_report.md")
+DIFF_REPORT_JSON_FILE = os.path.join(OUTPUT_DIR, "diff_report.json")
 CONTEXT_PACK_FILE = os.path.join(OUTPUT_DIR, "context_pack.md")
 
 

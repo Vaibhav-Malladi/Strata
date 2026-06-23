@@ -5,6 +5,7 @@ from commands.agent_prompt_command import write_agent_prompt_command
 from commands.brief_command import write_brief
 from commands.context_command import write_context
 from commands.cycles_command import show_cycles
+from commands.diff_command import write_diff_command
 from commands.health_command import show_health
 from commands.impact_command import show_impact
 from commands.map_command import write_map
@@ -66,6 +67,16 @@ def main() -> None:
             return
         if len(args) == 2:
             write_routes(args[1])
+            return
+        print_usage()
+        return
+
+    if command == "diff":
+        if len(args) == 1:
+            write_diff_command(".")
+            return
+        if len(args) == 2:
+            write_diff_command(args[1])
             return
         print_usage()
         return
