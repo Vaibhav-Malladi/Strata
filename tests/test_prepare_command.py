@@ -1,0 +1,166 @@
+import contextlib
+import os
+import sys
+import tempfile
+from pathlib import Path
+
+from cli import main as cli_main
+from cli_help import print_usage
+from tests.helpers import capture_output, change_directory
+from workflow_config import config_path, save_config
+
+
+@contextlib.contextmanager
+def change_argv(args: list[str]):
+    original = sys.argv[:]
+    sys.argv = args
+    try:
+        yield
+    finally:
+        sys.argv = original
+
+
+def _create_prepare_repo(root: Path) -> None:
+    root.mkdir(parents=True, exist_ok=True)
+
+    (root / "helper.py").write_text(
+        "def helper():\n"
+        "    return True\n",
+        encoding="utf-8",
+    )
+
+    (root / "main.py").write_text(
+        "import helper\n\n"
+        "def run():\n"
+        "    return helper.helper()\n",
+        encoding="utf-8",
+    )
+
+
+def _run_prepare_cli(root: Path, *args: str):
+    with change_directory(root):
+        with change_argv(["cli.py", "prepare", *args]):
+            return capture_output(cli_main)
+
+
+def test_prepare_without_config_uses_defaults_and_creates_expected_files():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _create_prepare_repo(root)
+
+        exit_code, output = _run_prepare_cli(root, "fix helper bug")
+
+        assert exit_code == 0
+        assert "Strata" in output
+        assert "Prepare complete" in output
+        assert "fix helper bug" in output
+        assert "manual" in output
+        assert (root / ".aidc" / "graph.json").exists()
+        assert (root / ".aidc" / "context_pack.md").exists()
+        assert (root / ".aidc" / "preflight.md").exists()
+        assert (root / ".aidc" / "agent_prompt.md").exists()
+        assert (root / ".aidc" / "snapshots" / "latest.txt").exists()
+        assert not config_path(root).exists()
+
+
+def test_prepare_respects_config_agent_and_mode():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _create_prepare_repo(root)
+        save_config({"mode": "hybrid", "agent": "codex", "auto_snapshot": False}, root)
+
+        exit_code, output = _run_prepare_cli(root, "fix helper bug", str(root))
+
+        assert exit_code == 0
+        assert "hybrid" in output
+        assert "codex" in output
+        assert "Snapshot" in output
+        assert "skipped" in output
+        assert "Snapshot skipped" in output
+        assert (root / ".aidc" / "graph.json").exists()
+        assert (root / ".aidc" / "context_pack.md").exists()
+        assert (root / ".aidc" / "preflight.md").exists()
+        assert (root / ".aidc" / "agent_prompt.md").exists()
+        assert not (root / ".aidc" / "snapshots" / "latest.txt").exists()
+
+
+def test_prepare_with_auto_snapshot_true_creates_snapshot():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _create_prepare_repo(root)
+        save_config({"auto_snapshot": True}, root)
+
+        exit_code, output = _run_prepare_cli(root, "fix helper bug")
+
+        assert exit_code == 0
+        assert "Snapshot" in output
+        assert (root / ".aidc" / "snapshots" / "latest.txt").exists()
+
+
+def test_prepare_missing_task_returns_nonzero():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _create_prepare_repo(root)
+
+        exit_code, output = _run_prepare_cli(root)
+
+        assert exit_code == 1
+        assert "Usage" in output
+
+
+def test_prepare_too_many_args_returns_nonzero():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _create_prepare_repo(root)
+
+        exit_code, output = _run_prepare_cli(root, "fix helper bug", str(root), "extra")
+
+        assert exit_code == 1
+        assert "Usage" in output
+
+
+def test_prepare_invalid_config_returns_nonzero():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _create_prepare_repo(root)
+        path = config_path(root)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        original = '{"mode": "banana"}'
+        path.write_text(original, encoding="utf-8")
+
+        exit_code, output = _run_prepare_cli(root, "fix helper bug")
+
+        assert exit_code == 1
+        assert "error" in output.lower()
+        assert path.read_text(encoding="utf-8") == original
+
+
+def test_prepare_does_not_stack_multiple_banners():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _create_prepare_repo(root)
+
+        exit_code, output = _run_prepare_cli(root, "fix helper bug")
+
+        assert exit_code == 0
+        assert output.count("Local-first repository intelligence") == 1
+        assert output.count("Strata") == 1
+
+
+def test_help_mentions_prepare():
+    _, output = capture_output(print_usage)
+
+    assert 'strata prepare "<task>"' in output
+    assert 'strata prepare "<task>" <root>' in output
+
+
+TESTS = [
+    test_prepare_without_config_uses_defaults_and_creates_expected_files,
+    test_prepare_respects_config_agent_and_mode,
+    test_prepare_with_auto_snapshot_true_creates_snapshot,
+    test_prepare_missing_task_returns_nonzero,
+    test_prepare_too_many_args_returns_nonzero,
+    test_prepare_invalid_config_returns_nonzero,
+    test_prepare_does_not_stack_multiple_banners,
+    test_help_mentions_prepare,
+]

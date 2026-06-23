@@ -1,0 +1,118 @@
+from pathlib import Path
+
+from agent_export import write_agent_prompt
+from cli_core import CONTEXT_PACK_FILE, OUTPUT_FILE, PREFLIGHT_FILE, build_graph, save_graph
+from context_pack import build_context_pack
+from preflight import write_preflight_report
+from routes import collect_routes
+from snapshot import write_snapshot
+from ui import (
+    build_banner,
+    build_kv_table,
+    build_section,
+    format_error,
+    format_path,
+    format_success,
+    format_warning,
+)
+from workflow_config import load_config
+
+from commands.agent_prompt_command import AGENT_PROMPT_FILE
+
+PREPARE_USAGE = 'Usage: strata prepare "<task>" [root]'
+
+
+def write_prepare_command(root_path: str, task: str | None = None) -> int:
+    if not task:
+        _print_usage()
+        return 1
+
+    try:
+        config = load_config(root_path)
+    except ValueError as error:
+        _print_error("Workflow config error", str(error))
+        return 1
+
+    graph = build_graph(root_path)
+
+    if graph is None:
+        return 1
+
+    try:
+        save_graph(graph)
+        routes_data = collect_routes(graph)
+
+        _write_context_pack(graph, task, routes_data)
+        write_preflight_report(graph, task, PREFLIGHT_FILE)
+        _write_agent_prompt(graph, task, config["agent"])
+
+        snapshot_result = None
+
+        if config["auto_snapshot"]:
+            snapshot_result = write_snapshot(root_path, graph, routes_data)
+    except (OSError, ValueError) as error:
+        _print_error("Prepare failed", str(error))
+        return 1
+
+    print(build_banner())
+    print()
+    print(build_section("Prepare complete"))
+    print(
+        build_kv_table(
+            [
+                ("Status", format_success("ready")),
+                ("Task", task),
+                ("Mode", config["mode"]),
+                ("Agent", config["agent"]),
+                ("Root", format_path(root_path)),
+                ("Graph", format_path(OUTPUT_FILE)),
+                ("Context", format_path(CONTEXT_PACK_FILE)),
+                ("Preflight", format_path(PREFLIGHT_FILE)),
+                ("Agent prompt", format_path(AGENT_PROMPT_FILE)),
+                (
+                    "Snapshot",
+                    format_path(Path(snapshot_result["latest_path"]))
+                    if snapshot_result is not None
+                    else "skipped",
+                ),
+                ("Next", "Paste .aidc\\agent_prompt.md into your AI coding tool."),
+            ]
+        )
+    )
+
+    if snapshot_result is None:
+        print()
+        print(format_warning("Snapshot skipped"))
+
+    return 0
+
+
+def _write_context_pack(graph: dict, task: str, routes_data: list[dict]) -> None:
+    output_path = Path(CONTEXT_PACK_FILE)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(build_context_pack(graph, task, routes_data), encoding="utf-8")
+
+
+def _write_agent_prompt(graph: dict, task: str, agent: str) -> None:
+    resolved_agent = _resolve_prompt_agent(agent)
+    write_agent_prompt(graph, task, resolved_agent, AGENT_PROMPT_FILE)
+
+
+def _resolve_prompt_agent(agent: str) -> str:
+    normalized = agent.strip().lower()
+
+    if normalized in {"manual", "codex"}:
+        return "generic"
+
+    return normalized
+
+
+def _print_usage() -> None:
+    print(PREPARE_USAGE)
+
+
+def _print_error(title: str, message: str) -> None:
+    print(build_banner())
+    print()
+    print(build_section(title))
+    print(format_error(message))

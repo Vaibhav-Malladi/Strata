@@ -24,6 +24,7 @@ import test_impact
 import test_brief_impact
 import test_test_mapper
 import test_preflight
+import test_prepare_command
 import test_workflow_config
 import test_config_command
 import test_context_command
@@ -61,6 +62,7 @@ TEST_MODULES = [
     test_brief_impact,
     test_test_mapper,
     test_preflight,
+    test_prepare_command,
     test_workflow_config,
     test_config_command,
     test_context_command,
