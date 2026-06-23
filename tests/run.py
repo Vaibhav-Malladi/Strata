@@ -37,6 +37,7 @@ import test_context_matching
 import test_context_pack
 import test_snapshot
 import test_snapshot_command
+import test_patch_contract
 import test_diff_engine
 import test_verify
 import test_verify_command
@@ -79,6 +80,7 @@ TEST_MODULES = [
     test_context_pack,
     test_snapshot,
     test_snapshot_command,
+    test_patch_contract,
     test_diff_engine,
     test_verify,
     test_verify_command,

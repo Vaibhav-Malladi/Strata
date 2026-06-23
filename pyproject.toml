@@ -53,6 +53,7 @@ py-modules = [
     "gate",
     "health",
     "impact",
+    "patch_contract",
     "languages",
     "map_writer",
     "preflight",
