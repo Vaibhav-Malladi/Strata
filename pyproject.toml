@@ -45,6 +45,7 @@ py-modules = [
     "cli_core",
     "cli_help",
     "cli_ui",
+    "context_pack",
     "cycles",
     "graph",
     "health",

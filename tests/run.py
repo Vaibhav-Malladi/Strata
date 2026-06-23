@@ -24,6 +24,7 @@ import test_test_mapper
 import test_preflight
 import test_agent_export
 import test_status
+import test_context_pack
 from tests import test_languages
 from tests import test_javascript_parser
 from tests import test_typescript_parser
@@ -47,6 +48,7 @@ TEST_MODULES = [
     test_preflight,
     test_agent_export,
     test_status,
+    test_context_pack,
     test_languages,
     test_javascript_parser,
     test_typescript_parser,
