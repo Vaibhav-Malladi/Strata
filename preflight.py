@@ -31,6 +31,7 @@ def generate_preflight_report(graph: dict, task: str, max_files: int = 5) -> str
     lines.append(f"- Schema version: `{graph.get('schema_version', '')}`")
     lines.append(f"- Files scanned: `{len(graph.get('files', []))}`")
     lines.append(f"- Dependency edges: `{len(graph.get('edges', []))}`")
+    lines.append(f"- Backend routes: `{_count_routes(graph.get('files', []))}`")
     lines.append("")
     lines.append("## Repository Health")
     lines.append("")
@@ -55,6 +56,8 @@ def generate_preflight_report(graph: dict, task: str, max_files: int = 5) -> str
         for cycle in health["cycles"]:
             lines.append(f"- {' -> '.join(f'`{path}`' for path in cycle)}")
 
+    lines.append("")
+    _add_backend_routes_section(lines, graph.get("files", []))
     lines.append("")
     lines.extend(_format_grouped_relevant_files(graph, task, grouped_files))
     lines.append("")
@@ -84,6 +87,19 @@ def generate_preflight_report(graph: dict, task: str, max_files: int = 5) -> str
     lines.append("```text")
     lines.append(f"Task: {task}")
     lines.append("")
+
+    routes = _all_routes(graph.get("files", []))
+
+    if routes:
+        lines.append("Backend routes detected:")
+        for route in routes:
+            method = route.get("method", "")
+            route_path = route.get("path", "")
+            file_path = route.get("file", "")
+            line = route.get("line", "")
+            lines.append(f"- {method} {route_path} -> {file_path}:{line}")
+        lines.append("")
+
     lines.append("Read these files first:")
 
     if relevant_files:
@@ -95,6 +111,7 @@ def generate_preflight_report(graph: dict, task: str, max_files: int = 5) -> str
     lines.append("")
     lines.append("Before editing:")
     lines.append("- Review repository health warnings.")
+    lines.append("- Review backend routes if this task touches API behavior.")
     lines.append("- Review relevant source files before test files.")
     lines.append("- Review impact notes for each relevant file.")
     lines.append("- Prefer the smallest safe change.")
@@ -222,6 +239,66 @@ def _generate_verification_plan(graph: dict, relevant_files: list[dict]) -> dict
         "commands": _dedupe(commands),
         "test_files": _dedupe(test_files),
     }
+
+
+def _count_routes(files: list[dict]) -> int:
+    count = 0
+
+    for file_info in files:
+        count += len(file_info.get("routes", []))
+
+    return count
+
+
+def _all_routes(files: list[dict]) -> list[dict]:
+    routes = []
+
+    for file_info in files:
+        path = file_info.get("path", "")
+
+        for route in file_info.get("routes", []):
+            routes.append(
+                {
+                    "file": path,
+                    "method": route.get("method", ""),
+                    "path": route.get("path", ""),
+                    "line": route.get("line", ""),
+                    "source": route.get("source", ""),
+                }
+            )
+
+    return sorted(
+        routes,
+        key=lambda item: (
+            item.get("file", ""),
+            str(item.get("line", "")),
+            item.get("method", ""),
+            item.get("path", ""),
+        ),
+    )
+
+
+def _add_backend_routes_section(lines: list[str], files: list[dict]) -> None:
+    routes = _all_routes(files)
+
+    if not routes:
+        return
+
+    lines.append("## Backend Routes")
+    lines.append("")
+    lines.append("| Method | Route | File | Source |")
+    lines.append("| --- | --- | --- | --- |")
+
+    for route in routes:
+        method = route.get("method", "")
+        route_path = route.get("path", "")
+        file_path = route.get("file", "")
+        line = route.get("line", "")
+        source = route.get("source", "")
+
+        lines.append(
+            f"| `{method}` | `{route_path}` | `{file_path}:{line}` | `{source}` |"
+        )
 
 
 def _is_test_file(normalized_path: str, basename: str) -> bool:

@@ -71,6 +71,55 @@ def test_cli_show_file_displays_unresolved_import_line_number():
     assert "at line" in output
     assert "3" in output
 
+def test_cli_show_file_displays_backend_routes():
+    graph = {
+        "schema_version": 1,
+        "root": ".",
+        "files": [
+            {
+                "path": "api.py",
+                "language": "python",
+                "imports": [],
+                "external_imports": [],
+                "unresolved_imports": [],
+                "unresolved_import_details": [],
+                "classes": [],
+                "functions": [],
+                "routes": [
+                    {
+                        "method": "GET",
+                        "path": "/health",
+                        "line": 1,
+                        "source": "@app.get",
+                    },
+                    {
+                        "method": "POST",
+                        "path": "/users",
+                        "line": 5,
+                        "source": "@router.post",
+                    },
+                ],
+            }
+        ],
+        "edges": [],
+    }
+
+    os.makedirs(".aidc", exist_ok=True)
+
+    with open(".aidc/graph.json", "w", encoding="utf-8") as file:
+        json.dump(graph, file)
+
+    exit_code, output = capture_output(show_file, "api.py")
+
+    assert exit_code == 0
+    assert "Backend routes" in output
+    assert "GET" in output
+    assert "/health" in output
+    assert "POST" in output
+    assert "/users" in output
+    assert "@app.get" in output
+    assert "@router.post" in output
+
 def test_cli_agent_prompt_command_smoke():
     import os
     import subprocess
@@ -141,6 +190,7 @@ TESTS = [
     test_cli_show_file_finds_saved_file,
     test_cli_show_file_returns_error_for_missing_file,
     test_cli_show_file_displays_unresolved_import_line_number,
+    test_cli_show_file_displays_backend_routes,
     test_cli_agent_prompt_command_smoke,
     test_cli_status_command_smoke,
 ]

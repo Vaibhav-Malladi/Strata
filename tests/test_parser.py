@@ -1,5 +1,7 @@
 import os
 import sys
+import tempfile
+from pathlib import Path
 
 from languages import detect_language, parse_source_file
 from python_parser import parse_file
@@ -64,6 +66,40 @@ def test_language_detection():
     assert detect_language("main.rs") == "rust"
     assert detect_language("README.md") is None
 
+def test_parses_python_backend_routes():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        path = Path(temp_dir) / "api.py"
+        path.write_text(
+            '@app.get("/health")\n'
+            'def health_check():\n'
+            '    pass\n\n'
+            '@router.post("/users")\n'
+            'def create_user():\n'
+            '    pass\n\n'
+            '@router.put("/users/{user_id}")\n'
+            'def update_user():\n'
+            '    pass\n\n'
+            '@app.route("/login", methods=["GET", "POST"])\n'
+            'def login():\n'
+            '    pass\n\n'
+            '@app.route("/status")\n'
+            'def status():\n'
+            '    pass\n',
+            encoding="utf-8",
+        )
+
+        parsed = parse_file(str(path))
+
+        route_signatures = [
+            (route["method"], route["path"], route["source"])
+            for route in parsed["routes"]
+        ]
+
+        assert ("GET", "/health", "@app.get") in route_signatures
+        assert ("POST", "/users", "@router.post") in route_signatures
+        assert ("PUT", "/users/{user_id}", "@router.put") in route_signatures
+        assert ("GET,POST", "/login", "@app.route") in route_signatures
+        assert ("GET", "/status", "@app.route") in route_signatures
 
 TESTS = [
     test_python_version,
@@ -71,4 +107,5 @@ TESTS = [
     test_parse_syntax_error_file,
     test_language_detection,
     test_parse_source_file_routes_python_file,
+    test_parses_python_backend_routes,
 ]

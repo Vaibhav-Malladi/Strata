@@ -121,6 +121,56 @@ def test_typescript_read_error_is_reported():
     assert parsed["language"] == "typescript"
     assert parsed["error"]["type"] == "read_error"
 
+def test_parses_typescript_backend_routes():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        path = write_file(
+            temp_dir,
+            "routes.ts",
+            '''
+app.get("/health", healthCheck);
+app.post("/users", createUser);
+router.put("/users/:id", updateUser);
+router.delete("/users/:id", deleteUser);
+api.patch("/users/:id", patchUser);
+            '''.strip(),
+        )
+
+        parsed = parse_file(str(path))
+
+        assert {
+            "method": "GET",
+            "path": "/health",
+            "line": 1,
+            "source": "app.get",
+        } in parsed["routes"]
+
+        assert {
+            "method": "POST",
+            "path": "/users",
+            "line": 2,
+            "source": "app.post",
+        } in parsed["routes"]
+
+        assert {
+            "method": "PUT",
+            "path": "/users/:id",
+            "line": 3,
+            "source": "router.put",
+        } in parsed["routes"]
+
+        assert {
+            "method": "DELETE",
+            "path": "/users/:id",
+            "line": 4,
+            "source": "router.delete",
+        } in parsed["routes"]
+
+        assert {
+            "method": "PATCH",
+            "path": "/users/:id",
+            "line": 5,
+            "source": "api.patch",
+        } in parsed["routes"]
 
 TESTS = [
     test_parses_typescript_imports,
@@ -128,4 +178,5 @@ TESTS = [
     test_detects_angular_framework_hint,
     test_detects_react_framework_hint,
     test_typescript_read_error_is_reported,
+    test_parses_typescript_backend_routes,
 ]

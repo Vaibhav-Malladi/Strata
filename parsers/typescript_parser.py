@@ -9,6 +9,7 @@ from parsers.javascript_parser import (
     ARROW_FUNCTION_PATTERN,
     FUNCTION_EXPRESSION_PATTERN,
     CLASS_PATTERN,
+    ROUTE_PATTERN,
 )
 
 
@@ -55,6 +56,7 @@ def _empty_result(path: str) -> dict:
         "interfaces": [],
         "types": [],
         "enums": [],
+        "routes": [],
     }
 
 
@@ -91,6 +93,24 @@ def _detect_export(line: str, result: dict, line_number: int) -> None:
         }
     )
 
+def _detect_route(line: str, result: dict, line_number: int) -> None:
+    route_match = ROUTE_PATTERN.match(line)
+
+    if not route_match:
+        return
+
+    receiver = route_match.group(1)
+    method = route_match.group(2).upper()
+    route_path = route_match.group(3)
+
+    result["routes"].append(
+        {
+            "method": method,
+            "path": route_path,
+            "line": line_number,
+            "source": f"{receiver}.{method.lower()}",
+        }
+    )
 
 def _detect_framework(source: str) -> str | None:
     for pattern in ANGULAR_HINT_PATTERNS:
@@ -181,5 +201,6 @@ def parse_file(path: str) -> dict:
             _add_symbol(result["enums"], enum_match.group(1), index)
 
         _detect_export(line, result, index)
+        _detect_route(line, result, index)
 
     return result

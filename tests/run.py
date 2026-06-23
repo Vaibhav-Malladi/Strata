@@ -28,6 +28,7 @@ from tests import test_languages
 from tests import test_javascript_parser
 from tests import test_typescript_parser
 from tests import test_multilang_scanner
+from tests import test_backend_map
 
 
 TEST_MODULES = [
@@ -49,6 +50,7 @@ TEST_MODULES = [
     test_javascript_parser,
     test_typescript_parser,
     test_multilang_scanner,
+    test_backend_map,
 ]
 
 

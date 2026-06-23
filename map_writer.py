@@ -22,7 +22,10 @@ def generate_project_map(graph: dict) -> str:
     lines.append(f"- Schema version: `{graph.get('schema_version', '')}`")
     lines.append(f"- Files: `{len(files)}`")
     lines.append(f"- Dependency edges: `{len(edges)}`")
+    lines.append(f"- Backend routes: `{_count_routes(files)}`")
     lines.append("")
+
+    _add_backend_routes_section(lines, files)
 
     lines.append("## Files")
     lines.append("")
@@ -41,8 +44,16 @@ def generate_project_map(graph: dict) -> str:
         if language:
             lines.append(f"- Language: `{language}`")
 
+        framework = file_info.get("framework")
+        if framework:
+            lines.append(f"- Framework hint: `{framework}`")
+
         _add_named_items(lines, "Classes", file_info.get("classes", []))
         _add_named_items(lines, "Functions", file_info.get("functions", []))
+        _add_named_items(lines, "Interfaces", file_info.get("interfaces", []))
+        _add_named_items(lines, "Types", file_info.get("types", []))
+        _add_named_items(lines, "Enums", file_info.get("enums", []))
+        _add_routes(lines, file_info.get("routes", []))
         _add_simple_items(lines, "Imports", file_info.get("imports", []))
         _add_simple_items(lines, "External imports", file_info.get("external_imports", []))
         _add_unresolved_imports(lines, file_info.get("unresolved_import_details", []))
@@ -121,6 +132,68 @@ def _group_edges_by_key(edges: list[dict], key: str) -> dict:
     return grouped
 
 
+def _count_routes(files: list[dict]) -> int:
+    count = 0
+
+    for file_info in files:
+        count += len(file_info.get("routes", []))
+
+    return count
+
+
+def _all_routes(files: list[dict]) -> list[dict]:
+    routes = []
+
+    for file_info in files:
+        path = file_info.get("path", "")
+
+        for route in file_info.get("routes", []):
+            routes.append(
+                {
+                    "file": path,
+                    "method": route.get("method", ""),
+                    "path": route.get("path", ""),
+                    "line": route.get("line", ""),
+                    "source": route.get("source", ""),
+                }
+            )
+
+    return routes
+
+
+def _add_backend_routes_section(lines: list[str], files: list[dict]) -> None:
+    routes = _all_routes(files)
+
+    if not routes:
+        return
+
+    lines.append("## Backend Routes")
+    lines.append("")
+    lines.append("| Method | Route | File | Source |")
+    lines.append("| --- | --- | --- | --- |")
+
+    for route in sorted(
+        routes,
+        key=lambda item: (
+            item.get("file", ""),
+            str(item.get("line", "")),
+            item.get("method", ""),
+            item.get("path", ""),
+        ),
+    ):
+        method = route.get("method", "")
+        route_path = route.get("path", "")
+        file_path = route.get("file", "")
+        line = route.get("line", "")
+        source = route.get("source", "")
+
+        lines.append(
+            f"| `{method}` | `{route_path}` | `{file_path}:{line}` | `{source}` |"
+        )
+
+    lines.append("")
+
+
 def _add_named_items(lines: list[str], label: str, items: list[dict]) -> None:
     if not items:
         return
@@ -142,6 +215,23 @@ def _add_simple_items(lines: list[str], label: str, items: list[str]) -> None:
         return
 
     lines.append(f"- {label}: {', '.join(f'`{item}`' for item in items)}")
+
+
+def _add_routes(lines: list[str], routes: list[dict]) -> None:
+    if not routes:
+        return
+
+    formatted_routes = []
+
+    for route in routes:
+        method = route.get("method", "")
+        route_path = route.get("path", "")
+        line = route.get("line", "")
+
+        formatted_routes.append(f"`{method} {route_path}` at line `{line}`")
+
+    if formatted_routes:
+        lines.append(f"- Routes: {', '.join(formatted_routes)}")
 
 
 def _add_unresolved_imports(lines: list[str], items: list[dict]) -> None:

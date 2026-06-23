@@ -186,6 +186,62 @@ def test_cli_write_preflight_creates_preflight_file():
     assert "## Verification Plan" in content
     assert "## AI Agent Instructions" in content
 
+def test_preflight_includes_backend_routes_section():
+    graph = {
+        "schema_version": 1,
+        "root": "sample",
+        "files": [
+            {
+                "path": "api.py",
+                "language": "python",
+                "imports": [],
+                "external_imports": [],
+                "unresolved_imports": [],
+                "unresolved_import_details": [],
+                "classes": [],
+                "functions": [],
+                "routes": [
+                    {
+                        "method": "GET",
+                        "path": "/health",
+                        "line": 1,
+                        "source": "@app.get",
+                    }
+                ],
+            },
+            {
+                "path": "routes/user.routes.ts",
+                "language": "typescript",
+                "imports": [],
+                "external_imports": [],
+                "unresolved_imports": [],
+                "unresolved_import_details": [],
+                "classes": [],
+                "functions": [],
+                "routes": [
+                    {
+                        "method": "POST",
+                        "path": "/users",
+                        "line": 8,
+                        "source": "router.post",
+                    }
+                ],
+            },
+        ],
+        "edges": [],
+    }
+
+    content = generate_preflight_report(graph, "change user API")
+
+    assert "## Backend Routes" in content
+    assert "- Backend routes: `2`" in content
+    assert "| `GET` | `/health` | `api.py:1` | `@app.get` |" in content
+    assert "| `POST` | `/users` | `routes/user.routes.ts:8` | `router.post` |" in content
+    assert "Backend routes detected:" in content
+    assert "- GET /health -> api.py:1" in content
+    assert "- POST /users -> routes/user.routes.ts:8" in content
+    assert "- Review backend routes if this task touches API behavior." in content
+
 
 TESTS = [
     test_generate_preflight_report_includes_main_sections,
@@ -194,4 +250,5 @@ TESTS = [
     test_generate_preflight_report_includes_verification_plan,
     test_write_preflight_report_creates_file,
     test_cli_write_preflight_creates_preflight_file,
+    test_preflight_includes_backend_routes_section,
 ]

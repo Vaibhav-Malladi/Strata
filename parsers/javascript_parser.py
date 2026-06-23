@@ -30,6 +30,9 @@ CLASS_PATTERN = re.compile(
     r'^\s*(?:export\s+)?(?:default\s+)?class\s+([A-Za-z_$][\w$]*)\b'
 )
 
+ROUTE_PATTERN = re.compile(
+    r'^\s*([A-Za-z_$][\w$]*)\s*\.\s*(get|post|put|patch|delete|options|head|all)\s*\(\s*[\'"]([^\'"]+)[\'"]'
+)
 
 def _empty_result(path: str) -> dict:
     return {
@@ -40,6 +43,7 @@ def _empty_result(path: str) -> dict:
         "classes": [],
         "functions": [],
         "exports": [],
+        "routes": [],
     }
 
 
@@ -73,6 +77,25 @@ def _detect_export(line: str, result: dict, line_number: int) -> None:
         {
             "line": line_number,
             "text": stripped,
+        }
+    )
+
+def _detect_route(line: str, result: dict, line_number: int) -> None:
+    route_match = ROUTE_PATTERN.match(line)
+
+    if not route_match:
+        return
+
+    receiver = route_match.group(1)
+    method = route_match.group(2).upper()
+    route_path = route_match.group(3)
+
+    result["routes"].append(
+        {
+            "method": method,
+            "path": route_path,
+            "line": line_number,
+            "source": f"{receiver}.{method.lower()}",
         }
     )
 
@@ -131,5 +154,6 @@ def parse_file(path: str) -> dict:
             _add_symbol(result["classes"], class_match.group(1), index)
 
         _detect_export(line, result, index)
+        _detect_route(line, result, index)
 
     return result
