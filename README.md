@@ -1,8 +1,8 @@
 # Strata
 
-Strata is a local-first repository intelligence CLI for AI-assisted coding workflows. It is deterministic, works on local repository data, and helps create context packs, snapshots, structural diffs, verification reports, and gate reports.
+Strata is a local-first repository intelligence CLI for AI-assisted coding workflows. It scans the repo, creates deterministic context, prepares AI-coder prompts, snapshots structure, diffs after edits, verifies structural changes, and gates readiness before commit.
 
-Strata does **not** call an LLM. Strata does **not** edit files for you. It helps humans and AI coding agents understand repository structure and risk before and after edits.
+Strata does **not** edit source files by itself. Strata does **not** call cloud AI services automatically. It helps humans and AI coding tools understand repository structure and risk before and after edits.
 
 **Core message:** Preflight before editing. Verify after editing.
 
@@ -11,7 +11,7 @@ Strata does **not** call an LLM. Strata does **not** edit files for you. It help
 ## Status
 
 ```text
-v0.4.3
+v0.5.0 / V4 workflow preview
 ```
 
 ## Install / Local Development
@@ -46,51 +46,119 @@ Use the fallback if the `strata` console script is not available yet in your she
 
 ---
 
-## Quick Start
+## Recommended V4 Workflow
+
+```powershell
+cd D:\AI-PROJECT\strata
+py -m pip install -e .
+
+strata config init
+strata config set mode hybrid
+strata config set agent codex
+strata config set auto_snapshot false
+
+strata prepare "fix helper bug"
+# Paste .aidc\agent_prompt.md into your AI coding tool.
+# Let Codex/Aider/your editor make changes.
+
+strata review
+strata gate
+```
+
+Manual safety loop:
 
 ```powershell
 strata scan
-strata context "change login page"
+strata context "task"
+strata preflight "task"
 strata snapshot
 
-# make edits with your AI coding tool, Codex, or editor
+# AI/user edits
 
 strata diff
 strata verify
 strata gate
-strata status
 ```
 
-- `strata scan` builds the repository graph in `.aidc/graph.json`.
-- `strata context "change login page"` writes a deterministic task context pack.
-- `strata snapshot` saves a baseline for later diff and verify runs.
-- `strata diff` compares the latest snapshot with the current repository structure.
-- `strata verify` checks whether the edit introduced risky structural changes.
-- `strata gate` checks whether the repository looks safe enough to commit.
-- `strata status` reports whether generated outputs are current, incomplete, or stale.
+## Workflow Config
+
+`.aidc/config.json` is local workflow config generated for the current repository and is not meant to be a shared project source file.
+
+```powershell
+strata config
+strata config init
+strata config set mode hybrid
+strata config set agent codex
+strata config set auto_snapshot false
+strata config set auto_verify true
+strata config set require_gate true
+```
+
+Supported keys:
+
+- `mode`: `manual` | `hybrid` | `auto`
+- `agent`: `manual` | `local` | `codex` | `aider`
+- `auto_snapshot`: `true` | `false`
+- `auto_verify`: `true` | `false`
+- `require_gate_pass_before_commit`: `true` | `false`
+
+Important notes:
+
+- `mode=auto` is a stored config option for future workflows.
+- It does not yet mean Strata will automatically run an AI coding agent.
+- `agent=codex` currently means Strata generates Codex-ready prompt context.
+- It does not yet execute Codex.
 
 ---
 
-## AI Coding Safety Loop
+## Prepare Before Editing
 
-Before editing:
+```powershell
+strata prepare "fix login bug"
+```
 
-- run `strata scan`
-- run `strata context "task"`
-- run `strata snapshot`
+This does:
 
-After editing:
+- scan
+- context
+- preflight
+- agent-prompt
+- snapshot only if `auto_snapshot=true`
 
-- run `strata diff`
-- run `strata verify`
-- run `strata gate`
+This writes:
 
-What that means:
+- `.aidc/graph.json`
+- `.aidc/context_pack.md`
+- `.aidc/preflight.md`
+- `.aidc/agent_prompt.md`
+- optional snapshot files
 
-- `snapshot` saves a baseline for the repository structure.
-- `diff` shows structural changes since that baseline.
-- `verify` checks whether the edit introduced risky structural changes.
-- `gate` checks whether the repository is currently safe enough before commit.
+Paste `.aidc\agent_prompt.md` into your AI coding tool after running it.
+
+---
+
+## Review After Editing
+
+```powershell
+strata review
+```
+
+This does:
+
+- diff
+- verify if `auto_verify=true`
+- gate
+
+This writes:
+
+- `.aidc/diff_report.md`
+- `.aidc/diff_report.json`
+- `.aidc/verification_report.md` if verify runs
+- `.aidc/verification_report.json` if verify runs
+- `.aidc/gate_report.md`
+- `.aidc/gate_report.json`
+
+If review passes, inspect the reports and commit if expected. If review fails, inspect the generated reports and fix the issues. Review does not commit automatically.
 
 ---
 
@@ -98,17 +166,28 @@ What that means:
 
 | Command | Purpose |
 |---|---|
+| `strata config [root]` | Show workflow config for the repository. |
+| `strata config init [root]` | Create `.aidc/config.json` if missing; validate and preserve an existing valid config. |
+| `strata config set <key> <value> [root]` | Set a workflow config value. |
+| `strata prepare "<task>" [root]` | Generate task context and prompt files before editing. |
+| `strata review [root]` | Run diff, verify, and gate after editing. |
 | `strata scan` | Build `.aidc/graph.json`. |
-| `strata show` | Show the saved graph summary or file details. |
-| `strata map` | Generate `.aidc/project_map.md`. |
-| `strata routes` | Generate `.aidc/routes.md` and `.aidc/routes.json`. |
 | `strata context "task"` | Generate a compact deterministic context pack. |
 | `strata preflight "task"` | Generate `.aidc/preflight.md` for a task. |
+| `strata agent-prompt "<task>" <agent>` | Generate `.aidc/agent_prompt.md` for a task and agent. |
 | `strata snapshot` | Save a structural snapshot under `.aidc/snapshots/`. |
 | `strata diff` | Compare the latest snapshot with the current repository structure. |
 | `strata verify` | Verify current structure against the latest snapshot. |
 | `strata gate` | Check current repository readiness before commit. |
 | `strata status` | Check generated Strata output status. |
+| `strata map` | Generate `.aidc/project_map.md`. |
+| `strata routes` | Generate `.aidc/routes.md` and `.aidc/routes.json`. |
+| `strata cycles` | Inspect repository cycles. |
+| `strata health` | Run a repository health check. |
+| `strata impact` | Summarize change impact. |
+| `strata tests-for` | Suggest tests related to a path or task. |
+| `strata brief` | Generate a concise task brief. |
+| `strata show` | Show the saved graph summary or file details. |
 | `strata help` | Show the CLI help text. |
 
 ---
@@ -118,6 +197,8 @@ What that means:
 Common `.aidc` outputs:
 
 ```text
+.aidc/config.json
+.aidc/agent_prompt.md
 .aidc/graph.json
 .aidc/context_pack.md
 .aidc/preflight.md
@@ -132,10 +213,11 @@ Common `.aidc` outputs:
 .aidc/routes.json
 .aidc/project_map.md
 .aidc/task_brief.md
-.aidc/agent_prompt.md
 ```
 
-These files are generated reports and should generally not be edited manually.
+`.aidc/config.json` is local workflow config, not a shared project file.
+
+Except for `.aidc/config.json`, these files are generated reports and should generally not be edited manually.
 
 ---
 
@@ -143,9 +225,9 @@ These files are generated reports and should generally not be edited manually.
 
 - Python support is strongest.
 - JavaScript and TypeScript parsing exists in lightweight form.
-- React and Angular hints are detected where the parser can recognize them.
+- React and Angular hints may be detected where recognizable.
 
-Strata does not claim full Rust, Java, or framework coverage unless the parser actually supports it.
+Rust, Java, and full framework support are planned, not complete.
 
 ---
 
@@ -166,9 +248,30 @@ All tests passed.
 
 ---
 
+## Limitations / Roadmap
+
+- `mode=auto` is planned workflow state, not autonomous execution.
+- `strata run` is not implemented yet.
+- Agent adapters are not implemented yet.
+- Interactive setup prompts are not implemented yet.
+- Richer language support is still growing.
+- Optional spinners and animations are future polish work.
+- Package structure cleanup may happen later.
+
+Planned future improvements include:
+
+- interactive setup
+- `strata run`
+- agent adapters
+- richer language support
+- optional spinners and animations
+- package structure cleanup
+
+---
+
 ## What Strata Is For
 
-Strata is designed for developers who want better repository context before editing with AI tools. It helps answer questions like:
+Strata is designed for developers who want better repository context before and after editing with AI tools. It helps answer questions like:
 
 - What files exist?
 - What imports what?
@@ -209,4 +312,5 @@ Strata is not:
 - `strata snapshot` is the baseline for `strata diff` and `strata verify`.
 - `strata gate` is useful when you want a readiness check without thinking about a snapshot.
 - `strata status` helps confirm whether generated artifacts are current.
+- `py cli.py ...` can be used if the console entry point is unavailable.
 
