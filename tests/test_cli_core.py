@@ -251,6 +251,42 @@ def test_cli_status_command_smoke():
         assert "## Recommended Actions" in result.stdout
 
 
+def test_cli_run_command_smoke():
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    cli_path = Path(__file__).resolve().parents[1] / "cli.py"
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        project_root = Path(temp_dir)
+        _create_cli_core_repo(project_root)
+
+        env = os.environ.copy()
+        env["PYTHONIOENCODING"] = "utf-8"
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(cli_path),
+                "run",
+                "--dry-run",
+                "fix broken helper import",
+            ],
+            cwd=project_root,
+            env=env,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert "Run plan" in result.stdout
+        assert "dry-run" in result.stdout
+        assert "bugfix" in result.stdout
+
+
 def test_cli_help_prefers_strata_commands():
     _, output = capture_output(print_usage)
 
@@ -261,6 +297,8 @@ def test_cli_help_prefers_strata_commands():
     assert "strata config set <key> <value> [root]" in output
     assert 'strata prepare "<task>"' in output
     assert 'strata prepare "<task>" <root>' in output
+    assert 'strata run "<task>"' in output
+    assert 'strata run --dry-run "<task>"' in output
     assert "strata review" in output
     assert "strata review <root>" in output
     assert "Legacy fallback: use `py cli.py ...`" in output
@@ -275,5 +313,6 @@ TESTS = [
     test_cli_show_file_displays_backend_routes,
     test_cli_agent_prompt_command_smoke,
     test_cli_status_command_smoke,
+    test_cli_run_command_smoke,
     test_cli_help_prefers_strata_commands,
 ]

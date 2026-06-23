@@ -33,25 +33,13 @@ def write_prepare_command(root_path: str, task: str | None = None) -> int:
         _print_error("Workflow config error", str(error))
         return 1
 
-    graph = build_graph(root_path)
-
-    if graph is None:
+    try:
+        result = prepare_workflow(root_path, task, config)
+    except ValueError as error:
+        _print_error("Prepare failed", str(error))
         return 1
 
-    try:
-        save_graph(graph)
-        routes_data = collect_routes(graph)
-
-        _write_context_pack(graph, task, routes_data)
-        write_preflight_report(graph, task, PREFLIGHT_FILE)
-        _write_agent_prompt(graph, task, config["agent"])
-
-        snapshot_result = None
-
-        if config["auto_snapshot"]:
-            snapshot_result = write_snapshot(root_path, graph, routes_data)
-    except (OSError, ValueError) as error:
-        _print_error("Prepare failed", str(error))
+    if result is None:
         return 1
 
     print(build_banner())
@@ -71,8 +59,8 @@ def write_prepare_command(root_path: str, task: str | None = None) -> int:
                 ("Agent prompt", format_path(AGENT_PROMPT_FILE)),
                 (
                     "Snapshot",
-                    format_path(Path(snapshot_result["latest_path"]))
-                    if snapshot_result is not None
+                    format_path(Path(result["snapshot_result"]["latest_path"]))
+                    if result["snapshot_result"] is not None
                     else "skipped",
                 ),
                 ("Next", "Paste .aidc\\agent_prompt.md into your AI coding tool."),
@@ -80,11 +68,43 @@ def write_prepare_command(root_path: str, task: str | None = None) -> int:
         )
     )
 
-    if snapshot_result is None:
+    if result["snapshot_result"] is None:
         print()
         print(format_warning("Snapshot skipped"))
 
     return 0
+
+
+def prepare_workflow(root_path: str, task: str, config: dict | None = None) -> dict | None:
+    if config is None:
+        config = load_config(root_path)
+
+    graph = build_graph(root_path)
+
+    if graph is None:
+        return None
+
+    try:
+        save_graph(graph)
+        routes_data = collect_routes(graph)
+
+        _write_context_pack(graph, task, routes_data)
+        write_preflight_report(graph, task, PREFLIGHT_FILE)
+        _write_agent_prompt(graph, task, config["agent"])
+
+        snapshot_result = None
+
+        if config["auto_snapshot"]:
+            snapshot_result = write_snapshot(root_path, graph, routes_data)
+    except (OSError, ValueError):
+        raise
+
+    return {
+        "config": config,
+        "graph": graph,
+        "routes_data": routes_data,
+        "snapshot_result": snapshot_result,
+    }
 
 
 def _write_context_pack(graph: dict, task: str, routes_data: list[dict]) -> None:

@@ -18,6 +18,7 @@ from commands.map_command import write_map
 from commands.prepare_command import write_prepare_command
 from commands.review_command import write_review_command
 from commands.preflight_command import write_preflight
+from commands.run_command import write_run_command
 from commands.snapshot_command import write_snapshot_command
 from commands.verify_command import write_verify_command
 from commands.routes_command import write_routes
@@ -188,6 +189,9 @@ def main() -> int:
             return _exit_code(write_prepare_command(args[2], args[1]))
         print_usage()
         return 1
+
+    if command == "run":
+        return _exit_code(write_run_command(".", *args[1:]))
 
     if command == "context":
         if len(args) == 2:
