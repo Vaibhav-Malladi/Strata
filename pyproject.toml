@@ -54,6 +54,7 @@ py-modules = [
     "languages",
     "map_writer",
     "preflight",
+    "snapshot",
     "python_parser",
     "routes",
     "scanner",

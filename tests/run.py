@@ -27,6 +27,8 @@ import test_agent_export
 import test_status
 import test_context_matching
 import test_context_pack
+import test_snapshot
+import test_snapshot_command
 from tests import test_languages
 from tests import test_javascript_parser
 from tests import test_typescript_parser
@@ -53,6 +55,8 @@ TEST_MODULES = [
     test_status,
     test_context_matching,
     test_context_pack,
+    test_snapshot,
+    test_snapshot_command,
     test_languages,
     test_javascript_parser,
     test_typescript_parser,

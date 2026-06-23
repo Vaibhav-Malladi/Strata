@@ -9,6 +9,7 @@ from commands.health_command import show_health
 from commands.impact_command import show_impact
 from commands.map_command import write_map
 from commands.preflight_command import write_preflight
+from commands.snapshot_command import write_snapshot_command
 from commands.routes_command import write_routes
 from commands.scan_command import write_graph
 from commands.show_command import show_file, show_graph_summary
@@ -65,6 +66,16 @@ def main() -> None:
             return
         if len(args) == 2:
             write_routes(args[1])
+            return
+        print_usage()
+        return
+
+    if command == "snapshot":
+        if len(args) == 1:
+            write_snapshot_command(".")
+            return
+        if len(args) == 2:
+            write_snapshot_command(args[1])
             return
         print_usage()
         return
