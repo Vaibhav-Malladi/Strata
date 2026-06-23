@@ -141,6 +141,30 @@ git add .
 git commit -m "Fix helper bug"
 ```
 
+### Manual Smoke Test With Fake Command Adapter
+
+Use this only as a local smoke test. The helper script is not a real AI tool; it
+just writes a demo patch for `demo_patch_target.txt` into `.aidc/agent_patch.diff`.
+
+```powershell
+strata config set adapter command
+strata config set command "py examples\fake_ai_patch_writer.py"
+strata run "create demo patch file"
+strata doctor adapter
+strata execute
+strata patch
+strata apply --dry-run
+strata apply
+strata review
+```
+
+Cleanup:
+
+```powershell
+del demo_patch_target.txt
+del .aidc\agent_patch.diff
+```
+
 ## Adapter Status
 
 | Adapter | Status | Behavior |
