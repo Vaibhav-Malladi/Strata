@@ -94,16 +94,37 @@ strata run --dry-run "fix broken helper import"
 This shows the detected task type and planned steps. It does not write files, create
 `.aidc`, run prepare, call adapters, or execute AI.
 
+This only previews how a future command adapter would be called. It does not execute
+the configured command, does not execute AI, and does not create or apply
+`.aidc/agent_patch.diff`. It is useful for checking adapter configuration safely
+before real execution support exists.
+
 ## Adapter Status
 
 | Adapter | Status | Behavior |
 |---|---|---|
 | `prompt_file` | Implemented | Writes/uses `.aidc/agent_prompt.md`; user pastes it into an AI tool manually. |
-| `command` | Planned | Future generic CLI adapter. |
+| `command` | Dry-run preview | Shows the configured command, prompt path, and patch path without executing anything. Real execution is planned. |
 | `ollama` | Planned | Future local model adapter. |
 | `openai_compatible_http` | Planned | Future local/remote HTTP model adapter. |
 | `aider` | Planned | Future Aider adapter. |
 | `codex_cli` | Planned | Future Codex CLI adapter. |
+
+### Command adapter dry-run
+
+The `command` adapter can now preview its configured command without executing it.
+This is useful when you want to verify the planned handoff before real execution is
+implemented.
+
+```powershell
+strata config set adapter command
+strata config set command "my-ai --prompt .aidc/agent_prompt.md"
+
+strata run --dry-run "fix broken helper import"
+
+strata config set adapter prompt_file
+strata config set command null
+```
 
 Manual safety loop:
 
@@ -138,6 +159,10 @@ Supported keys:
 
 - `mode`: `manual` | `hybrid` | `auto`
 - `agent`: `manual` | `local` | `codex` | `aider`
+- `adapter`: `prompt_file` | `command` | `ollama` | `openai_compatible_http` | `aider` | `codex_cli`
+- `prompt_path`: path to the generated AI prompt file; defaults to `.aidc/agent_prompt.md`
+- `model`: optional model name for future adapters
+- `command`: optional command string for the command adapter
 - `auto_snapshot`: `true` | `false`
 - `auto_verify`: `true` | `false`
 - `require_gate_pass_before_commit`: `true` | `false`
@@ -293,7 +318,10 @@ All tests passed.
 
 - `mode=auto` is planned workflow state, not autonomous execution.
 - `strata run` currently uses `prompt_file`, so AI is not executed automatically yet.
-- Additional agent adapters are not implemented yet.
+- `command` adapter has dry-run preview only; real command execution is planned but not implemented.
+- Patch/apply flow is planned but not implemented.
+- Other adapters such as `ollama`, `openai_compatible_http`, `aider`, and `codex_cli` are planned but not implemented.
+- AI never commits changes; gate remains the safety boundary.
 - Interactive setup prompts are not implemented yet.
 - Richer language support is still growing.
 - Optional spinners and animations are future polish work.
