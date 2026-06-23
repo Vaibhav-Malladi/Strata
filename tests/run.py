@@ -39,6 +39,7 @@ import test_context_pack
 import test_snapshot
 import test_snapshot_command
 import test_patch_contract
+import test_patch_validator
 import test_patch_command
 import test_diff_engine
 import test_verify
@@ -84,6 +85,7 @@ TEST_MODULES = [
     test_snapshot,
     test_snapshot_command,
     test_patch_contract,
+    test_patch_validator,
     test_patch_command,
     test_diff_engine,
     test_verify,

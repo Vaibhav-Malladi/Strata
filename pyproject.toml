@@ -54,6 +54,7 @@ py-modules = [
     "health",
     "impact",
     "patch_contract",
+    "patch_validator",
     "languages",
     "map_writer",
     "preflight",

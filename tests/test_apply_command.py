@@ -40,6 +40,9 @@ def test_apply_dry_run_missing_returns_nonzero_and_prints_missing():
         assert exit_code == 1
         assert "Apply dry-run" in output
         assert "missing" in output
+        assert "Validation" in output
+        assert re.search(r"Validation\s+.*missing", output)
+        assert re.search(r"Targets\s+-", output)
         assert "Patch file not found." in output
         assert "Applies patch" in output
         assert re.search(r"Applies patch\s+no", output)
@@ -56,6 +59,8 @@ def test_apply_dry_run_empty_returns_nonzero_and_prints_empty():
         assert exit_code == 1
         assert "Apply dry-run" in output
         assert "empty" in output
+        assert re.search(r"Validation\s+.*empty", output)
+        assert re.search(r"Targets\s+-", output)
         assert "Patch file is empty." in output
         assert re.search(r"Applies patch\s+no", output)
 
@@ -63,7 +68,14 @@ def test_apply_dry_run_empty_returns_nonzero_and_prints_empty():
 def test_apply_dry_run_ready_returns_zero_and_prints_ready():
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
-        content = "diff --git a/main.py b/main.py\n+print('hello')\n"
+        content = (
+            "diff --git a/main.py b/main.py\n"
+            "--- a/main.py\n"
+            "+++ b/main.py\n"
+            "@@ -1 +1 @@\n"
+            "-print('old')\n"
+            "+print('hello')\n"
+        )
         _create_patch_file(root, content)
 
         exit_code, output = _run_apply_cli(root, "--dry-run")
@@ -71,10 +83,52 @@ def test_apply_dry_run_ready_returns_zero_and_prints_ready():
         assert exit_code == 0
         assert "Apply dry-run" in output
         assert "ready" in output
-        assert "Patch file is ready for apply dry-run." in output
+        assert re.search(r"Validation\s+.*valid", output)
+        assert re.search(r"Targets\s+main.py", output)
+        assert "Patch format looks safe for dry-run validation." in output
         assert re.search(r"Applies patch\s+no", output)
         assert content.strip() not in output
         assert "diff --git" not in output
+
+
+def test_apply_dry_run_ready_invalid_returns_nonzero_and_prints_validation_invalid():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        content = (
+            "diff --git a/.env b/.env\n"
+            "--- a/.env\n"
+            "+++ b/.env\n"
+            "@@ -1 +1 @@\n"
+            "-SECRET=old\n"
+            "+SECRET=new\n"
+        )
+        _create_patch_file(root, content)
+
+        exit_code, output = _run_apply_cli(root, "--dry-run")
+
+        assert exit_code == 1
+        assert "Apply dry-run" in output
+        assert "invalid" in output
+        assert re.search(r"Status\s+.*invalid", output)
+        assert re.search(r"Validation\s+.*invalid", output)
+        assert re.search(r"Targets\s+-", output)
+        assert "Patch failed validation." in output
+        assert "Errors" in output
+        assert ".env" in output
+        assert content.strip() not in output
+
+
+def test_apply_dry_run_invalid_patch_prints_errors():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _create_patch_file(root, "this is not a diff\n")
+
+        exit_code, output = _run_apply_cli(root, "--dry-run")
+
+        assert exit_code == 1
+        assert "Patch does not contain a unified diff header." in output
+        assert "Errors" in output
+        assert re.search(r"Validation\s+.*invalid", output)
 
 
 def test_apply_dry_run_optional_root_argument_works():
@@ -129,6 +183,8 @@ TESTS = [
     test_apply_dry_run_missing_returns_nonzero_and_prints_missing,
     test_apply_dry_run_empty_returns_nonzero_and_prints_empty,
     test_apply_dry_run_ready_returns_zero_and_prints_ready,
+    test_apply_dry_run_ready_invalid_returns_nonzero_and_prints_validation_invalid,
+    test_apply_dry_run_invalid_patch_prints_errors,
     test_apply_dry_run_optional_root_argument_works,
     test_apply_dry_run_missing_does_not_create_aidc,
     test_apply_without_dry_run_returns_nonzero_and_says_not_implemented,
