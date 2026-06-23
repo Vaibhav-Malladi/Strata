@@ -49,6 +49,7 @@ py-modules = [
     "context_pack",
     "cycles",
     "graph",
+    "gate",
     "health",
     "impact",
     "languages",

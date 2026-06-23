@@ -1,11 +1,18 @@
 from cli import show_cycles
 from cycles import find_cycles, has_cycles, format_cycles
 from scanner import scan_repo
-from tests.helpers import capture_output
+from tests.helpers import capture_output, change_directory, temporary_repo
 
 
-def test_find_cycles_returns_empty_for_tmp_repo():
-    graph = scan_repo("tmp_repo")
+def test_find_cycles_returns_empty_for_repo_without_cycles():
+    with temporary_repo(
+        {
+            "helper.py": "def helper():\n    return True\n",
+            "main.py": "import helper\n",
+        }
+    ) as root:
+        graph = scan_repo(str(root))
+
     cycles = find_cycles(graph)
 
     assert cycles == []
@@ -52,7 +59,14 @@ def test_format_cycles_displays_cycle_chain():
 
 
 def test_cli_show_cycles_returns_success_for_no_cycles():
-    exit_code, output = capture_output(show_cycles, "tmp_repo")
+    with temporary_repo(
+        {
+            "helper.py": "def helper():\n    return True\n",
+            "main.py": "import helper\n",
+        }
+    ) as root:
+        with change_directory(root):
+            exit_code, output = capture_output(show_cycles, str(root))
 
     assert exit_code == 0
     assert "Cycle check complete" in output
@@ -91,7 +105,7 @@ def test_cli_show_cycles_returns_error_for_cycle_graph():
 
 
 TESTS = [
-    test_find_cycles_returns_empty_for_tmp_repo,
+    test_find_cycles_returns_empty_for_repo_without_cycles,
     test_find_cycles_detects_simple_cycle,
     test_format_cycles_displays_cycle_chain,
     test_cli_show_cycles_returns_success_for_no_cycles,

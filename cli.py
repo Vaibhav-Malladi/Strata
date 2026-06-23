@@ -6,6 +6,7 @@ from commands.brief_command import write_brief
 from commands.context_command import write_context
 from commands.cycles_command import show_cycles
 from commands.diff_command import write_diff_command
+from commands.gate_command import write_gate_command
 from commands.health_command import show_health
 from commands.impact_command import show_impact
 from commands.map_command import write_map
@@ -34,9 +35,9 @@ def main() -> int:
 
     if command == "scan":
         if len(args) == 1:
-            return write_graph(".")
+            return _exit_code(write_graph("."))
         if len(args) == 2:
-            return write_graph(args[1])
+            return _exit_code(write_graph(args[1]))
         print_usage()
         return 1
 
@@ -52,97 +53,105 @@ def main() -> int:
 
     if command == "map":
         if len(args) == 1:
-            return write_map(".")
+            return _exit_code(write_map("."))
         if len(args) == 2:
-            return write_map(args[1])
+            return _exit_code(write_map(args[1]))
         print_usage()
         return 1
 
     if command == "routes":
         if len(args) == 1:
-            return write_routes(".")
+            return _exit_code(write_routes("."))
         if len(args) == 2:
-            return write_routes(args[1])
+            return _exit_code(write_routes(args[1]))
         print_usage()
         return 1
 
     if command == "diff":
         if len(args) == 1:
-            return write_diff_command(".")
+            return _exit_code(write_diff_command("."))
         if len(args) == 2:
-            return write_diff_command(args[1])
+            return _exit_code(write_diff_command(args[1]))
         print_usage()
         return 1
 
     if command == "snapshot":
         if len(args) == 1:
-            return write_snapshot_command(".")
+            return _exit_code(write_snapshot_command("."))
         if len(args) == 2:
-            return write_snapshot_command(args[1])
+            return _exit_code(write_snapshot_command(args[1]))
         print_usage()
         return 1
 
     if command == "verify":
         if len(args) == 1:
-            return write_verify_command(".")
+            return _exit_code(write_verify_command("."))
         if len(args) == 2:
-            return write_verify_command(args[1])
+            return _exit_code(write_verify_command(args[1]))
+        print_usage()
+        return 1
+
+    if command == "gate":
+        if len(args) == 1:
+            return _exit_code(write_gate_command("."))
+        if len(args) == 2:
+            return _exit_code(write_gate_command(args[1]))
         print_usage()
         return 1
 
     if command == "brief":
         if len(args) == 2:
-            return write_brief(".", args[1])
+            return _exit_code(write_brief(".", args[1]))
         if len(args) == 3:
-            return write_brief(args[1], args[2])
+            return _exit_code(write_brief(args[1], args[2]))
         print_usage()
         return 1
 
     if command == "cycles":
         if len(args) == 1:
-            return show_cycles(".")
+            return _exit_code(show_cycles("."))
         if len(args) == 2:
-            return show_cycles(args[1])
+            return _exit_code(show_cycles(args[1]))
         print_usage()
         return 1
 
     if command == "health":
         if len(args) == 1:
-            return show_health(".")
+            return _exit_code(show_health("."))
         if len(args) == 2:
-            return show_health(args[1])
+            return _exit_code(show_health(args[1]))
         print_usage()
         return 1
 
     if command == "impact":
         if len(args) == 2:
-            return show_impact(".", args[1])
+            return _exit_code(show_impact(".", args[1]))
         if len(args) == 3:
-            return show_impact(args[1], args[2])
+            return _exit_code(show_impact(args[1], args[2]))
         print_usage()
         return 1
 
     if command == "tests-for":
         if len(args) == 2:
-            return show_tests_for(".", args[1])
+            return _exit_code(show_tests_for(".", args[1]))
         if len(args) == 3:
-            return show_tests_for(args[1], args[2])
+            return _exit_code(show_tests_for(args[1], args[2]))
         print_usage()
         return 1
 
     if command == "preflight":
         if len(args) == 2:
-            return write_preflight(".", args[1])
+            return _exit_code(write_preflight(".", args[1]))
         if len(args) == 3:
-            return write_preflight(args[1], args[2])
+            return _exit_code(write_preflight(args[1], args[2]))
         print_usage()
         return 1
 
     if command == "context":
         if len(args) == 2:
-            return write_context(".", args[1])
+            return _exit_code(write_context(".", args[1]))
         if len(args) == 3:
-            return write_context(args[1], args[2])
+            return _exit_code(write_context(args[1], args[2]))
         print_usage()
         return 1
 
@@ -168,6 +177,13 @@ def main() -> int:
 
     print_usage()
     return 1
+
+
+def _exit_code(result) -> int:
+    if result is None:
+        return 0
+
+    return result
 
 
 if __name__ == "__main__":

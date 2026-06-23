@@ -13,6 +13,8 @@ if TESTS_DIR not in sys.path:
 import test_parser
 import test_scanner
 import test_graph
+import test_gate
+import test_gate_command
 import test_cli_core
 import test_map_writer
 import test_brief
@@ -45,6 +47,8 @@ TEST_MODULES = [
     test_parser,
     test_scanner,
     test_graph,
+    test_gate,
+    test_gate_command,
     test_cli_core,
     test_map_writer,
     test_brief,

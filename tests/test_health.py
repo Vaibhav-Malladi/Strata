@@ -1,14 +1,25 @@
 from cli import show_health
 from health import analyze_health, format_health_report
 from scanner import scan_repo
-from tests.helpers import capture_output
+from tests.helpers import capture_output, change_directory, temporary_repo
 
 
-def test_analyze_health_reports_tmp_repo_warnings():
-    graph = scan_repo("tmp_repo")
+def test_analyze_health_reports_unresolved_import_warnings():
+    with temporary_repo(
+        {
+            "helper.py": "def helper():\n    return True\n",
+            "main.py": (
+                "import os\n"
+                "import helper\n"
+                "import missing_module\n"
+            ),
+        }
+    ) as root:
+        graph = scan_repo(str(root))
+
     health = analyze_health(graph)
 
-    assert health["root"] == "tmp_repo"
+    assert health["root"] == str(root)
     assert health["file_count"] == 2
     assert health["edge_count"] == 1
     assert health["unresolved_import_count"] == 1
@@ -53,12 +64,23 @@ def test_analyze_health_reports_cycle_warning():
 
 
 def test_format_health_report_includes_summary_and_warnings():
-    graph = scan_repo("tmp_repo")
-    health = analyze_health(graph)
+    with temporary_repo(
+        {
+            "helper.py": "def helper():\n    return True\n",
+            "main.py": (
+                "import os\n"
+                "import helper\n"
+                "import missing_module\n"
+            ),
+        }
+    ) as root:
+        graph = scan_repo(str(root))
+        health = analyze_health(graph)
+
     output = format_health_report(health)
 
     assert "Dependency health summary" in output
-    assert "Root: tmp_repo" in output
+    assert f"Root: {root}" in output
     assert "Files: 2" in output
     assert "Dependency edges: 1" in output
     assert "Status: warning: unresolved imports found" in output
@@ -70,18 +92,29 @@ def test_format_health_report_includes_summary_and_warnings():
 
 
 def test_cli_show_health_displays_report():
-    exit_code, output = capture_output(show_health, "tmp_repo")
+    with temporary_repo(
+        {
+            "helper.py": "def helper():\n    return True\n",
+            "main.py": (
+                "import os\n"
+                "import helper\n"
+                "import missing_module\n"
+            ),
+        }
+    ) as root:
+        with change_directory(root):
+            exit_code, output = capture_output(show_health, str(root))
 
     assert exit_code == 0
     assert "Dependency health warnings" in output
     assert "Dependency health summary" in output
-    assert "Root: tmp_repo" in output
+    assert f"Root: {root}" in output
     assert "Unresolved imports: 1" in output
     assert "missing_module" in output
 
 
 TESTS = [
-    test_analyze_health_reports_tmp_repo_warnings,
+    test_analyze_health_reports_unresolved_import_warnings,
     test_analyze_health_reports_cycle_warning,
     test_format_health_report_includes_summary_and_warnings,
     test_cli_show_health_displays_report,

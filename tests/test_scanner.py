@@ -1,32 +1,78 @@
+import tempfile
+from pathlib import Path
+
 from scanner import scan_repo
 
 
+def _write_file(path: Path, content: str) -> None:
+    path.write_text(content, encoding="utf-8")
+
+
+def _create_scanner_repo(root: Path, *, include_unresolved: bool = True) -> None:
+    root.mkdir(parents=True, exist_ok=True)
+
+    _write_file(
+        root / "helper.py",
+        "def helper():\n"
+        "    return True\n",
+    )
+
+    if include_unresolved:
+        main_source = (
+            "import os\n"
+            "import helper\n"
+            "import missing_module\n\n"
+            "def run():\n"
+            "    return helper()\n"
+        )
+    else:
+        main_source = (
+            "import os\n"
+            "import helper\n\n"
+            "def run():\n"
+            "    return helper()\n"
+        )
+
+    _write_file(root / "main.py", main_source)
+
+
+def _scan_temp_repo_result(*, include_unresolved: bool = True) -> dict:
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir) / "repo"
+        _create_scanner_repo(root, include_unresolved=include_unresolved)
+        return scan_repo(str(root))
+
+
+def _main_file(result: dict) -> dict | None:
+    for file_info in result.get("files", []):
+        if file_info["path"].endswith("main.py"):
+            return file_info
+
+    return None
+
+
 def test_scan_repo_finds_python_files():
-    result = scan_repo("tmp_repo")
+    result = _scan_temp_repo_result()
 
     paths = [file["path"] for file in result["files"]]
 
-    assert result["root"] == "tmp_repo"
+    assert result["root"].endswith("repo")
     assert len(result["files"]) == 2
     assert any(path.endswith("main.py") for path in paths)
     assert any(path.endswith("helper.py") for path in paths)
 
 
 def test_scan_repo_detects_imports():
-    result = scan_repo("tmp_repo")
+    result = _scan_temp_repo_result()
 
-    main_file = None
-
-    for file in result["files"]:
-        if file["path"].endswith("main.py"):
-            main_file = file
+    main_file = _main_file(result)
 
     assert main_file is not None
     assert "helper" in main_file["imports"]
 
 
 def test_scan_repo_creates_import_edges():
-    result = scan_repo("tmp_repo")
+    result = _scan_temp_repo_result()
 
     assert "edges" in result
     assert len(result["edges"]) == 1
@@ -40,14 +86,14 @@ def test_scan_repo_creates_import_edges():
 
 
 def test_scan_repo_resolves_same_folder_imports_from_project_root():
-    result = scan_repo(".")
+    result = _scan_temp_repo_result()
 
     matching_edges = []
 
     for edge in result["edges"]:
         if (
-            edge["from"].endswith("tmp_repo\\main.py")
-            and edge["to"].endswith("tmp_repo\\helper.py")
+            edge["from"].endswith("main.py")
+            and edge["to"].endswith("helper.py")
             and edge["import"] == "helper"
         ):
             matching_edges.append(edge)
@@ -56,19 +102,14 @@ def test_scan_repo_resolves_same_folder_imports_from_project_root():
 
 
 def test_scan_repo_includes_schema_version():
-    result = scan_repo("tmp_repo")
+    result = _scan_temp_repo_result()
 
     assert result["schema_version"] == 1
 
 
 def test_scan_repo_classifies_imports():
-    result = scan_repo("tmp_repo")
-
-    main_file = None
-
-    for file_info in result["files"]:
-        if file_info["path"].endswith("main.py"):
-            main_file = file_info
+    result = _scan_temp_repo_result()
+    main_file = _main_file(result)
 
     assert main_file is not None
 
@@ -84,13 +125,8 @@ def test_scan_repo_classifies_imports():
 
 
 def test_scan_repo_records_unresolved_import_line_number():
-    result = scan_repo("tmp_repo")
-
-    main_file = None
-
-    for file_info in result["files"]:
-        if file_info["path"].endswith("main.py"):
-            main_file = file_info
+    result = _scan_temp_repo_result()
+    main_file = _main_file(result)
 
     assert main_file is not None
 

@@ -1,10 +1,46 @@
 from brief import generate_task_brief, score_relevant_files
 from brief_impact import generate_impact_notes
-from scanner import scan_repo
+
+
+def brief_impact_graph() -> dict:
+    return {
+        "schema_version": 1,
+        "root": "sample-root",
+        "files": [
+            {
+                "path": "helper.py",
+                "language": "python",
+                "classes": [],
+                "functions": [{"name": "help_me"}],
+                "imports": [],
+                "external_imports": [],
+                "unresolved_imports": [],
+                "unresolved_import_details": [],
+            },
+            {
+                "path": "main.py",
+                "language": "python",
+                "classes": [],
+                "functions": [{"name": "run"}],
+                "imports": ["helper"],
+                "external_imports": [],
+                "unresolved_imports": [],
+                "unresolved_import_details": [],
+            },
+        ],
+        "edges": [
+            {
+                "from": "main.py",
+                "to": "helper.py",
+                "type": "imports",
+                "import": "helper",
+            }
+        ],
+    }
 
 
 def test_generate_impact_notes_includes_main_section():
-    graph = scan_repo("tmp_repo")
+    graph = brief_impact_graph()
     relevant_files = score_relevant_files(graph, "change helper behavior")
 
     content = generate_impact_notes(graph, relevant_files[:2])
@@ -18,7 +54,7 @@ def test_generate_impact_notes_includes_main_section():
 
 
 def test_generate_impact_notes_reports_helper_dependency_impact():
-    graph = scan_repo("tmp_repo")
+    graph = brief_impact_graph()
     relevant_files = score_relevant_files(graph, "change helper behavior")
 
     content = generate_impact_notes(graph, relevant_files[:2])
@@ -29,7 +65,7 @@ def test_generate_impact_notes_reports_helper_dependency_impact():
 
 
 def test_generate_task_brief_includes_impact_notes():
-    graph = scan_repo("tmp_repo")
+    graph = brief_impact_graph()
     content = generate_task_brief(graph, "change helper behavior")
 
     assert "## Impact Notes" in content

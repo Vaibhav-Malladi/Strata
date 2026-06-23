@@ -1,75 +1,113 @@
 import json
 import os
+import tempfile
+from pathlib import Path
 
 from cli import write_graph, show_file
 from tests.helpers import run_silently, capture_output
 
 
+def _create_cli_core_repo(root: Path) -> None:
+    root.mkdir(parents=True, exist_ok=True)
+
+    (root / "helper.py").write_text(
+        "def helper():\n"
+        "    return True\n",
+        encoding="utf-8",
+    )
+
+    (root / "main.py").write_text(
+        "import os\n"
+        "import helper\n"
+        "import missing_module\n\n"
+        "def run():\n"
+        "    return helper()\n",
+        encoding="utf-8",
+    )
+
+
 def test_cli_write_graph_creates_output_file():
-    exit_code = run_silently(write_graph, "tmp_repo")
+    with tempfile.TemporaryDirectory() as temp_dir:
+        repo_root = Path(temp_dir) / "repo"
+        _create_cli_core_repo(repo_root)
 
-    assert exit_code == 0
-    assert os.path.exists(".aidc/graph.json")
+        exit_code = run_silently(write_graph, str(repo_root))
 
-    with open(".aidc/graph.json", "r", encoding="utf-8") as file:
-        graph = json.load(file)
+        assert exit_code == 0
+        assert os.path.exists(".aidc/graph.json")
 
-    assert graph["schema_version"] == 1
-    assert graph["root"] == "tmp_repo"
-    assert len(graph["files"]) == 2
-    assert len(graph["edges"]) == 1
+        with open(".aidc/graph.json", "r", encoding="utf-8") as file:
+            graph = json.load(file)
 
-    paths = [file_info["path"] for file_info in graph["files"]]
+        assert graph["schema_version"] == 1
+        assert graph["root"] == str(repo_root)
+        assert len(graph["files"]) == 2
+        assert len(graph["edges"]) == 1
 
-    assert any(path.endswith("main.py") for path in paths)
-    assert any(path.endswith("helper.py") for path in paths)
+        paths = [file_info["path"] for file_info in graph["files"]]
 
-    main_file = None
+        assert any(path.endswith("main.py") for path in paths)
+        assert any(path.endswith("helper.py") for path in paths)
 
-    for file_info in graph["files"]:
-        if file_info["path"].endswith("main.py"):
-            main_file = file_info
+        main_file = None
 
-    assert main_file is not None
-    assert "os" in main_file["external_imports"]
-    assert "missing_module" in main_file["unresolved_imports"]
-    assert "helper" not in main_file["external_imports"]
-    assert "helper" not in main_file["unresolved_imports"]
+        for file_info in graph["files"]:
+            if file_info["path"].endswith("main.py"):
+                main_file = file_info
 
-    edge = graph["edges"][0]
+        assert main_file is not None
+        assert "os" in main_file["external_imports"]
+        assert "missing_module" in main_file["unresolved_imports"]
+        assert "helper" not in main_file["external_imports"]
+        assert "helper" not in main_file["unresolved_imports"]
 
-    assert edge["from"].endswith("main.py")
-    assert edge["to"].endswith("helper.py")
-    assert edge["import"] == "helper"
+        edge = graph["edges"][0]
+
+        assert edge["from"].endswith("main.py")
+        assert edge["to"].endswith("helper.py")
+        assert edge["import"] == "helper"
 
 
 def test_cli_show_file_finds_saved_file():
-    run_silently(write_graph, ".")
+    with tempfile.TemporaryDirectory() as temp_dir:
+        repo_root = Path(temp_dir) / "repo"
+        _create_cli_core_repo(repo_root)
 
-    exit_code = run_silently(show_file, "tmp_repo/main.py")
+        run_silently(write_graph, str(repo_root))
 
-    assert exit_code == 0
+        exit_code = run_silently(show_file, str(repo_root / "main.py"))
+
+        assert exit_code == 0
 
 
 def test_cli_show_file_returns_error_for_missing_file():
-    run_silently(write_graph, ".")
+    with tempfile.TemporaryDirectory() as temp_dir:
+        repo_root = Path(temp_dir) / "repo"
+        _create_cli_core_repo(repo_root)
 
-    exit_code = run_silently(show_file, "missing.py")
+        run_silently(write_graph, str(repo_root))
 
-    assert exit_code == 1
+        exit_code = run_silently(show_file, "missing.py")
+
+        assert exit_code == 1
 
 
 def test_cli_show_file_displays_unresolved_import_line_number():
-    run_silently(write_graph, ".")
+    with tempfile.TemporaryDirectory() as temp_dir:
+        repo_root = Path(temp_dir) / "repo"
+        _create_cli_core_repo(repo_root)
 
-    exit_code, output = capture_output(show_file, "tmp_repo/main.py")
+        run_silently(write_graph, str(repo_root))
 
-    assert exit_code == 0
-    assert "Warnings" in output
-    assert "Unresolved imports found in tmp_repo\\main.py:" in output
-    assert "missing_module" in output
-    assert "at line" in output
-    assert "3" in output
+        exit_code, output = capture_output(show_file, str(repo_root / "main.py"))
+
+        assert exit_code == 0
+        assert "Warnings" in output
+        assert "Unresolved imports found in" in output
+        assert "missing_module" in output
+        assert "at line" in output
+        assert "3" in output
+
 
 def test_cli_show_file_displays_backend_routes():
     graph = {
@@ -120,6 +158,7 @@ def test_cli_show_file_displays_backend_routes():
     assert "@app.get" in output
     assert "@router.post" in output
 
+
 def test_cli_agent_prompt_command_smoke():
     import os
     import subprocess
@@ -154,6 +193,7 @@ def test_cli_agent_prompt_command_smoke():
     assert "local" in result.stdout
     assert output_path.exists()
 
+
 def test_cli_status_command_smoke():
     import os
     import subprocess
@@ -184,6 +224,7 @@ def test_cli_status_command_smoke():
     assert "# Strata Status" in result.stdout
     assert "## Generated Files" in result.stdout
     assert "## Recommended Actions" in result.stdout
+
 
 TESTS = [
     test_cli_write_graph_creates_output_file,

@@ -1,8 +1,9 @@
-import os
+import tempfile
+from pathlib import Path
 
 from cli import write_preflight
 from preflight import generate_preflight_report, write_preflight_report
-from tests.helpers import run_silently
+from tests.helpers import run_silently, change_directory, temporary_repo
 
 
 def preflight_test_graph():
@@ -142,24 +143,22 @@ def test_generate_preflight_report_includes_verification_plan():
 
     assert "Recommended commands:" in content
     assert "`py tests.py`" in content
-    assert "`py cli.py map tmp_repo`" in content
+    assert "`py cli.py map" in content
     assert "Likely related test files:" in content
     assert "tests/test_map_writer.py" in content
 
 
 def test_write_preflight_report_creates_file():
     graph = preflight_test_graph()
-    output_path = ".aidc/test_preflight.md"
+    with tempfile.TemporaryDirectory() as temp_dir:
+        output_path = Path(temp_dir) / ".aidc" / "test_preflight.md"
 
-    if os.path.exists(output_path):
-        os.remove(output_path)
+        write_preflight_report(graph, "add map command tests", str(output_path))
 
-    write_preflight_report(graph, "add map command tests", output_path)
+        assert output_path.exists()
 
-    assert os.path.exists(output_path)
-
-    with open(output_path, "r", encoding="utf-8") as file:
-        content = file.read()
+        with open(output_path, "r", encoding="utf-8") as file:
+            content = file.read()
 
     assert "# Preflight Report" in content
     assert "add map command tests" in content
@@ -167,24 +166,36 @@ def test_write_preflight_report_creates_file():
 
 
 def test_cli_write_preflight_creates_preflight_file():
-    exit_code = run_silently(write_preflight, ".", "add map command tests")
+    with temporary_repo(
+        {
+            "cli.py": "def main():\n    return 0\n",
+            "map_writer.py": "def generate_project_map(graph):\n    return ''\n",
+            "tests/test_map_writer.py": (
+                "def test_cli_write_map_creates_project_map_file():\n"
+                "    pass\n"
+            ),
+            "tests.py": "import tests.run\n",
+        }
+    ) as root:
+        with change_directory(root):
+            exit_code = run_silently(write_preflight, str(root), "add map command tests")
 
-    assert exit_code == 0
-    assert os.path.exists(".aidc/graph.json")
-    assert os.path.exists(".aidc/preflight.md")
+        assert exit_code == 0
+        assert (root / ".aidc" / "graph.json").exists()
+        assert (root / ".aidc" / "preflight.md").exists()
 
-    with open(".aidc/preflight.md", "r", encoding="utf-8") as file:
-        content = file.read()
+        with open(root / ".aidc" / "preflight.md", "r", encoding="utf-8") as file:
+            content = file.read()
 
-    assert "# Preflight Report" in content
-    assert "add map command tests" in content
-    assert "## Repository Health" in content
-    assert "## Relevant Source Files" in content
-    assert "## Relevant Test Files" in content
-    assert "## Entry Points / Runners" in content
-    assert "## Impact Notes" in content
-    assert "## Verification Plan" in content
-    assert "## AI Agent Instructions" in content
+        assert "# Preflight Report" in content
+        assert "add map command tests" in content
+        assert "## Repository Health" in content
+        assert "## Relevant Source Files" in content
+        assert "## Relevant Test Files" in content
+        assert "## Entry Points / Runners" in content
+        assert "## Impact Notes" in content
+        assert "## Verification Plan" in content
+        assert "## AI Agent Instructions" in content
 
 def test_preflight_includes_backend_routes_section():
     graph = {

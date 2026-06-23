@@ -2,7 +2,7 @@ import os
 
 from brief import generate_task_brief, score_relevant_files
 from cli import write_brief
-from tests.helpers import run_silently
+from tests.helpers import run_silently, change_directory, temporary_repo
 
 
 def brief_test_graph():
@@ -125,29 +125,41 @@ def test_task_brief_generation_includes_prompt_and_tests():
 
     assert "py tests.py" in content
     assert "py cli.py help" in content
-    assert "py cli.py map tmp_repo" in content
+    assert "py cli.py map" in content
 
     assert "Use only the Python standard library." in content
     assert "Do not touch unrelated files." in content
 
 
 def test_cli_write_brief_creates_task_brief_file():
-    exit_code = run_silently(write_brief, ".", "add map command tests")
+    with temporary_repo(
+        {
+            "cli.py": "def main():\n    return 0\n",
+            "map_writer.py": "def generate_project_map(graph):\n    return ''\n",
+            "tests/test_map_writer.py": (
+                "def test_cli_write_map_creates_project_map_file():\n"
+                "    pass\n"
+            ),
+            "brief.py": "def generate_task_brief(graph, task):\n    return ''\n",
+        }
+    ) as root:
+        with change_directory(root):
+            exit_code = run_silently(write_brief, str(root), "add map command tests")
 
-    assert exit_code == 0
-    assert os.path.exists(".aidc/graph.json")
-    assert os.path.exists(".aidc/task_brief.md")
+        assert exit_code == 0
+        assert (root / ".aidc" / "graph.json").exists()
+        assert (root / ".aidc" / "task_brief.md").exists()
 
-    with open(".aidc/task_brief.md", "r", encoding="utf-8") as file:
-        content = file.read()
+        with open(root / ".aidc" / "task_brief.md", "r", encoding="utf-8") as file:
+            content = file.read()
 
-    assert "# Task Brief" in content
-    assert "add map command tests" in content
-    assert "## Relevant Files" in content
-    assert "## File Context" in content
-    assert "## Impact Notes" in content
-    assert "## Suggested Tests" in content
-    assert "Suggested Prompt for AI Agent" in content
+        assert "# Task Brief" in content
+        assert "add map command tests" in content
+        assert "## Relevant Files" in content
+        assert "## File Context" in content
+        assert "## Impact Notes" in content
+        assert "## Suggested Tests" in content
+        assert "Suggested Prompt for AI Agent" in content
 
 
 TESTS = [
