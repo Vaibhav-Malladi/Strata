@@ -20,6 +20,7 @@ DIFF_REPORT_JSON_FILE = os.path.join(OUTPUT_DIR, "diff_report.json")
 VERIFICATION_REPORT_MD_FILE = os.path.join(OUTPUT_DIR, "verification_report.md")
 VERIFICATION_REPORT_JSON_FILE = os.path.join(OUTPUT_DIR, "verification_report.json")
 CONTEXT_PACK_FILE = os.path.join(OUTPUT_DIR, "context_pack.md")
+SNAPSHOT_LATEST_FILE = os.path.join(OUTPUT_DIR, "snapshots", "latest.txt")
 
 
 def normalize_path(path: str) -> str:

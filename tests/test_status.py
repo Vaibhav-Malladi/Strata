@@ -1,3 +1,4 @@
+import os
 import tempfile
 from pathlib import Path
 
@@ -13,6 +14,13 @@ GENERATED_FILE_PATHS = [
     ".aidc/agent_prompt.md",
     ".aidc/routes.md",
     ".aidc/routes.json",
+    ".aidc/diff_report.md",
+    ".aidc/diff_report.json",
+    ".aidc/verification_report.md",
+    ".aidc/verification_report.json",
+    ".aidc/gate_report.md",
+    ".aidc/gate_report.json",
+    ".aidc/snapshots/latest.txt",
 ]
 
 
@@ -24,6 +32,10 @@ def write_generated_files(root: Path) -> None:
         path = root / relative_path
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("generated\n", encoding="utf-8")
+
+
+def set_mtime(path: Path, timestamp: float) -> None:
+    os.utime(path, (timestamp, timestamp))
 
 
 def test_analyze_status_reports_missing_generated_files():
@@ -39,6 +51,13 @@ def test_analyze_status_reports_missing_generated_files():
         assert ".aidc/context_pack.md" in result["missing_files"]
         assert ".aidc/routes.md" in result["missing_files"]
         assert ".aidc/routes.json" in result["missing_files"]
+        assert ".aidc/diff_report.md" in result["missing_files"]
+        assert ".aidc/diff_report.json" in result["missing_files"]
+        assert ".aidc/verification_report.md" in result["missing_files"]
+        assert ".aidc/verification_report.json" in result["missing_files"]
+        assert ".aidc/gate_report.md" in result["missing_files"]
+        assert ".aidc/gate_report.json" in result["missing_files"]
+        assert ".aidc/snapshots/latest.txt" in result["missing_files"]
 
 
 def test_analyze_status_reports_current_when_outputs_exist():
@@ -62,21 +81,61 @@ def test_analyze_status_reports_current_when_outputs_exist():
         assert ".aidc/routes.md" in paths
         assert ".aidc/context_pack.md" in paths
         assert ".aidc/routes.json" in paths
+        assert ".aidc/diff_report.md" in paths
+        assert ".aidc/diff_report.json" in paths
+        assert ".aidc/verification_report.md" in paths
+        assert ".aidc/verification_report.json" in paths
+        assert ".aidc/gate_report.md" in paths
+        assert ".aidc/gate_report.json" in paths
+        assert ".aidc/snapshots/latest.txt" in paths
 
 
 def test_analyze_status_reports_stale_outputs():
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
+        older_time = 1_700_000_000
+        newer_time = older_time + 10
 
         write_generated_files(root)
 
         source = root / "main.py"
         source.write_text("print('newer source')\n", encoding="utf-8")
+        set_mtime(source, newer_time)
+
+        for relative_path in GENERATED_FILE_PATHS:
+            set_mtime(root / relative_path, older_time)
 
         result = analyze_status(str(root))
+        normalized_stale = {
+            str(path).replace("\\", "/")
+            for path in result["stale_files"]
+        }
 
         assert result["state"] == "stale"
-        assert ".aidc/graph.json" in result["stale_files"]
+        assert ".aidc/graph.json" in normalized_stale
+        assert ".aidc/snapshots/latest.txt" in normalized_stale
+
+
+def test_analyze_status_tracks_latest_snapshot_indicator_only():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+
+        (root / "main.py").write_text("print('hello')\n", encoding="utf-8")
+        write_generated_files(root)
+
+        snapshot_dir = root / ".aidc" / "snapshots" / "20240102_030405"
+        snapshot_dir.mkdir(parents=True, exist_ok=True)
+        (snapshot_dir / "graph.json").write_text("snapshot\n", encoding="utf-8")
+        (root / ".aidc" / "snapshots" / "latest.txt").write_text(
+            "20240102_030405\n",
+            encoding="utf-8",
+        )
+
+        result = analyze_status(str(root))
+        paths = [item["path"] for item in result["generated_files"]]
+
+        assert ".aidc/snapshots/latest.txt" in paths
+        assert ".aidc/snapshots/20240102_030405/graph.json" not in paths
 
 
 def test_format_status_report_contains_sections():
@@ -95,6 +154,11 @@ def test_format_status_report_contains_sections():
                 "modified_time": None,
             },
             {
+                "path": ".aidc/diff_report.md",
+                "exists": False,
+                "modified_time": None,
+            },
+            {
                 "path": ".aidc/context_pack.md",
                 "exists": False,
                 "modified_time": None,
@@ -104,12 +168,19 @@ def test_format_status_report_contains_sections():
                 "exists": False,
                 "modified_time": None,
             },
+            {
+                "path": ".aidc/snapshots/latest.txt",
+                "exists": False,
+                "modified_time": None,
+            },
         ],
         "missing_files": [
             ".aidc/graph.json",
             ".aidc/routes.md",
+            ".aidc/diff_report.md",
             ".aidc/context_pack.md",
             ".aidc/routes.json",
+            ".aidc/snapshots/latest.txt",
         ],
         "stale_files": [],
         "newest_source_mtime": None,
@@ -122,14 +193,18 @@ def test_format_status_report_contains_sections():
     assert "## Missing Outputs" in report
     assert "## Recommended Actions" in report
     assert ".aidc/routes.md" in report
+    assert ".aidc/diff_report.md" in report
     assert ".aidc/context_pack.md" in report
     assert ".aidc/routes.json" in report
-    assert "py cli.py routes" in report
+    assert ".aidc/snapshots/latest.txt" in report
+    assert "strata routes" in report
+    assert "strata snapshot" in report
 
 
 TESTS = [
     test_analyze_status_reports_missing_generated_files,
     test_analyze_status_reports_current_when_outputs_exist,
     test_analyze_status_reports_stale_outputs,
+    test_analyze_status_tracks_latest_snapshot_indicator_only,
     test_format_status_report_contains_sections,
 ]

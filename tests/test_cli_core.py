@@ -4,6 +4,7 @@ import tempfile
 from pathlib import Path
 
 from cli import write_graph, show_file
+from cli_help import print_usage
 from tests.helpers import run_silently, capture_output
 
 
@@ -226,6 +227,15 @@ def test_cli_status_command_smoke():
     assert "## Recommended Actions" in result.stdout
 
 
+def test_cli_help_prefers_strata_commands():
+    _, output = capture_output(print_usage)
+
+    assert "strata scan [path]" in output
+    assert "strata gate <root>" in output
+    assert "Legacy fallback: use `py cli.py ...`" in output
+    assert "py cli.py scan [path]" not in output
+
+
 TESTS = [
     test_cli_write_graph_creates_output_file,
     test_cli_show_file_finds_saved_file,
@@ -234,4 +244,5 @@ TESTS = [
     test_cli_show_file_displays_backend_routes,
     test_cli_agent_prompt_command_smoke,
     test_cli_status_command_smoke,
+    test_cli_help_prefers_strata_commands,
 ]
