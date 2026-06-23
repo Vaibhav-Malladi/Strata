@@ -1,0 +1,64 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "strata-repo-intel"
+version = "0.3.1"
+description = "Local-first repository intelligence for AI-assisted coding workflows."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+    { name = "Vaibhav Malladi" }
+]
+license = { text = "MIT" }
+keywords = [
+    "repository-intelligence",
+    "ai-coding",
+    "cli",
+    "static-analysis",
+    "developer-tools"
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development",
+    "Topic :: Software Development :: Quality Assurance"
+]
+dependencies = []
+
+[project.scripts]
+strata = "cli:main"
+
+[tool.setuptools]
+py-modules = [
+    "agent_export",
+    "brief",
+    "brief_impact",
+    "cli",
+    "cli_core",
+    "cli_help",
+    "cli_ui",
+    "cycles",
+    "graph",
+    "health",
+    "impact",
+    "languages",
+    "map_writer",
+    "preflight",
+    "python_parser",
+    "routes",
+    "scanner",
+    "status",
+    "test_mapper"
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["commands*", "parsers*"]

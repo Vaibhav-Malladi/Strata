@@ -114,16 +114,30 @@ Check your Python version:
 py --version
 ```
 
+### Windows Fallback
+
+For a quick repo-root test, you can run `.\strata.cmd` from the repository root.
+
+The main public workflow is the editable install shown below with `py -m pip install -e .` and the `strata` console script.
+
 ---
 
 ## Installation
 
-Clone the repository:
+Recommended install:
 
 ```powershell
 git clone https://github.com/Vaibhav-Malladi/Strata.git
 cd Strata
+py -m pip install -e .
+strata help
+strata status
+strata routes
 ```
+
+This editable install exposes the `strata` console script from anywhere in the environment.
+
+For a quick local Windows fallback, `strata.cmd` still works from the repo root, but it is not the main public install path.
 
 Run the test suite:
 
