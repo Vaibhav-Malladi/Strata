@@ -57,9 +57,16 @@ def test_snapshot_command_writes_timestamped_snapshot_directory():
         assert (created_dir / "routes.json").exists()
         assert (created_dir / "summary.md").exists()
         assert latest_path.exists()
-        assert "Snapshot created" in output
-        assert "Status" in output
-        assert "complete" in output
+        normalized_output = output.replace("\\", "/")
+
+        assert "Strata" in output
+        assert "Snapshot complete" in output
+        assert "Snapshot" in output
+        assert ".aidc" in normalized_output
+        assert "latest.txt" in output
+        assert "graph.json" in output
+        assert "routes.json" in output
+        assert "summary.md" in output
 
 
 def test_snapshot_command_latest_points_to_created_snapshot():
