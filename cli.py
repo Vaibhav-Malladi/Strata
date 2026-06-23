@@ -11,6 +11,7 @@ from commands.impact_command import show_impact
 from commands.map_command import write_map
 from commands.preflight_command import write_preflight
 from commands.snapshot_command import write_snapshot_command
+from commands.verify_command import write_verify_command
 from commands.routes_command import write_routes
 from commands.scan_command import write_graph
 from commands.show_command import show_file, show_graph_summary
@@ -18,171 +19,156 @@ from commands.status_command import show_status
 from commands.tests_for_command import show_tests_for
 
 
-def main() -> None:
+def main() -> int:
     args = sys.argv[1:]
 
     if not args:
         print_usage()
-        return
+        return 0
 
     command = args[0]
 
     if command in {"help", "-h", "--help"}:
         print_usage()
-        return
+        return 0
 
     if command == "scan":
         if len(args) == 1:
-            write_graph(".")
-            return
+            return write_graph(".")
         if len(args) == 2:
-            write_graph(args[1])
-            return
+            return write_graph(args[1])
         print_usage()
-        return
+        return 1
 
     if command == "show":
         if len(args) == 1:
             show_graph_summary()
-            return
+            return 0
         if len(args) == 2:
             show_file(args[1])
-            return
+            return 0
         print_usage()
-        return
+        return 1
 
     if command == "map":
         if len(args) == 1:
-            write_map(".")
-            return
+            return write_map(".")
         if len(args) == 2:
-            write_map(args[1])
-            return
+            return write_map(args[1])
         print_usage()
-        return
+        return 1
 
     if command == "routes":
         if len(args) == 1:
-            write_routes(".")
-            return
+            return write_routes(".")
         if len(args) == 2:
-            write_routes(args[1])
-            return
+            return write_routes(args[1])
         print_usage()
-        return
+        return 1
 
     if command == "diff":
         if len(args) == 1:
-            write_diff_command(".")
-            return
+            return write_diff_command(".")
         if len(args) == 2:
-            write_diff_command(args[1])
-            return
+            return write_diff_command(args[1])
         print_usage()
-        return
+        return 1
 
     if command == "snapshot":
         if len(args) == 1:
-            write_snapshot_command(".")
-            return
+            return write_snapshot_command(".")
         if len(args) == 2:
-            write_snapshot_command(args[1])
-            return
+            return write_snapshot_command(args[1])
         print_usage()
-        return
+        return 1
+
+    if command == "verify":
+        if len(args) == 1:
+            return write_verify_command(".")
+        if len(args) == 2:
+            return write_verify_command(args[1])
+        print_usage()
+        return 1
 
     if command == "brief":
         if len(args) == 2:
-            write_brief(".", args[1])
-            return
+            return write_brief(".", args[1])
         if len(args) == 3:
-            write_brief(args[1], args[2])
-            return
+            return write_brief(args[1], args[2])
         print_usage()
-        return
+        return 1
 
     if command == "cycles":
         if len(args) == 1:
-            show_cycles(".")
-            return
+            return show_cycles(".")
         if len(args) == 2:
-            show_cycles(args[1])
-            return
+            return show_cycles(args[1])
         print_usage()
-        return
+        return 1
 
     if command == "health":
         if len(args) == 1:
-            show_health(".")
-            return
+            return show_health(".")
         if len(args) == 2:
-            show_health(args[1])
-            return
+            return show_health(args[1])
         print_usage()
-        return
+        return 1
 
     if command == "impact":
         if len(args) == 2:
-            show_impact(".", args[1])
-            return
+            return show_impact(".", args[1])
         if len(args) == 3:
-            show_impact(args[1], args[2])
-            return
+            return show_impact(args[1], args[2])
         print_usage()
-        return
+        return 1
 
     if command == "tests-for":
         if len(args) == 2:
-            show_tests_for(".", args[1])
-            return
+            return show_tests_for(".", args[1])
         if len(args) == 3:
-            show_tests_for(args[1], args[2])
-            return
+            return show_tests_for(args[1], args[2])
         print_usage()
-        return
+        return 1
 
     if command == "preflight":
         if len(args) == 2:
-            write_preflight(".", args[1])
-            return
+            return write_preflight(".", args[1])
         if len(args) == 3:
-            write_preflight(args[1], args[2])
-            return
+            return write_preflight(args[1], args[2])
         print_usage()
-        return
+        return 1
 
     if command == "context":
         if len(args) == 2:
-            write_context(".", args[1])
-            return
+            return write_context(".", args[1])
         if len(args) == 3:
-            write_context(args[1], args[2])
-            return
+            return write_context(args[1], args[2])
         print_usage()
-        return
+        return 1
 
     if command == "agent-prompt":
         if len(args) == 3:
             write_agent_prompt_command(".", args[1], args[2])
-            return
+            return 0
         if len(args) == 4:
             write_agent_prompt_command(args[1], args[2], args[3])
-            return
+            return 0
         print_usage()
-        return
+        return 1
 
     if command == "status":
         if len(args) == 1:
             show_status(".")
-            return
+            return 0
         if len(args) == 2:
             show_status(args[1])
-            return
+            return 0
         print_usage()
-        return
+        return 1
 
     print_usage()
+    return 1
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

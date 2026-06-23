@@ -30,6 +30,8 @@ import test_context_pack
 import test_snapshot
 import test_snapshot_command
 import test_diff_engine
+import test_verify
+import test_verify_command
 import test_diff_command
 from tests import test_languages
 from tests import test_javascript_parser
@@ -60,6 +62,8 @@ TEST_MODULES = [
     test_snapshot,
     test_snapshot_command,
     test_diff_engine,
+    test_verify,
+    test_verify_command,
     test_diff_command,
     test_languages,
     test_javascript_parser,
