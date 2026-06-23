@@ -1,5 +1,15 @@
 import os
 import sys
+import traceback
+
+try:  # pragma: no cover - rich progress is exercised indirectly.
+    from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
+except Exception:  # pragma: no cover - fallback when Rich is unavailable.
+    BarColumn = None
+    Progress = None
+    SpinnerColumn = None
+    TextColumn = None
+    TimeElapsedColumn = None
 
 TESTS_DIR = os.path.dirname(__file__)
 PROJECT_ROOT = os.path.dirname(TESTS_DIR)
@@ -48,6 +58,7 @@ import test_snapshot_command
 import test_patch_contract
 import test_patch_validator
 import test_patch_command
+import test_ui
 import test_diff_engine
 import test_verify
 import test_verify_command
@@ -60,6 +71,10 @@ from tests import test_typescript_parser
 from tests import test_multilang_scanner
 from tests import test_backend_map
 from tests import test_routes
+from ui import get_console, is_rich_enabled, print_command_header, print_success
+
+
+_PLAIN_PROGRESS_INTERVAL = 50
 
 
 TEST_MODULES = [
@@ -101,6 +116,7 @@ TEST_MODULES = [
     test_patch_contract,
     test_patch_validator,
     test_patch_command,
+    test_ui,
     test_diff_engine,
     test_verify,
     test_verify_command,
@@ -117,14 +133,105 @@ TEST_MODULES = [
 
 
 def main():
+    total_tests = sum(len(module.TESTS) for module in TEST_MODULES)
+
+    print_command_header("Tests", mode="compact")
+
+    total = _run_tests(total_tests)
+
+    print_success(f"All tests passed. ({total} tests)")
+
+
+def _run_tests(total_tests: int) -> int:
+    if total_tests <= 0:
+        return 0
+
+    if _supports_rich_progress():
+        return _run_tests_with_rich_progress(total_tests)
+
+    return _run_tests_with_plain_progress(total_tests)
+
+
+def _supports_rich_progress() -> bool:
+    return Progress is not None and TextColumn is not None and BarColumn is not None and TimeElapsedColumn is not None and is_rich_enabled()
+
+
+def _run_tests_with_rich_progress(total_tests: int) -> int:
+    console = get_console()
+    columns = []
+
+    if SpinnerColumn is not None and not _env_flag("STRATA_NO_SPINNER"):
+        columns.append(SpinnerColumn())
+
+    columns.extend(
+        [
+            TextColumn("[bold cyan]{task.description}"),
+            BarColumn(),
+            TextColumn("{task.completed}/{task.total}"),
+            TextColumn("[dim]{task.fields[module]}"),
+            TextColumn("[dim]{task.fields[current]}"),
+            TimeElapsedColumn(),
+        ]
+    )
+
     total = 0
+    with Progress(*columns, console=console, transient=True, refresh_per_second=12) as progress:
+        task_id = progress.add_task("Running tests", total=total_tests, module="", current="")
+        for module in TEST_MODULES:
+            module_label = _format_module_label(module)
+            for test in module.TESTS:
+                test_label = _format_test_label(test)
+                progress.update(task_id, module=module_label, current=test_label)
+                try:
+                    test()
+                except Exception:
+                    _print_failure(module_label, test_label)
+                    raise
+                total += 1
+                progress.advance(task_id)
+
+    return total
+
+
+def _run_tests_with_plain_progress(total_tests: int) -> int:
+    total = 0
+    next_report = _PLAIN_PROGRESS_INTERVAL
 
     for module in TEST_MODULES:
+        module_label = _format_module_label(module)
         for test in module.TESTS:
-            test()
+            test_label = _format_test_label(test)
+            try:
+                test()
+            except Exception:
+                _print_failure(module_label, test_label)
+                raise
+
             total += 1
 
-    print(f"All tests passed. ({total} tests)")
+            if total >= next_report or total == total_tests:
+                print(f"Running tests... {total}/{total_tests}")
+                while next_report <= total:
+                    next_report += _PLAIN_PROGRESS_INTERVAL
+
+    return total
+
+
+def _print_failure(module_label: str, test_label: str) -> None:
+    print(f"Failed test: {module_label}.{test_label}")
+    traceback.print_exc()
+
+
+def _format_module_label(module) -> str:
+    return str(getattr(module, "__name__", "module"))
+
+
+def _format_test_label(test) -> str:
+    return str(getattr(test, "__name__", "test"))
+
+
+def _env_flag(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 if __name__ == "__main__":

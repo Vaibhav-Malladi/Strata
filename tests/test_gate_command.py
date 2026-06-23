@@ -72,7 +72,6 @@ def test_gate_command_writes_reports_and_formats_terminal_output():
         assert "Local-first repository intelligence for AI-assisted coding" in output
         assert "Gate complete" in output
         assert "PASS" in output
-        assert "✓" in output
         assert "Failures" in output
         assert "Warnings" in output
         assert ".aidc/gate_report.md" in normalized_output
@@ -132,8 +131,10 @@ def test_gate_command_clean_repo_reports_pass_without_crashing():
 
         assert exit_code == 0
         assert payload["status"] == "PASS"
+        assert "Strata" in output
+        assert "Local-first repository intelligence for AI-assisted coding" in output
         assert "Gate complete" in output
-        assert "✓ PASS" in output
+        assert "PASS" in output
 
 
 def test_gate_command_reports_fail_for_unresolved_imports():

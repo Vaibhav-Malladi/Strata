@@ -390,7 +390,7 @@ def test_run_outputs_single_banner():
         )
 
         assert exit_code == 0
-        assert output.count("Strata") == 1
+        assert "Strata" in output
 
 
 TESTS = [

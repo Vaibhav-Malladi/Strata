@@ -31,7 +31,9 @@ classifiers = [
     "Topic :: Software Development",
     "Topic :: Software Development :: Quality Assurance"
 ]
-dependencies = []
+dependencies = [
+    "rich>=13",
+]
 
 [project.scripts]
 strata = "cli:main"

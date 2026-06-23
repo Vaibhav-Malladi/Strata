@@ -2,13 +2,12 @@ from patch_applier import apply_patch_file
 from patch_contract import inspect_patch
 from patch_validator import validate_patch_file
 from ui import (
-    build_banner,
-    build_kv_table,
-    build_section,
     format_error,
     format_path,
     format_success,
     format_warning,
+    print_command_header,
+    print_status_card,
 )
 
 
@@ -42,10 +41,8 @@ def write_apply_dry_run_command(root_path: str = ".") -> int:
     if validation is not None and validation.get("errors"):
         rows.append(("Errors", _format_notes(validation.get("errors", []))))
 
-    print(build_banner())
-    print()
-    print(build_section("Apply dry-run"))
-    print(build_kv_table(rows))
+    print_command_header("Apply", "Validate and apply patch", mode="compact")
+    print_status_card("Apply dry-run", rows, status=display_status)
 
     return 0 if validation is not None and validation.get("valid") else 1
 
@@ -63,10 +60,6 @@ def write_apply_command(root_path: str = ".") -> int:
         if validation.get("valid"):
             apply_result = apply_patch_file(root_path)
             summary_status = str(apply_result.get("status", "failed")).lower()
-
-    print(build_banner())
-    print()
-    print(build_section("Apply patch"))
 
     validation_status = (
         str(validation.get("status", patch_summary.get("status", "missing"))).lower()
@@ -104,7 +97,8 @@ def write_apply_command(root_path: str = ".") -> int:
     if errors:
         rows.append(("Errors", _format_notes(errors)))
 
-    print(build_kv_table(rows))
+    print_command_header("Apply", "Validate and apply patch", mode="compact")
+    print_status_card("Apply patch", rows, status=_format_apply_status(summary_status))
 
     return 0 if apply_result is not None and apply_result.get("applied") else 1
 

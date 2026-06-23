@@ -5,6 +5,7 @@ import socket
 import sys
 import tempfile
 import textwrap
+import re
 from pathlib import Path
 
 import commands.execute_command as execute_command_module
@@ -80,6 +81,7 @@ def test_execute_prompt_file_ready_returns_nonzero_and_says_manual():
 
         assert exit_code == 1
         assert "Execute adapter" in output
+        assert "Lifecycle" in output
         assert "manual" in output
         assert "prompt_file is manual" in output
         assert "Executes command" in output
@@ -130,15 +132,16 @@ def test_execute_command_ready_returns_zero_when_valid_patch_produced():
 
         assert exit_code == 0
         assert "Execute adapter" in output
+        assert "Lifecycle" in output
         assert "patch_ready" in output
         assert "Timeout seconds" in output
         assert "120" in output
-        assert "Executes command  yes" in output
-        assert "Applies patch     no" in output
+        assert re.search(r"Executes command\s+yes", output)
+        assert re.search(r"Applies patch\s+no", output)
         assert "Return code" in output
         assert "Patch status" in output
-        assert "Patch valid       yes" in output
-        assert "Targets           main.py" in output
+        assert re.search(r"Patch valid\s+yes", output)
+        assert re.search(r"Targets\s+main\.py", output)
         assert "Next" in output
         assert "strata patch" in output
         assert "strata apply --dry-run" in output
@@ -432,8 +435,8 @@ def test_execute_command_missing_patch_returns_nonzero():
         assert exit_code == 1
         assert "missing_patch" in output
         assert "Command did not produce a patch file." in output
-        assert "Patch valid       no" in output
-        assert "Targets           -" in output
+        assert re.search(r"Patch valid\s+no", output)
+        assert re.search(r"Targets\s+-", output)
 
 
 def test_execute_command_empty_patch_returns_nonzero():
@@ -467,7 +470,7 @@ def test_execute_command_empty_patch_returns_nonzero():
         assert exit_code == 1
         assert "empty_patch" in output
         assert "Command executed but produced an empty patch." in output
-        assert "Patch valid       no" in output
+        assert re.search(r"Patch valid\s+no", output)
 
 
 def test_execute_command_invalid_patch_returns_nonzero():
@@ -501,8 +504,8 @@ def test_execute_command_invalid_patch_returns_nonzero():
         assert exit_code == 1
         assert "invalid_patch" in output
         assert "Patch failed validation." in output
-        assert "Patch valid       no" in output
-        assert "Targets           -" in output
+        assert re.search(r"Patch valid\s+no", output)
+        assert re.search(r"Targets\s+-", output)
 
 
 def test_execute_command_non_zero_exit_returns_nonzero():
@@ -535,7 +538,7 @@ def test_execute_command_non_zero_exit_returns_nonzero():
         assert exit_code == 1
         assert "command_failed" in output
         assert "Command exited with code 2." in output
-        assert "Return code       2" in output
+        assert re.search(r"Return code\s+2", output)
         assert "Patch status" in output
         assert "missing" in output
 

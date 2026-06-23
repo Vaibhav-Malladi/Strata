@@ -14,6 +14,25 @@ Strata does **not** edit source files by itself. Strata does **not** call cloud 
 v0.5.1 / HTTP execution foundation
 ```
 
+## Terminal UI
+
+Strata now uses a Rich-powered terminal UI for cleaner banners, cards, and tables.
+Progress indicators appear only in interactive terminals, while CI and non-TTY runs
+stay plain and readable.
+
+The command screens now use a fuller Strata wordmark, compact command headers for
+doctor/patch/apply, a lifecycle panel for execute, and visible progress updates in
+`py tests.py` and `py tests\run.py`. Test runs use a Rich progress bar in
+interactive terminals and a periodic plain-text fallback in non-TTY runs.
+
+Useful env vars:
+
+- `STRATA_PLAIN=1`
+- `STRATA_NO_SPINNER=1`
+- `STRATA_FORCE_SPINNER=1`
+- `STRATA_NO_COLOR=1`
+- `NO_COLOR=1`
+
 ## Install / Local Development
 
 Requirements:

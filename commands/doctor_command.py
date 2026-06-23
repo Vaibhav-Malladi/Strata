@@ -2,7 +2,14 @@ from __future__ import annotations
 
 from adapter_doctor import check_adapter
 from cli_help import print_usage
-from ui import build_banner, build_kv_table, build_section, format_error, format_path, format_success, format_warning
+from ui import (
+    format_error,
+    format_path,
+    format_success,
+    format_warning,
+    print_command_header,
+    print_status_card,
+)
 
 
 def write_doctor_command(*args: str) -> int:
@@ -28,15 +35,12 @@ def write_doctor_command(*args: str) -> int:
 
 
 def _print_usage_hint() -> None:
-    print(build_banner())
-    print()
-    print(build_section("Doctor"))
+    print_command_header("Doctor", "Adapter checks", mode="compact")
     print(format_warning("Supported usage is `strata doctor adapter`."))
 
 
 def _print_adapter_result(result: dict[str, object]) -> None:
     rows = [
-        ("Status", _format_status(str(result.get("status", "invalid")))),
         ("Mode", _format_value(result.get("mode"))),
         ("Agent", _format_value(result.get("agent"))),
         ("Adapter", _format_value(result.get("adapter"))),
@@ -60,25 +64,24 @@ def _print_adapter_result(result: dict[str, object]) -> None:
     if warnings:
         rows.append(("Warnings", _format_notes(warnings)))
 
-    print(build_banner())
-    print()
-    print(build_section("Adapter doctor"))
-    print(build_kv_table(rows))
+    print_command_header("Doctor", "Adapter health check", mode="compact")
+    print_status_card(
+        "Adapter doctor",
+        rows,
+        status=_format_status(str(result.get("status", "invalid"))),
+    )
 
     checks = result.get("checks") or []
     if checks:
-        print()
-        print(build_section("Checks"))
-        print(
-            build_kv_table(
-                [
-                    (
-                        str(check.get("name", "")).title(),
-                        _format_check(check),
-                    )
-                    for check in checks
-                ]
-            )
+        print_status_card(
+            "Checks",
+            [
+                (
+                    str(check.get("name", "")).title(),
+                    _format_check(check),
+                )
+                for check in checks
+            ],
         )
 
 

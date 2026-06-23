@@ -8,13 +8,16 @@ from http_adapter_contract import build_http_contract_summary
 from http_executor import execute_openai_compatible_http_adapter
 from workflow_config import load_config
 from ui import (
-    build_banner,
-    build_kv_table,
-    build_section,
     format_error,
     format_path,
     format_success,
     format_warning,
+    print_banner,
+    print_command_header,
+    print_lifecycle,
+    print_status_card,
+    render_step,
+    status_spinner,
 )
 
 _PLANNED_COMMAND_ADAPTERS = {"aider", "codex_cli"}
@@ -67,11 +70,13 @@ def write_execute_command(root_path: str = ".", dry_run: bool = False) -> int:
             timeout_seconds = config.get("command_timeout_seconds") if config is not None else None
             if type(timeout_seconds) is not int or timeout_seconds <= 0:
                 timeout_seconds = DEFAULT_TIMEOUT_SECONDS
-            execution_result = execute_command_adapter(
-                root_path,
-                command=result.get("command"),
-                timeout_seconds=timeout_seconds,
-            )
+            with status_spinner(render_step("Executing adapter", "running")) as spinner:
+                execution_result = execute_command_adapter(
+                    root_path,
+                    command=result.get("command"),
+                    timeout_seconds=timeout_seconds,
+                )
+                spinner.update(render_step("Inspecting patch", "running"))
             display_status = _format_execution_status(str(execution_result.get("status", "failed")).lower())
             message = str(execution_result.get("message", ""))
             executes_command = "yes" if execution_result.get("executed") else "no"
@@ -83,7 +88,9 @@ def write_execute_command(root_path: str = ".", dry_run: bool = False) -> int:
                 next_step = "Run `strata patch`, then `strata apply --dry-run`, then `strata apply`."
 
         if ready and adapter == "openai_compatible_http":
-            execution_result = execute_openai_compatible_http_adapter(root_path, config=config or {})
+            with status_spinner(render_step("Executing adapter", "running")) as spinner:
+                execution_result = execute_openai_compatible_http_adapter(root_path, config=config or {})
+                spinner.update(render_step("Inspecting patch", "running"))
             display_status = _format_execution_status(str(execution_result.get("status", "failed")).lower())
             message = str(execution_result.get("message", ""))
             executes_http = "yes" if execution_result.get("executed") else "no"
@@ -98,7 +105,6 @@ def write_execute_command(root_path: str = ".", dry_run: bool = False) -> int:
         rows = _build_http_rows(
             result=result,
             http_contract=http_contract,
-            display_status=display_status,
             message=message,
             executes_http=executes_http,
             applies_patch=applies_patch,
@@ -109,7 +115,6 @@ def write_execute_command(root_path: str = ".", dry_run: bool = False) -> int:
         )
     else:
         rows = [
-            ("Status", display_status),
             ("Mode", _format_value(result.get("mode"))),
             ("Agent", _format_value(result.get("agent"))),
             ("Adapter", _format_value(adapter)),
@@ -125,9 +130,6 @@ def write_execute_command(root_path: str = ".", dry_run: bool = False) -> int:
             ("Targets", targets),
             ("Message", message),
         ]
-
-    if execution_result is None:
-        rows[0] = ("Status", display_status)
 
     if next_step is not None:
         rows.append(("Next", next_step))
@@ -149,10 +151,18 @@ def write_execute_command(root_path: str = ".", dry_run: bool = False) -> int:
         if stderr_preview:
             rows.append(("Stderr", stderr_preview))
 
-    print(build_banner())
-    print()
-    print(build_section("Execute adapter"))
-    print(build_kv_table(rows))
+    print_banner()
+    print_command_header("Execute", "Patch-first adapter execution", mode="compact")
+    print_lifecycle(
+        "Lifecycle",
+        [
+            "Check adapter readiness",
+            "Run configured adapter",
+            "Inspect generated patch",
+            "Report next step",
+        ],
+    )
+    print_status_card("Execute adapter", rows, status=display_status)
 
     if dry_run:
         return 0 if ready else 1
@@ -296,7 +306,6 @@ def _build_http_rows(
     *,
     result: dict[str, object],
     http_contract: dict[str, object],
-    display_status: str,
     message: str,
     executes_http: str,
     applies_patch: str,
@@ -306,7 +315,6 @@ def _build_http_rows(
     targets: str,
 ) -> list[tuple[str, object]]:
     rows = [
-        ("Status", display_status),
         ("Mode", _format_value(result.get("mode"))),
         ("Agent", _format_value(result.get("agent"))),
         ("Adapter", _format_value(result.get("adapter"))),

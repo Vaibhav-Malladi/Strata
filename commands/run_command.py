@@ -6,13 +6,15 @@ from typing import Any, Sequence
 from agent_adapters import run_adapter
 from commands.prepare_command import prepare_workflow
 from ui import (
-    build_banner,
-    build_kv_table,
-    build_section,
     format_error,
     format_path,
     format_success,
     format_warning,
+    print_banner,
+    print_command_header,
+    print_status_card,
+    render_step,
+    status_spinner,
 )
 from workflow_config import load_config
 from workflow_planner import build_step_plan
@@ -42,12 +44,14 @@ def write_run_command(root_path: str, *args: str) -> int:
         return 1
 
     try:
-        plan = build_step_plan(
-            task,
-            explicit_type=task_type,
-            auto_snapshot=config["auto_snapshot"],
-            auto_verify=config["auto_verify"],
-        )
+        with status_spinner(render_step("Planning run", "running")) as spinner:
+            plan = build_step_plan(
+                task,
+                explicit_type=task_type,
+                auto_snapshot=config["auto_snapshot"],
+                auto_verify=config["auto_verify"],
+            )
+            spinner.update(render_step("Preparing workflow", "running"))
     except ValueError as error:
         _print_error("Run failed", str(error))
         return 1
@@ -69,7 +73,9 @@ def write_run_command(root_path: str, *args: str) -> int:
         return 0
 
     try:
-        prepare_result = prepare_workflow(root, task, config)
+        with status_spinner(render_step("Preparing workflow", "running")) as spinner:
+            prepare_result = prepare_workflow(root, task, config)
+            spinner.update(render_step("Routing adapter", "running"))
     except ValueError as error:
         _print_error("Run failed", str(error))
         return 1
@@ -214,7 +220,6 @@ def _print_plan(
     classification = plan["classification"]
 
     table_rows = [
-        ("Status", status),
         ("Task", plan["task"]),
         ("Task type", classification["task_type"]),
         ("Confidence", classification["confidence"]),
@@ -225,10 +230,9 @@ def _print_plan(
     ]
     table_rows.extend(rows)
 
-    print(build_banner())
-    print()
-    print(build_section(title))
-    print(build_kv_table(table_rows))
+    print_banner()
+    print_command_header("Run", "Workflow planning", mode="compact")
+    print_status_card(title, table_rows, status=status)
 
 
 def _prompt_next_step(agent: str, prompt_path: str) -> str:
@@ -245,10 +249,8 @@ def _prompt_next_step(agent: str, prompt_path: str) -> str:
 
 
 def _print_error(title: str, message: str) -> None:
-    print(build_banner())
-    print()
-    print(build_section(title))
-    print(format_error(message))
+    print_banner()
+    print_status_card(title, [("Message", message)], status=format_error("failed"))
 
 
 def _print_usage() -> None:
