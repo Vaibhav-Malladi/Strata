@@ -8,6 +8,7 @@ from commands.health_command import show_health
 from commands.impact_command import show_impact
 from commands.map_command import write_map
 from commands.preflight_command import write_preflight
+from commands.routes_command import write_routes
 from commands.scan_command import write_graph
 from commands.show_command import show_file, show_graph_summary
 from commands.status_command import show_status
@@ -53,6 +54,16 @@ def main() -> None:
             return
         if len(args) == 2:
             write_map(args[1])
+            return
+        print_usage()
+        return
+
+    if command == "routes":
+        if len(args) == 1:
+            write_routes(".")
+            return
+        if len(args) == 2:
+            write_routes(args[1])
             return
         print_usage()
         return

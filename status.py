@@ -7,6 +7,8 @@ GENERATED_FILES = [
     ".aidc/task_brief.md",
     ".aidc/preflight.md",
     ".aidc/agent_prompt.md",
+    ".aidc/routes.md",
+    ".aidc/routes.json",
 ]
 
 
@@ -128,6 +130,7 @@ def _format_recommended_actions(status: dict) -> list[str]:
     if state == "incomplete":
         lines.append("- Run `py cli.py scan` to regenerate `.aidc/graph.json`.")
         lines.append("- Run `py cli.py map` if you need a project map.")
+        lines.append("- Run `py cli.py routes` if you need a backend route map.")
         lines.append("- Run `py cli.py preflight \"task\"` before an AI edit.")
         lines.append("- Run `py cli.py agent-prompt \"task\" local` if you need an agent-ready prompt.")
         return lines

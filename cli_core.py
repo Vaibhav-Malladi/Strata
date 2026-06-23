@@ -11,6 +11,8 @@ OUTPUT_FILE = os.path.join(OUTPUT_DIR, "graph.json")
 PROJECT_MAP_FILE = os.path.join(OUTPUT_DIR, "project_map.md")
 TASK_BRIEF_FILE = os.path.join(OUTPUT_DIR, "task_brief.md")
 PREFLIGHT_FILE = os.path.join(OUTPUT_DIR, "preflight.md")
+ROUTES_MD_FILE = os.path.join(OUTPUT_DIR, "routes.md")
+ROUTES_JSON_FILE = os.path.join(OUTPUT_DIR, "routes.json")
 
 
 def normalize_path(path: str) -> str:
