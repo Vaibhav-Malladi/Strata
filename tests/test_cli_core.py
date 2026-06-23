@@ -9,6 +9,7 @@ from cli import main as cli_main
 from cli import write_graph, show_file
 from cli_help import print_usage
 from tests.helpers import run_silently, capture_output, change_directory
+from workflow_config import default_config, save_config
 
 
 def _create_cli_core_repo(root: Path) -> None:
@@ -35,6 +36,19 @@ def _create_patch_file(root: Path, content: str) -> Path:
     patch_path.parent.mkdir(parents=True, exist_ok=True)
     patch_path.write_text(content, encoding="utf-8")
     return patch_path
+
+
+def _write_prompt(root: Path) -> Path:
+    prompt_path = root / ".aidc" / "agent_prompt.md"
+    prompt_path.parent.mkdir(parents=True, exist_ok=True)
+    prompt_path.write_text("prompt", encoding="utf-8")
+    return prompt_path
+
+
+def _save_config(root: Path, **overrides) -> None:
+    config = default_config()
+    config.update(overrides)
+    save_config(config, root)
 
 
 @contextlib.contextmanager
@@ -305,6 +319,33 @@ def test_cli_apply_dry_run_command_smoke():
         assert not (repo_root / ".aidc").exists()
 
 
+def test_cli_execute_command_dispatches():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        repo_root = Path(temp_dir)
+        _create_repo(repo_root)
+        _save_config(
+            repo_root,
+            adapter="prompt_file",
+            prompt_path=".aidc/agent_prompt.md",
+        )
+        _write_prompt(repo_root)
+
+        with change_directory(repo_root):
+            with change_argv(["cli.py", "execute"]):
+                exit_code, output = capture_output(cli_main)
+
+        assert exit_code == 1
+        assert "Execute adapter" in output
+        assert "Status" in output
+        assert "Adapter" in output
+        assert "Prompt" in output
+        assert "Patch" in output
+        assert "Command" in output
+        assert "Executes command" in output
+        assert "Applies patch" in output
+        assert "Message" in output
+
+
 def test_cli_run_command_smoke():
     import os
     import subprocess
@@ -356,6 +397,8 @@ def test_cli_help_prefers_strata_commands():
     assert 'strata run --dry-run "<task>"' in output
     assert "strata apply --dry-run" in output
     assert "strata apply --dry-run <root>" in output
+    assert "strata execute" in output
+    assert "strata execute <root>" in output
     assert "strata doctor adapter" in output
     assert "strata doctor adapter <root>" in output
     assert "strata review" in output

@@ -15,6 +15,7 @@ from commands.doctor_command import write_doctor_command
 from commands.gate_command import write_gate_command
 from commands.health_command import show_health
 from commands.impact_command import show_impact
+from commands.execute_command import write_execute_command
 from commands.apply_command import write_apply_command, write_apply_dry_run_command
 from commands.map_command import write_map
 from commands.patch_command import write_patch_command
@@ -96,6 +97,9 @@ def main() -> int:
 
     if command == "apply":
         return _exit_code(_handle_apply_command(args[1:]))
+
+    if command == "execute":
+        return _exit_code(_handle_execute_command(args[1:]))
 
     if command == "doctor":
         return _exit_code(write_doctor_command(*args[1:]))
@@ -274,6 +278,24 @@ def _handle_apply_command(args: list[str]) -> int:
         return write_apply_dry_run_command(root)
 
     return write_apply_command(root)
+
+
+def _handle_execute_command(args: list[str]) -> int:
+    positionals: list[str] = []
+
+    for arg in args:
+        if arg.startswith("-"):
+            print_usage()
+            return 1
+
+        positionals.append(arg)
+
+    if len(positionals) > 1:
+        print_usage()
+        return 1
+
+    root = positionals[0] if positionals else "."
+    return write_execute_command(root)
 
 
 if __name__ == "__main__":
