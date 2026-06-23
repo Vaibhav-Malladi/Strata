@@ -105,9 +105,13 @@ adapter contract and the patch output, not whether the external tool is actually
 Command execution is explicit, separate from `strata run`, and patch application still
 requires `strata apply`.
 
-`prompt_file` remains manual. Planned adapters like `ollama`,
-`openai_compatible_http`, `aider`, and `codex_cli` are still future work unless they
-are already supported through the command adapter path.
+Strata groups adapters into three families: `prompt_file`, `command`, and `http`.
+Named adapters are presets or aliases that map onto one of those families.
+
+`prompt_file` remains manual. `command` is the only family with real execution today.
+Planned command-family presets like `aider` and `codex_cli` are not direct
+integrations yet. Planned http-family adapters like `ollama` and
+`openai_compatible_http` are still future work.
 
 Safe workflow:
 
@@ -177,14 +181,14 @@ del .aidc\agent_patch.diff
 
 ## Adapter Status
 
-| Adapter | Status | Behavior |
-|---|---|---|
-| `prompt_file` | Implemented | Writes/uses `.aidc/agent_prompt.md`; user pastes it into an AI tool manually. |
-| `command` | Implemented | Runs the configured command adapter and writes `.aidc/agent_patch.diff`. |
-| `ollama` | Planned | Future local model adapter. |
-| `openai_compatible_http` | Planned | Future local/remote HTTP model adapter. |
-| `aider` | Planned | Future Aider adapter. |
-| `codex_cli` | Planned | Future Codex CLI adapter. |
+| Adapter | Family | Status | Behavior |
+|---|---|---|---|
+| `prompt_file` | `prompt_file` | Implemented | Writes/uses `.aidc/agent_prompt.md`; user pastes it into an AI tool manually. |
+| `command` | `command` | Implemented | Runs the configured command adapter and writes `.aidc/agent_patch.diff`. |
+| `ollama` | `http` | Planned | Future local model adapter. |
+| `openai_compatible_http` | `http` | Planned | Future local/remote HTTP model adapter. |
+| `aider` | `command` | Planned | Future Aider preset on the command family. |
+| `codex_cli` | `command` | Planned | Future Codex CLI preset on the command family. |
 
 Manual safety loop:
 
@@ -234,6 +238,8 @@ Important notes:
 - `agent=codex` currently means Strata generates Codex-ready prompt context.
 - It does not yet execute Codex.
 - `prompt_file` stays manual even when `command` is configured.
+- The named adapter value is checked against its family, so the docs and CLI can
+  explain whether a configured adapter is manual, command-driven, or HTTP-shaped.
 
 ---
 

@@ -52,10 +52,12 @@ def test_doctor_adapter_ready_returns_zero():
         assert "Adapter doctor" in output
         assert "Status" in output
         assert "Adapter" in output
+        assert "Adapter family" in output
         assert "Prompt" in output
         assert "Patch" in output
         assert "Message" in output
         assert "ready" in output
+        assert "prompt_file" in output
 
 
 def test_doctor_adapter_optional_root_argument_works():
@@ -71,6 +73,7 @@ def test_doctor_adapter_optional_root_argument_works():
         assert exit_code == 0
         assert "Adapter doctor" in output
         assert "ready" in output
+        assert "Adapter family" in output
 
 
 def test_doctor_adapter_not_ready_returns_nonzero():
@@ -91,6 +94,25 @@ def test_doctor_adapter_not_ready_returns_nonzero():
         assert exit_code == 1
         assert "not_ready" in output
         assert "Prompt file not found" in output
+        assert "Adapter family" in output
+        assert "command" in output
+
+
+def test_doctor_http_planned_adapter_shows_family_and_not_ready():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _create_repo(root)
+        _save_config(root, adapter="ollama")
+
+        with change_directory(root):
+            with change_argv(["cli.py", "doctor", "adapter"]):
+                exit_code, output = capture_output(cli_main)
+
+        assert exit_code == 1
+        assert "not_ready" in output
+        assert "Adapter family" in output
+        assert "http" in output
+        assert "HTTP adapter health check is not implemented yet." in output
 
 
 def test_doctor_without_target_returns_nonzero_and_shows_usage():
@@ -189,5 +211,6 @@ TESTS = [
     test_doctor_unknown_target_returns_nonzero_and_shows_usage,
     test_doctor_output_includes_status_adapter_prompt_patch_message,
     test_doctor_command_does_not_execute_configured_command,
+    test_doctor_http_planned_adapter_shows_family_and_not_ready,
     test_doctor_command_does_not_create_aidc,
 ]

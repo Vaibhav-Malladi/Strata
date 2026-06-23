@@ -12,7 +12,9 @@ from ui import (
     format_warning,
 )
 
-_PLANNED_ADAPTERS = {"ollama", "openai_compatible_http", "aider", "codex_cli"}
+_PLANNED_COMMAND_ADAPTERS = {"aider", "codex_cli"}
+_PLANNED_HTTP_ADAPTERS = {"ollama", "openai_compatible_http"}
+_PLANNED_ADAPTERS = _PLANNED_COMMAND_ADAPTERS | _PLANNED_HTTP_ADAPTERS
 
 
 def write_execute_command(root_path: str = ".") -> int:
@@ -91,6 +93,7 @@ def write_execute_command(root_path: str = ".") -> int:
 
 def _build_display_status_and_message(result: dict[str, object]) -> tuple[str, str]:
     adapter = str(result.get("adapter", "") or "")
+    adapter_family = str(result.get("adapter_family", "") or "")
     status = str(result.get("status", "invalid")).lower()
     ready = bool(result.get("ready"))
 
@@ -101,6 +104,12 @@ def _build_display_status_and_message(result: dict[str, object]) -> tuple[str, s
         return format_error("not_implemented"), "Command execution is not implemented yet."
 
     if adapter in _PLANNED_ADAPTERS:
+        if adapter_family == "command":
+            return format_error("not_implemented"), "Command-family preset execution is not implemented yet."
+
+        if adapter_family == "http":
+            return format_error("not_implemented"), "HTTP adapter execution is not implemented yet."
+
         return format_error("not_implemented"), "Adapter is planned. Command execution is not implemented yet."
 
     if status == "invalid":

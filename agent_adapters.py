@@ -18,9 +18,22 @@ SUPPORTED_ADAPTERS = frozenset(
     }
 )
 
+SUPPORTED_ADAPTER_FAMILIES = ("prompt_file", "command", "http")
+
 IMPLEMENTED_ADAPTERS = frozenset({"prompt_file"})
 
 _DRY_RUN_ADAPTERS = frozenset({"prompt_file", "command"})
+
+_SUPPORTED_ADAPTER_FAMILY_SET = frozenset(SUPPORTED_ADAPTER_FAMILIES)
+
+_ADAPTER_FAMILIES = {
+    "prompt_file": "prompt_file",
+    "command": "command",
+    "ollama": "http",
+    "openai_compatible_http": "http",
+    "aider": "command",
+    "codex_cli": "command",
+}
 
 _ADAPTER_ALIASES = {
     "prompt": "prompt_file",
@@ -38,10 +51,36 @@ def supported_adapters() -> set[str]:
     return set(SUPPORTED_ADAPTERS)
 
 
+def supported_adapter_families() -> list[str]:
+    """Return the supported adapter families in display order."""
+
+    return list(SUPPORTED_ADAPTER_FAMILIES)
+
+
 def implemented_adapters() -> set[str]:
     """Return a fresh set of adapters that are implemented today."""
 
     return set(IMPLEMENTED_ADAPTERS)
+
+
+def adapter_family(adapter: str | None) -> str:
+    """Return the canonical family for an adapter name."""
+
+    normalized = validate_adapter_name(adapter)
+    return _ADAPTER_FAMILIES[normalized]
+
+
+def is_adapter_family_supported(family: str | None) -> bool:
+    """Return whether a family is one of the supported adapter families."""
+
+    if not isinstance(family, str):
+        return False
+
+    normalized = family.strip().lower()
+    if not normalized:
+        return False
+
+    return normalized in _SUPPORTED_ADAPTER_FAMILY_SET
 
 
 def normalize_adapter_name(name: str | None) -> str:
@@ -126,6 +165,7 @@ def build_prompt_file_result(
 
     return {
         "adapter": "prompt_file",
+        "adapter_family": "prompt_file",
         "status": status,
         "executed": False,
         "prompt_path": str(resolved_prompt_path),
@@ -155,6 +195,7 @@ def build_command_dry_run_result(
 
     return {
         "adapter": "command",
+        "adapter_family": "command",
         "status": "dry_run",
         "executed": False,
         "command": configured_command,
@@ -183,6 +224,7 @@ def build_command_ready_result(
     if not isinstance(configured_command, str) or not configured_command.strip():
         return {
             "adapter": "command",
+            "adapter_family": "command",
             "status": "not_ready",
             "executed": False,
             "command": configured_command,
@@ -197,6 +239,7 @@ def build_command_ready_result(
 
     return {
         "adapter": "command",
+        "adapter_family": "command",
         "status": "ready",
         "executed": False,
         "command": configured_command,
@@ -241,6 +284,7 @@ def run_adapter(
 
     return {
         "adapter": normalized,
+        "adapter_family": _ADAPTER_FAMILIES[normalized],
         "status": "not_implemented",
         "executed": False,
         "prompt_path": str(DEFAULT_PROMPT_PATH),

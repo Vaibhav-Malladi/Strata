@@ -3,12 +3,15 @@ from pathlib import Path
 
 from agent_adapters import (
     adapter_supports_dry_run,
+    adapter_family,
     IMPLEMENTED_ADAPTERS,
     SUPPORTED_ADAPTERS,
+    supported_adapter_families,
     build_command_dry_run_result,
     build_prompt_file_result,
     implemented_adapters,
     is_adapter_implemented,
+    is_adapter_family_supported,
     normalize_adapter_name,
     patch_path,
     prompt_path,
@@ -39,6 +42,19 @@ def test_supported_adapters_returns_fresh_set():
     assert "banana" not in supported_adapters()
 
 
+def test_supported_adapter_families_returns_fresh_list():
+    first = supported_adapter_families()
+    second = supported_adapter_families()
+
+    assert first == ["prompt_file", "command", "http"]
+    assert second == first
+    assert first is not second
+
+    first.append("banana")
+
+    assert supported_adapter_families() == ["prompt_file", "command", "http"]
+
+
 def test_implemented_adapters_only_prompt_file():
     adapters = implemented_adapters()
 
@@ -60,6 +76,26 @@ def test_normalize_adapter_name_handles_aliases():
     assert normalize_adapter_name("codex") == "codex_cli"
 
 
+def test_adapter_family_maps_aliases_and_canonical_names():
+    assert adapter_family("prompt_file") == "prompt_file"
+    assert adapter_family("command") == "command"
+    assert adapter_family("ollama") == "http"
+    assert adapter_family("openai_compatible_http") == "http"
+    assert adapter_family("aider") == "command"
+    assert adapter_family("codex_cli") == "command"
+    assert adapter_family(" prompt ") == "prompt_file"
+    assert adapter_family("http") == "http"
+
+
+def test_is_adapter_family_supported():
+    assert is_adapter_family_supported("prompt_file") is True
+    assert is_adapter_family_supported("command") is True
+    assert is_adapter_family_supported("http") is True
+    assert is_adapter_family_supported("HTTP") is True
+    assert is_adapter_family_supported("banana") is False
+    assert is_adapter_family_supported(None) is False
+
+
 def test_validate_adapter_rejects_unknown():
     try:
         validate_adapter_name("unknown")
@@ -68,6 +104,15 @@ def test_validate_adapter_rejects_unknown():
         assert "prompt_file" in str(error)
     else:
         raise AssertionError("Expected ValueError for unknown adapter")
+
+
+def test_adapter_family_rejects_unknown():
+    try:
+        adapter_family("unknown")
+    except ValueError as error:
+        assert "Unknown adapter" in str(error)
+    else:
+        raise AssertionError("Expected ValueError for unknown adapter family lookup")
 
 
 def test_is_adapter_implemented_requires_valid_adapter():

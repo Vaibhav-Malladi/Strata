@@ -3,12 +3,19 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from agent_adapters import DEFAULT_PATCH_PATH, DEFAULT_PROMPT_PATH, prompt_path
+from agent_adapters import (
+    DEFAULT_PATCH_PATH,
+    DEFAULT_PROMPT_PATH,
+    adapter_family,
+    prompt_path,
+    supported_adapters,
+)
 from workflow_config import load_config
 
-_SUPPORTED_IMPLEMENTED_ADAPTERS = {"prompt_file", "command"}
-_PLANNED_ADAPTERS = {"ollama", "openai_compatible_http", "aider", "codex_cli"}
-_ALL_SUPPORTED_ADAPTERS = _SUPPORTED_IMPLEMENTED_ADAPTERS | _PLANNED_ADAPTERS
+_PLANNED_COMMAND_ADAPTERS = {"aider", "codex_cli"}
+_PLANNED_HTTP_ADAPTERS = {"ollama", "openai_compatible_http"}
+_PLANNED_ADAPTERS = _PLANNED_COMMAND_ADAPTERS | _PLANNED_HTTP_ADAPTERS
+_ALL_SUPPORTED_ADAPTERS = supported_adapters()
 
 
 def check_adapter(root: str | Path = ".") -> dict[str, Any]:
@@ -51,19 +58,28 @@ def check_adapter(root: str | Path = ".") -> dict[str, Any]:
             prompt=_display_prompt(prompt_config),
             patch=_display_patch(),
             command=_display_command(command_config),
+            adapter_family=None,
             checks=[
                 _check("config", "fail", "Workflow config loaded, but the adapter is unsupported."),
             ],
         )
 
+    family = adapter_family(adapter)
+
     if adapter in _PLANNED_ADAPTERS:
         prompt_display = _display_prompt(prompt_config)
         patch_display = _display_patch()
-        check_message = "Adapter health check is not implemented yet."
+        if family == "command":
+            check_message = "Command-family preset execution is not implemented yet."
+        elif family == "http":
+            check_message = "HTTP adapter health check is not implemented yet."
+        else:
+            check_message = "Adapter health check is not implemented yet."
         return _build_result(
             status="not_ready",
             ready=False,
             adapter=adapter,
+            adapter_family=family,
             mode=mode,
             agent=agent,
             prompt=prompt_display,
@@ -89,6 +105,7 @@ def check_adapter(root: str | Path = ".") -> dict[str, Any]:
         message="Adapter configuration is invalid.",
         errors=[f"Unknown adapter '{adapter}'."],
         adapter=adapter or None,
+        adapter_family=family if adapter else None,
         mode=mode or None,
         agent=agent or None,
         prompt=_display_prompt(prompt_config),
@@ -108,6 +125,7 @@ def _check_prompt_file(root_path: Path, config: dict[str, Any], mode: str, agent
             status="ready",
             ready=True,
             adapter="prompt_file",
+            adapter_family="prompt_file",
             mode=mode,
             agent=agent,
             prompt=prompt_display,
@@ -126,6 +144,7 @@ def _check_prompt_file(root_path: Path, config: dict[str, Any], mode: str, agent
         status="not_ready",
         ready=False,
         adapter="prompt_file",
+        adapter_family="prompt_file",
         mode=mode,
         agent=agent,
         prompt=prompt_display,
@@ -174,6 +193,7 @@ def _check_command(root_path: Path, config: dict[str, Any], mode: str, agent: st
             status="not_ready",
             ready=False,
             adapter="command",
+            adapter_family="command",
             mode=mode,
             agent=agent,
             prompt=prompt_display,
@@ -188,6 +208,7 @@ def _check_command(root_path: Path, config: dict[str, Any], mode: str, agent: st
         status="ready",
         ready=True,
         adapter="command",
+        adapter_family="command",
         mode=mode,
         agent=agent,
         prompt=prompt_display,
@@ -208,12 +229,14 @@ def _build_invalid_result(
     prompt: str | None = None,
     patch: str | None = None,
     command: str | None = None,
+    adapter_family: str | None = None,
     checks: list[dict[str, str]] | None = None,
 ) -> dict[str, Any]:
     return _build_result(
         status="invalid",
         ready=False,
         adapter=adapter,
+        adapter_family=adapter_family,
         mode=mode,
         agent=agent,
         prompt=prompt,
@@ -233,6 +256,7 @@ def _build_result(
     status: str,
     ready: bool,
     adapter: str | None,
+    adapter_family: str | None,
     mode: str | None,
     agent: str | None,
     prompt: str | None,
@@ -247,6 +271,7 @@ def _build_result(
         "status": status,
         "ready": ready,
         "adapter": adapter,
+        "adapter_family": adapter_family,
         "mode": mode,
         "agent": agent,
         "prompt": prompt,

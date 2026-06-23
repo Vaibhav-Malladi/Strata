@@ -4,6 +4,7 @@ import tempfile
 import textwrap
 from pathlib import Path
 
+import commands.execute_command as execute_command_module
 from cli import main as cli_main
 from command_executor import execute_command_adapter
 from tests.helpers import capture_output, change_directory
@@ -312,8 +313,67 @@ def test_execute_planned_adapter_returns_nonzero_with_clear_message():
 
         assert exit_code == 1
         assert "not_implemented" in output
-        assert "planned" in output
-        assert "Command execution is not implemented yet." in output or "Adapter is planned" in output
+        assert "HTTP adapter execution is not implemented yet." in output
+
+
+def test_execute_command_family_planned_adapters_do_not_execute():
+    original_execute = execute_command_module.execute_command_adapter
+
+    def _fail(*_args, **_kwargs):
+        raise AssertionError("execute_command_adapter should not be called")
+
+    execute_command_module.execute_command_adapter = _fail
+    try:
+        for adapter in ("aider", "codex_cli"):
+            with tempfile.TemporaryDirectory() as temp_dir:
+                root = Path(temp_dir)
+                _create_repo(root)
+                _save_config(
+                    root,
+                    mode="hybrid",
+                    agent="local",
+                    adapter=adapter,
+                    prompt_path=".aidc/agent_prompt.md",
+                )
+
+                exit_code, output = _run_execute_cli(root)
+
+                assert exit_code == 1
+                assert "not_implemented" in output
+                assert "Command-family preset execution is not implemented yet." in output
+                assert adapter in output
+    finally:
+        execute_command_module.execute_command_adapter = original_execute
+
+
+def test_execute_http_family_planned_adapters_do_not_execute():
+    original_execute = execute_command_module.execute_command_adapter
+
+    def _fail(*_args, **_kwargs):
+        raise AssertionError("execute_command_adapter should not be called")
+
+    execute_command_module.execute_command_adapter = _fail
+    try:
+        for adapter in ("ollama", "openai_compatible_http"):
+            with tempfile.TemporaryDirectory() as temp_dir:
+                root = Path(temp_dir)
+                _create_repo(root)
+                _save_config(
+                    root,
+                    mode="hybrid",
+                    agent="local",
+                    adapter=adapter,
+                    prompt_path=".aidc/agent_prompt.md",
+                )
+
+                exit_code, output = _run_execute_cli(root)
+
+                assert exit_code == 1
+                assert "not_implemented" in output
+                assert "HTTP adapter execution is not implemented yet." in output
+                assert adapter in output
+    finally:
+        execute_command_module.execute_command_adapter = original_execute
 
 
 def test_execute_output_includes_expected_rows():

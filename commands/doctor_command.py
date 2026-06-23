@@ -40,6 +40,7 @@ def _print_adapter_result(result: dict[str, object]) -> None:
         ("Mode", _format_value(result.get("mode"))),
         ("Agent", _format_value(result.get("agent"))),
         ("Adapter", _format_value(result.get("adapter"))),
+        ("Adapter family", _format_value(result.get("adapter_family"))),
         ("Prompt", _format_path_value(result.get("prompt"))),
         ("Patch", _format_path_value(result.get("patch"))),
         ("Command", _format_value(result.get("command"))),

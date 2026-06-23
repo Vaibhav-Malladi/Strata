@@ -1,3 +1,4 @@
+import subprocess
 import tempfile
 from pathlib import Path
 
@@ -29,6 +30,7 @@ def test_adapter_doctor_prompt_file_ready_when_config_and_prompt_exist():
         assert result["status"] == "ready"
         assert result["ready"] is True
         assert result["adapter"] == "prompt_file"
+        assert result["adapter_family"] == "prompt_file"
         assert result["mode"] == "manual"
         assert result["agent"] == "manual"
         assert result["prompt"] == ".aidc/agent_prompt.md"
@@ -50,6 +52,7 @@ def test_adapter_doctor_prompt_file_not_ready_when_prompt_missing():
         assert result["status"] == "not_ready"
         assert result["ready"] is False
         assert result["adapter"] == "prompt_file"
+        assert result["adapter_family"] == "prompt_file"
         assert result["errors"] == ["Prompt file not found: .aidc/agent_prompt.md"]
         assert result["message"] == "Adapter configuration is not ready."
 
@@ -72,6 +75,7 @@ def test_adapter_doctor_command_ready_when_command_and_prompt_exist():
         assert result["status"] == "ready"
         assert result["ready"] is True
         assert result["adapter"] == "command"
+        assert result["adapter_family"] == "command"
         assert result["command"] == "my-ai --prompt .aidc/agent_prompt.md"
         assert result["errors"] == []
         assert result["message"] == "Adapter configuration looks ready."
@@ -90,6 +94,7 @@ def test_adapter_doctor_command_not_ready_when_command_missing():
         assert result["ready"] is False
         assert result["errors"] == ["Command adapter requires a configured command."]
         assert result["message"] == "Adapter configuration is not ready."
+        assert result["adapter_family"] == "command"
 
 
 def test_adapter_doctor_command_not_ready_when_prompt_missing():
@@ -107,21 +112,59 @@ def test_adapter_doctor_command_not_ready_when_prompt_missing():
         assert result["status"] == "not_ready"
         assert result["ready"] is False
         assert result["errors"] == ["Prompt file not found: .aidc/agent_prompt.md"]
+        assert result["adapter_family"] == "command"
 
 
-def test_adapter_doctor_planned_adapter_returns_not_ready_with_clear_message():
-    with tempfile.TemporaryDirectory() as temp_dir:
-        root = Path(temp_dir)
-        _save_config(root, adapter="ollama")
+def test_adapter_doctor_http_planned_adapters_return_not_ready_with_family():
+    original_run = subprocess.run
 
-        result = check_adapter(root)
+    def _fail(*_args, **_kwargs):
+        raise AssertionError("subprocess.run should not be called")
 
-        assert result["status"] == "not_ready"
-        assert result["ready"] is False
-        assert result["adapter"] == "ollama"
-        assert result["message"] == "Adapter health check is not implemented yet."
-        assert result["errors"] == ["Adapter health check is not implemented yet."]
-        assert [check["status"] for check in result["checks"]] == ["pass", "info", "info", "info"]
+    subprocess.run = _fail
+    try:
+        for adapter in ("ollama", "openai_compatible_http"):
+            with tempfile.TemporaryDirectory() as temp_dir:
+                root = Path(temp_dir)
+                _save_config(root, adapter=adapter)
+
+                result = check_adapter(root)
+
+                assert result["status"] == "not_ready"
+                assert result["ready"] is False
+                assert result["adapter"] == adapter
+                assert result["adapter_family"] == "http"
+                assert result["message"] == "HTTP adapter health check is not implemented yet."
+                assert result["errors"] == ["HTTP adapter health check is not implemented yet."]
+                assert [check["status"] for check in result["checks"]] == ["pass", "info", "info", "info"]
+    finally:
+        subprocess.run = original_run
+
+
+def test_adapter_doctor_command_family_planned_adapters_return_not_ready_with_family():
+    original_run = subprocess.run
+
+    def _fail(*_args, **_kwargs):
+        raise AssertionError("subprocess.run should not be called")
+
+    subprocess.run = _fail
+    try:
+        for adapter in ("aider", "codex_cli"):
+            with tempfile.TemporaryDirectory() as temp_dir:
+                root = Path(temp_dir)
+                _save_config(root, adapter=adapter)
+
+                result = check_adapter(root)
+
+                assert result["status"] == "not_ready"
+                assert result["ready"] is False
+                assert result["adapter"] == adapter
+                assert result["adapter_family"] == "command"
+                assert result["message"] == "Command-family preset execution is not implemented yet."
+                assert result["errors"] == ["Command-family preset execution is not implemented yet."]
+                assert [check["status"] for check in result["checks"]] == ["pass", "info", "info", "info"]
+    finally:
+        subprocess.run = original_run
 
 
 def test_adapter_doctor_invalid_config_returns_invalid():
@@ -180,7 +223,8 @@ TESTS = [
     test_adapter_doctor_command_ready_when_command_and_prompt_exist,
     test_adapter_doctor_command_not_ready_when_command_missing,
     test_adapter_doctor_command_not_ready_when_prompt_missing,
-    test_adapter_doctor_planned_adapter_returns_not_ready_with_clear_message,
+    test_adapter_doctor_http_planned_adapters_return_not_ready_with_family,
+    test_adapter_doctor_command_family_planned_adapters_return_not_ready_with_family,
     test_adapter_doctor_invalid_config_returns_invalid,
     test_adapter_doctor_does_not_create_aidc_when_config_and_prompt_missing,
     test_adapter_doctor_returns_fresh_deterministic_dicts_and_lists,
