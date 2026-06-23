@@ -112,8 +112,10 @@ from the command it ran, but it still does not apply patches automatically.
 
 HTTP-family adapters are still config-only in this batch. `strata doctor adapter`
 validates `base_url`, `api_key_env`, and timeout config locally without reading the
-actual environment variable or making any network call. `strata execute` returns
-not implemented for HTTP adapters until a later batch.
+actual environment variable or making any network call. The HTTP request/response
+contract helpers are already in place, including the OpenAI-compatible URL, payload,
+and response-text extraction shapes. `strata execute` still returns not implemented
+for HTTP adapters until a later batch.
 
 Strata groups adapters into three families: `prompt_file`, `command`, and `http`.
 Named adapters are presets or aliases that map onto one of those families.
@@ -195,8 +197,8 @@ del .aidc\agent_patch.diff
 |---|---|---|---|
 | `prompt_file` | `prompt_file` | Implemented | Writes/uses `.aidc/agent_prompt.md`; user pastes it into an AI tool manually. |
 | `command` | `command` | Implemented | Runs the configured command adapter and writes `.aidc/agent_patch.diff`. |
-| `ollama` | `http` | Planned | Future local model adapter; doctor validates config only. |
-| `openai_compatible_http` | `http` | Planned | Future local/remote HTTP model adapter; doctor validates config only. |
+| `ollama` | `http` | Planned | Future local model adapter; doctor validates config only and the HTTP contract is still local-only. |
+| `openai_compatible_http` | `http` | Planned | Future local/remote HTTP model adapter; doctor validates config only and the HTTP contract is still local-only. |
 | `aider` | `command` | Planned | Future Aider preset on the command family. |
 | `codex_cli` | `command` | Planned | Future Codex CLI preset on the command family. |
 
@@ -262,6 +264,8 @@ Important notes:
   value in config.
 - `ollama` and `openai_compatible_http` remain planned adapters in this batch.
 - `strata doctor adapter` validates HTTP config only and does not make network calls.
+- The new HTTP adapter contract helpers build deterministic OpenAI-compatible request
+  and response shapes locally, but they still do not execute network calls.
 
 Example future HTTP setup:
 

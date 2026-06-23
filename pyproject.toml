@@ -48,6 +48,7 @@ py-modules = [
     "cli_help",
     "cli_ui",
     "adapter_doctor",
+    "http_adapter_contract",
     "context_matching",
     "context_pack",
     "cycles",

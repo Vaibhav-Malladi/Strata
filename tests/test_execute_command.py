@@ -576,6 +576,8 @@ def test_execute_planned_adapter_returns_nonzero_with_clear_message():
         assert exit_code == 1
         assert "not_implemented" in output
         assert "HTTP adapter execution is not implemented yet." in output
+        assert "HTTP request URL" in output
+        assert "choices[0].message.content" in output
         assert "Base URL" in output
         assert "http://localhost:1234/v1" in output
         assert "API key env" in output
@@ -645,6 +647,8 @@ def test_execute_http_family_planned_adapters_do_not_execute():
                 assert "not_implemented" in output
                 assert "HTTP adapter execution is not implemented yet." in output
                 assert adapter in output
+                assert "HTTP request URL" in output
+                assert "choices[0].message.content" in output
                 assert "HTTP timeout seconds" in output
     finally:
         execute_command_module.execute_command_adapter = original_execute

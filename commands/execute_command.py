@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from adapter_doctor import check_adapter
 from command_executor import DEFAULT_TIMEOUT_SECONDS, execute_command_adapter
+from http_adapter_contract import build_http_contract_summary
 from workflow_config import load_config
 from ui import (
     build_banner,
@@ -27,11 +30,17 @@ def write_execute_command(root_path: str = ".") -> int:
     execution_result = None
     config = None
     timeout_seconds = None
+    prompt_exists = False
 
     try:
         config = load_config(root_path)
     except ValueError:
         config = None
+    else:
+        if config is not None:
+            prompt_config = config.get("prompt_path")
+            if isinstance(prompt_config, str) and prompt_config:
+                prompt_exists = (Path(root_path) / prompt_config).is_file()
 
     display_status, message = _build_display_status_and_message(result)
     prompt = _format_path_or_dash(result.get("prompt"))
@@ -41,6 +50,7 @@ def write_execute_command(root_path: str = ".") -> int:
     base_url = _format_value(config.get("base_url") if config is not None else None)
     api_key_env = _format_value(config.get("api_key_env") if config is not None else None)
     http_timeout = _format_value(config.get("http_timeout_seconds") if config is not None else None)
+    http_contract = build_http_contract_summary(config or {}, prompt_exists=prompt_exists)
     executes_command = "no"
     applies_patch = "no"
     return_code = "-"
@@ -90,6 +100,8 @@ def write_execute_command(root_path: str = ".") -> int:
         rows.insert(8, ("Base URL", base_url))
         rows.insert(9, ("API key env", api_key_env))
         rows.insert(10, ("HTTP timeout seconds", http_timeout))
+        rows.insert(11, ("HTTP request URL", _format_value(http_contract.get("request_url"))))
+        rows.insert(12, ("HTTP response text", _format_value(http_contract.get("response_text_path"))))
 
     if execution_result is None:
         rows[0] = ("Status", display_status)
@@ -142,7 +154,11 @@ def _build_display_status_and_message(result: dict[str, object]) -> tuple[str, s
             return format_error("not_implemented"), "Command-family preset execution is not implemented yet."
 
         if adapter_family == "http":
-            return format_error("not_implemented"), "HTTP adapter execution is not implemented yet."
+            return (
+                format_error("not_implemented"),
+                "HTTP adapter execution is not implemented yet. "
+                "HTTP request/response contract is available locally; network execution is not implemented yet.",
+            )
 
         return format_error("not_implemented"), "Adapter is planned. Command execution is not implemented yet."
 

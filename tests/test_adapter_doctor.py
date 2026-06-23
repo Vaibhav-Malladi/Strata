@@ -149,7 +149,11 @@ def test_adapter_doctor_http_planned_adapters_return_not_ready_with_family():
             assert result["base_url"] is None
             assert result["api_key_env"] == "OPENAI_API_KEY"
             assert result["http_timeout_seconds"] == 150
-            assert result["message"] == "HTTP adapter execution is not implemented yet."
+            assert (
+                result["message"]
+                == "HTTP adapter execution is not implemented yet. "
+                "HTTP request/response contract is available locally; network execution is not implemented yet."
+            )
             assert result["errors"] == ["base_url is required for HTTP adapters."]
             assert [check["status"] for check in result["checks"]] == [
                 "pass",
@@ -172,7 +176,11 @@ def test_adapter_doctor_http_planned_adapters_return_not_ready_with_family():
             assert result["adapter_family"] == "http"
             assert result["base_url"] is None
             assert result["http_timeout_seconds"] == 150
-            assert result["message"] == "Ollama health checks are not implemented yet."
+            assert (
+                result["message"]
+                == "Ollama health checks are not implemented yet. "
+                "HTTP request/response contract is available locally; network execution is not implemented yet."
+            )
             assert result["errors"] == []
             assert result["warnings"] == [
                 "Base URL is not configured. Ollama commonly uses http://localhost:11434."
@@ -209,7 +217,11 @@ def test_adapter_doctor_openai_http_reports_configured_base_url_and_api_key_env(
         assert result["base_url"] == "http://localhost:1234/v1"
         assert result["api_key_env"] == "OPENAI_API_KEY"
         assert result["http_timeout_seconds"] == 200
-        assert result["message"] == "HTTP adapter execution is not implemented yet."
+        assert (
+            result["message"]
+            == "HTTP adapter execution is not implemented yet. "
+            "HTTP request/response contract is available locally; network execution is not implemented yet."
+        )
         assert result["errors"] == []
         assert result["warnings"] == []
         assert [check["status"] for check in result["checks"]] == [

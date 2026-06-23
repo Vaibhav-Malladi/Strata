@@ -10,6 +10,7 @@ from agent_adapters import (
     prompt_path,
     supported_adapters,
 )
+from http_adapter_contract import build_http_contract_summary
 from workflow_config import load_config
 
 _PLANNED_COMMAND_ADAPTERS = {"aider", "codex_cli"}
@@ -249,18 +250,27 @@ def _check_http(root_path: Path, config: dict[str, Any], mode: str, agent: str, 
     prompt_config = config.get("prompt_path")
     prompt_display = _display_prompt(prompt_config)
     patch_display = _display_patch()
-    base_url = _display_optional_string(config.get("base_url"))
-    api_key_env = _display_optional_string(config.get("api_key_env"))
-    http_timeout = _display_timeout(config.get("http_timeout_seconds"))
+    contract = build_http_contract_summary(config, prompt_exists=prompt_path(root_path, prompt_config).exists())
+    base_url = contract.get("base_url")
+    api_key_env = contract.get("api_key_env")
+    http_timeout = contract.get("http_timeout_seconds")
     checks = [
         _check("config", "pass", "Workflow config loaded."),
-        _check("adapter", "info", "HTTP adapter execution is not implemented yet."),
+        _check(
+            "adapter",
+            "info",
+            "HTTP adapter execution is not implemented yet. "
+            "HTTP request/response contract is available locally; network execution is not implemented yet.",
+        ),
         _check("prompt", "info", "Prompt path is configured."),
         _check("patch", "info", "Patch path is configured."),
     ]
     errors: list[str] = []
     warnings: list[str] = []
-    message = "HTTP adapter execution is not implemented yet."
+    message = (
+        "HTTP adapter execution is not implemented yet. "
+        "HTTP request/response contract is available locally; network execution is not implemented yet."
+    )
 
     if adapter == "openai_compatible_http":
         if base_url is None:
@@ -286,7 +296,10 @@ def _check_http(root_path: Path, config: dict[str, Any], mode: str, agent: str, 
                 _check("api_key_env", "info", "API key environment variable name is configured.")
             )
 
-        message = "Ollama health checks are not implemented yet."
+        message = (
+            "Ollama health checks are not implemented yet. "
+            "HTTP request/response contract is available locally; network execution is not implemented yet."
+        )
 
     return _build_result(
         status="not_ready",
