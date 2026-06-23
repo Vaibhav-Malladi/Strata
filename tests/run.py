@@ -25,6 +25,7 @@ import test_preflight
 import test_context_command
 import test_agent_export
 import test_status
+import test_context_matching
 import test_context_pack
 from tests import test_languages
 from tests import test_javascript_parser
@@ -50,6 +51,7 @@ TEST_MODULES = [
     test_context_command,
     test_agent_export,
     test_status,
+    test_context_matching,
     test_context_pack,
     test_languages,
     test_javascript_parser,
