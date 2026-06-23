@@ -356,10 +356,50 @@ def test_cli_help_prefers_strata_commands():
     assert 'strata run --dry-run "<task>"' in output
     assert "strata apply --dry-run" in output
     assert "strata apply --dry-run <root>" in output
+    assert "strata doctor adapter" in output
+    assert "strata doctor adapter <root>" in output
     assert "strata review" in output
     assert "strata review <root>" in output
     assert "Legacy fallback: use `py cli.py ...`" in output
     assert "py cli.py scan [path]" not in output
+
+
+def test_cli_doctor_adapter_dispatches():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        repo_root = Path(temp_dir)
+        _create_cli_core_repo(repo_root)
+        aidc_dir = repo_root / ".aidc"
+        aidc_dir.mkdir(parents=True, exist_ok=True)
+        (aidc_dir / "config.json").write_text(
+            json.dumps(
+                {
+                    "mode": "hybrid",
+                    "agent": "codex",
+                    "adapter": "prompt_file",
+                    "prompt_path": ".aidc/agent_prompt.md",
+                    "model": None,
+                    "command": None,
+                    "auto_snapshot": True,
+                    "auto_verify": True,
+                    "require_gate_pass_before_commit": True,
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        (aidc_dir / "agent_prompt.md").write_text("prompt", encoding="utf-8")
+
+        with change_directory(repo_root):
+            with change_argv(["cli.py", "doctor", "adapter"]):
+                exit_code, output = capture_output(cli_main)
+
+        assert exit_code == 0
+        assert "Adapter doctor" in output
+        assert "Status" in output
+        assert "Adapter" in output
+        assert "Prompt" in output
+        assert "Patch" in output
+        assert "Message" in output
 
 
 TESTS = [
@@ -374,4 +414,5 @@ TESTS = [
     test_cli_apply_dry_run_command_smoke,
     test_cli_run_command_smoke,
     test_cli_help_prefers_strata_commands,
+    test_cli_doctor_adapter_dispatches,
 ]

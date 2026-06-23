@@ -1,0 +1,285 @@
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any
+
+from agent_adapters import DEFAULT_PATCH_PATH, DEFAULT_PROMPT_PATH, prompt_path
+from workflow_config import load_config
+
+_SUPPORTED_IMPLEMENTED_ADAPTERS = {"prompt_file", "command"}
+_PLANNED_ADAPTERS = {"ollama", "openai_compatible_http", "aider", "codex_cli"}
+_ALL_SUPPORTED_ADAPTERS = _SUPPORTED_IMPLEMENTED_ADAPTERS | _PLANNED_ADAPTERS
+
+
+def check_adapter(root: str | Path = ".") -> dict[str, Any]:
+    root_path = Path(root)
+
+    if not root_path.exists():
+        return _build_invalid_result(
+            message="Adapter configuration is invalid.",
+            errors=[f"Root path does not exist: {root_path}"],
+        )
+
+    if not root_path.is_dir():
+        return _build_invalid_result(
+            message="Adapter configuration is invalid.",
+            errors=[f"Root path is not a directory: {root_path}"],
+        )
+
+    try:
+        config = load_config(root_path)
+    except ValueError as error:
+        return _build_invalid_result(
+            message="Workflow config is invalid.",
+            errors=[str(error)],
+        )
+
+    adapter = str(config.get("adapter", "") or "")
+    mode = str(config.get("mode", "") or "")
+    agent = str(config.get("agent", "") or "")
+    prompt_config = config.get("prompt_path")
+    command_config = config.get("command")
+
+    if adapter not in _ALL_SUPPORTED_ADAPTERS:
+        supported = ", ".join(sorted(_ALL_SUPPORTED_ADAPTERS))
+        return _build_invalid_result(
+            message="Adapter configuration is invalid.",
+            errors=[f"Unknown adapter '{adapter}'. Supported adapters: {supported}."],
+            adapter=adapter or None,
+            mode=mode or None,
+            agent=agent or None,
+            prompt=_display_prompt(prompt_config),
+            patch=_display_patch(),
+            command=_display_command(command_config),
+            checks=[
+                _check("config", "fail", "Workflow config loaded, but the adapter is unsupported."),
+            ],
+        )
+
+    if adapter in _PLANNED_ADAPTERS:
+        prompt_display = _display_prompt(prompt_config)
+        patch_display = _display_patch()
+        check_message = "Adapter health check is not implemented yet."
+        return _build_result(
+            status="not_ready",
+            ready=False,
+            adapter=adapter,
+            mode=mode,
+            agent=agent,
+            prompt=prompt_display,
+            patch=patch_display,
+            command="-",
+            message=check_message,
+            checks=[
+                _check("config", "pass", "Workflow config loaded."),
+                _check("adapter", "info", check_message),
+                _check("prompt", "info", "Prompt path is configured."),
+                _check("patch", "info", "Patch path is configured."),
+            ],
+            errors=[check_message],
+        )
+
+    if adapter == "prompt_file":
+        return _check_prompt_file(root_path, config, mode, agent)
+
+    if adapter == "command":
+        return _check_command(root_path, config, mode, agent)
+
+    return _build_invalid_result(
+        message="Adapter configuration is invalid.",
+        errors=[f"Unknown adapter '{adapter}'."],
+        adapter=adapter or None,
+        mode=mode or None,
+        agent=agent or None,
+        prompt=_display_prompt(prompt_config),
+        patch=_display_patch(),
+        command=_display_command(command_config),
+    )
+
+
+def _check_prompt_file(root_path: Path, config: dict[str, Any], mode: str, agent: str) -> dict[str, Any]:
+    prompt_config = config.get("prompt_path")
+    resolved_prompt_path = prompt_path(root_path, prompt_config)
+    prompt_display = _display_prompt(prompt_config)
+    patch_display = _display_patch()
+
+    if resolved_prompt_path.exists():
+        return _build_result(
+            status="ready",
+            ready=True,
+            adapter="prompt_file",
+            mode=mode,
+            agent=agent,
+            prompt=prompt_display,
+            patch=patch_display,
+            command="-",
+            message="Adapter configuration looks ready.",
+            checks=[
+                _check("config", "pass", "Workflow config loaded."),
+                _check("adapter", "pass", "Adapter is supported."),
+                _check("prompt", "pass", "Prompt file exists."),
+                _check("patch", "info", "Patch path is configured."),
+            ],
+        )
+
+    return _build_result(
+        status="not_ready",
+        ready=False,
+        adapter="prompt_file",
+        mode=mode,
+        agent=agent,
+        prompt=prompt_display,
+        patch=patch_display,
+        command="-",
+        message="Adapter configuration is not ready.",
+        checks=[
+            _check("config", "pass", "Workflow config loaded."),
+            _check("adapter", "pass", "Adapter is supported."),
+            _check("prompt", "fail", "Prompt file is missing."),
+            _check("patch", "info", "Patch path is configured."),
+        ],
+        errors=[f"Prompt file not found: {prompt_display}"],
+    )
+
+
+def _check_command(root_path: Path, config: dict[str, Any], mode: str, agent: str) -> dict[str, Any]:
+    prompt_config = config.get("prompt_path")
+    command_config = config.get("command")
+    resolved_prompt_path = prompt_path(root_path, prompt_config)
+    prompt_display = _display_prompt(prompt_config)
+    patch_display = _display_patch()
+    command_display = _display_command(command_config)
+    errors: list[str] = []
+    checks = [
+        _check("config", "pass", "Workflow config loaded."),
+        _check("adapter", "pass", "Adapter is supported."),
+    ]
+
+    if not command_display or command_display == "-":
+        errors.append("Command adapter requires a configured command.")
+        checks.append(_check("command", "fail", "Command is missing."))
+    else:
+        checks.append(_check("command", "pass", "Command is configured."))
+
+    if resolved_prompt_path.exists():
+        checks.append(_check("prompt", "pass", "Prompt file exists."))
+    else:
+        errors.append(f"Prompt file not found: {prompt_display}")
+        checks.append(_check("prompt", "fail", "Prompt file is missing."))
+
+    checks.append(_check("patch", "info", "Patch path is configured."))
+
+    if errors:
+        return _build_result(
+            status="not_ready",
+            ready=False,
+            adapter="command",
+            mode=mode,
+            agent=agent,
+            prompt=prompt_display,
+            patch=patch_display,
+            command=command_display,
+            message="Adapter configuration is not ready.",
+            checks=checks,
+            errors=errors,
+        )
+
+    return _build_result(
+        status="ready",
+        ready=True,
+        adapter="command",
+        mode=mode,
+        agent=agent,
+        prompt=prompt_display,
+        patch=patch_display,
+        command=command_display,
+        message="Adapter configuration looks ready.",
+        checks=checks,
+    )
+
+
+def _build_invalid_result(
+    *,
+    message: str,
+    errors: list[str],
+    adapter: str | None = None,
+    mode: str | None = None,
+    agent: str | None = None,
+    prompt: str | None = None,
+    patch: str | None = None,
+    command: str | None = None,
+    checks: list[dict[str, str]] | None = None,
+) -> dict[str, Any]:
+    return _build_result(
+        status="invalid",
+        ready=False,
+        adapter=adapter,
+        mode=mode,
+        agent=agent,
+        prompt=prompt,
+        patch=patch,
+        command=command,
+        message=message,
+        checks=checks
+        or [
+            _check("config", "fail", "Workflow config could not be loaded."),
+        ],
+        errors=errors,
+    )
+
+
+def _build_result(
+    *,
+    status: str,
+    ready: bool,
+    adapter: str | None,
+    mode: str | None,
+    agent: str | None,
+    prompt: str | None,
+    patch: str | None,
+    command: str | None,
+    message: str,
+    checks: list[dict[str, str]],
+    errors: list[str] | None = None,
+    warnings: list[str] | None = None,
+) -> dict[str, Any]:
+    return {
+        "status": status,
+        "ready": ready,
+        "adapter": adapter,
+        "mode": mode,
+        "agent": agent,
+        "prompt": prompt,
+        "patch": patch,
+        "command": command,
+        "checks": [dict(check) for check in checks],
+        "errors": list(errors or []),
+        "warnings": list(warnings or []),
+        "message": message,
+    }
+
+
+def _check(name: str, status: str, message: str) -> dict[str, str]:
+    return {
+        "name": name,
+        "status": status,
+        "message": message,
+    }
+
+
+def _display_prompt(configured_path: object) -> str:
+    if isinstance(configured_path, str) and configured_path:
+        return configured_path
+
+    return str(DEFAULT_PROMPT_PATH)
+
+
+def _display_patch() -> str:
+    return str(DEFAULT_PATCH_PATH)
+
+
+def _display_command(configured_command: object) -> str:
+    if isinstance(configured_command, str) and configured_command:
+        return configured_command
+
+    return "-"

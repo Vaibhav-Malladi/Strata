@@ -11,6 +11,7 @@ from commands.config_command import (
 from commands.context_command import write_context
 from commands.cycles_command import show_cycles
 from commands.diff_command import write_diff_command
+from commands.doctor_command import write_doctor_command
 from commands.gate_command import write_gate_command
 from commands.health_command import show_health
 from commands.impact_command import show_impact
@@ -95,6 +96,9 @@ def main() -> int:
 
     if command == "apply":
         return _exit_code(_handle_apply_command(args[1:]))
+
+    if command == "doctor":
+        return _exit_code(write_doctor_command(*args[1:]))
 
     if command == "snapshot":
         if len(args) == 1:
