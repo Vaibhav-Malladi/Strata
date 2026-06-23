@@ -9,7 +9,6 @@ def main() -> None:
     patch_path = aidc_dir / "agent_patch.diff"
     patch_text = (
         "diff --git a/demo_patch_target.txt b/demo_patch_target.txt\n"
-        "new file mode 100644\n"
         "index 0000000..e69de29\n"
         "--- /dev/null\n"
         "+++ b/demo_patch_target.txt\n"

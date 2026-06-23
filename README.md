@@ -145,6 +145,7 @@ git commit -m "Fix helper bug"
 
 Use this only as a local smoke test. The helper script is not a real AI tool; it
 just writes a demo patch for `demo_patch_target.txt` into `.aidc/agent_patch.diff`.
+It emits the create-file diff shape Strata can validate and apply today.
 
 ```powershell
 strata config set adapter command
@@ -157,6 +158,9 @@ strata apply --dry-run
 strata apply
 strata review
 ```
+
+If `py` is not registered on your Windows machine, use `python` or your local
+repo interpreter path for the `command` value.
 
 Cleanup:
 
