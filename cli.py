@@ -16,6 +16,7 @@ from commands.health_command import show_health
 from commands.impact_command import show_impact
 from commands.map_command import write_map
 from commands.prepare_command import write_prepare_command
+from commands.review_command import write_review_command
 from commands.preflight_command import write_preflight
 from commands.snapshot_command import write_snapshot_command
 from commands.verify_command import write_verify_command
@@ -102,6 +103,14 @@ def main() -> int:
             return _exit_code(write_gate_command("."))
         if len(args) == 2:
             return _exit_code(write_gate_command(args[1]))
+        print_usage()
+        return 1
+
+    if command == "review":
+        if len(args) == 1:
+            return _exit_code(write_review_command("."))
+        if len(args) == 2:
+            return _exit_code(write_review_command(args[1]))
         print_usage()
         return 1
 

@@ -261,6 +261,8 @@ def test_cli_help_prefers_strata_commands():
     assert "strata config set <key> <value> [root]" in output
     assert 'strata prepare "<task>"' in output
     assert 'strata prepare "<task>" <root>' in output
+    assert "strata review" in output
+    assert "strata review <root>" in output
     assert "Legacy fallback: use `py cli.py ...`" in output
     assert "py cli.py scan [path]" not in output
 
