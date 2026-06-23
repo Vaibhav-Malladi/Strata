@@ -55,6 +55,7 @@ def test_doctor_adapter_ready_returns_zero():
         assert "Adapter family" in output
         assert "Prompt" in output
         assert "Patch" in output
+        assert "Timeout seconds" in output
         assert "Message" in output
         assert "ready" in output
         assert "prompt_file" in output
@@ -96,6 +97,7 @@ def test_doctor_adapter_not_ready_returns_nonzero():
         assert "Prompt file not found" in output
         assert "Adapter family" in output
         assert "command" in output
+        assert "Timeout seconds" in output
 
 
 def test_doctor_http_planned_adapter_shows_family_and_not_ready():
@@ -158,6 +160,7 @@ def test_doctor_output_includes_status_adapter_prompt_patch_message():
         assert "Adapter" in output
         assert "Prompt" in output
         assert "Patch" in output
+        assert "Timeout seconds" in output
         assert "Message" in output
 
 

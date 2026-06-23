@@ -127,6 +127,8 @@ def test_execute_command_ready_returns_zero_when_valid_patch_produced():
         assert exit_code == 0
         assert "Execute adapter" in output
         assert "patch_ready" in output
+        assert "Timeout seconds" in output
+        assert "120" in output
         assert "Executes command  yes" in output
         assert "Applies patch     no" in output
         assert "Return code" in output
@@ -138,6 +140,262 @@ def test_execute_command_ready_returns_zero_when_valid_patch_produced():
         assert "strata apply --dry-run" in output
         assert "strata apply" in output
         assert (root / "main.py").read_text(encoding="utf-8") == "print('hello')\n"
+
+
+def test_execute_command_output_includes_stdout_preview():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _create_repo(root)
+        _write_prompt(root)
+
+        script_path = _write_script(
+            root,
+            "fake_ai.py",
+            f"""
+            from pathlib import Path
+
+            print("stdout preview line")
+            Path(".aidc").mkdir(parents=True, exist_ok=True)
+            Path(".aidc/agent_patch.diff").write_text({ _valid_patch_text()!r }, encoding="utf-8")
+            """,
+        )
+        command = _python_command(script_path)
+        _save_config(
+            root,
+            mode="hybrid",
+            agent="local",
+            adapter="command",
+            prompt_path=".aidc/agent_prompt.md",
+            command=command,
+        )
+
+        exit_code, output = _run_execute_cli(root)
+
+        assert exit_code == 0
+        assert "Stdout" in output
+        assert "stdout preview line" in output
+
+
+def test_execute_command_output_includes_stderr_preview():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _create_repo(root)
+        _write_prompt(root)
+
+        script_path = _write_script(
+            root,
+            "fake_ai.py",
+            f"""
+            import sys
+            from pathlib import Path
+
+            sys.stderr.write("stderr preview line\\n")
+            Path(".aidc").mkdir(parents=True, exist_ok=True)
+            Path(".aidc/agent_patch.diff").write_text({ _valid_patch_text()!r }, encoding="utf-8")
+            """,
+        )
+        command = _python_command(script_path)
+        _save_config(
+            root,
+            mode="hybrid",
+            agent="local",
+            adapter="command",
+            prompt_path=".aidc/agent_prompt.md",
+            command=command,
+        )
+
+        exit_code, output = _run_execute_cli(root)
+
+        assert exit_code == 0
+        assert "Stderr" in output
+        assert "stderr preview line" in output
+
+
+def test_execute_command_output_truncates_long_stdout():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _create_repo(root)
+        _write_prompt(root)
+
+        long_stdout = "x" * 1000
+        script_path = _write_script(
+            root,
+            "fake_ai.py",
+            f"""
+            from pathlib import Path
+
+            print({long_stdout!r})
+            Path(".aidc").mkdir(parents=True, exist_ok=True)
+            Path(".aidc/agent_patch.diff").write_text({ _valid_patch_text()!r }, encoding="utf-8")
+            """,
+        )
+        command = _python_command(script_path)
+        _save_config(
+            root,
+            mode="hybrid",
+            agent="local",
+            adapter="command",
+            prompt_path=".aidc/agent_prompt.md",
+            command=command,
+        )
+
+        exit_code, output = _run_execute_cli(root)
+
+        assert exit_code == 0
+        assert "Stdout" in output
+        assert long_stdout not in output
+
+
+def test_execute_command_output_does_not_print_full_patch_content():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _create_repo(root)
+        _write_prompt(root)
+
+        stdout_payload = _valid_patch_text() + ("A" * 900) + "TAIL_MARKER"
+        script_path = _write_script(
+            root,
+            "fake_ai.py",
+            f"""
+            from pathlib import Path
+
+            print({stdout_payload!r})
+            Path(".aidc").mkdir(parents=True, exist_ok=True)
+            Path(".aidc/agent_patch.diff").write_text({ _valid_patch_text()!r }, encoding="utf-8")
+            """,
+        )
+        command = _python_command(script_path)
+        _save_config(
+            root,
+            mode="hybrid",
+            agent="local",
+            adapter="command",
+            prompt_path=".aidc/agent_prompt.md",
+            command=command,
+        )
+
+        exit_code, output = _run_execute_cli(root)
+
+        assert exit_code == 0
+        assert "Stdout" in output
+        assert "TAIL_MARKER" not in output
+
+
+def test_execute_command_output_shows_timeout_row():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _create_repo(root)
+        _write_prompt(root)
+
+        script_path = _write_script(
+            root,
+            "fake_ai.py",
+            f"""
+            from pathlib import Path
+
+            Path(".aidc").mkdir(parents=True, exist_ok=True)
+            Path(".aidc/agent_patch.diff").write_text({ _valid_patch_text()!r }, encoding="utf-8")
+            """,
+        )
+        command = _python_command(script_path)
+        _save_config(
+            root,
+            mode="hybrid",
+            agent="local",
+            adapter="command",
+            prompt_path=".aidc/agent_prompt.md",
+            command=command,
+            command_timeout_seconds=33,
+        )
+
+        exit_code, output = _run_execute_cli(root)
+
+        assert exit_code == 0
+        assert "Timeout seconds" in output
+        assert "33" in output
+
+
+def test_execute_command_passes_configured_timeout_to_executor():
+    original_execute = execute_command_module.execute_command_adapter
+    captured = {}
+
+    def _fake_execute(root_path: str = ".", command=None, timeout_seconds=120):
+        captured["timeout_seconds"] = timeout_seconds
+        return {
+            "status": "patch_ready",
+            "executed": True,
+            "returncode": 0,
+            "timed_out": False,
+            "stdout": "",
+            "stderr": "",
+            "patch_status": "ready",
+            "patch_valid": True,
+            "targets": ["main.py"],
+            "errors": [],
+            "warnings": [],
+            "message": "Command executed and produced a valid patch.",
+        }
+
+    execute_command_module.execute_command_adapter = _fake_execute
+    try:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            _create_repo(root)
+            _write_prompt(root)
+            _save_config(
+                root,
+                mode="hybrid",
+                agent="local",
+                adapter="command",
+                prompt_path=".aidc/agent_prompt.md",
+                command="fake-command",
+                command_timeout_seconds=77,
+            )
+
+            exit_code, output = _run_execute_cli(root)
+
+            assert exit_code == 0
+            assert "Timeout seconds" in output
+            assert "77" in output
+    finally:
+        execute_command_module.execute_command_adapter = original_execute
+
+    assert captured["timeout_seconds"] == 77
+
+
+def test_execute_command_timeout_failure_returns_nonzero_and_shows_timeout_status():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _create_repo(root)
+        _write_prompt(root)
+
+        script_path = _write_script(
+            root,
+            "fake_ai.py",
+            """
+            import time
+
+            time.sleep(2)
+            """,
+        )
+        command = _python_command(script_path)
+        _save_config(
+            root,
+            mode="hybrid",
+            agent="local",
+            adapter="command",
+            prompt_path=".aidc/agent_prompt.md",
+            command=command,
+            command_timeout_seconds=1,
+        )
+
+        exit_code, output = _run_execute_cli(root)
+
+        assert exit_code == 1
+        assert "timeout" in output
+        assert "Command execution timed out." in output
+        assert "Timeout seconds" in output
+        assert "1" in output
 
 
 def test_execute_command_missing_patch_returns_nonzero():
@@ -444,6 +702,13 @@ TESTS = [
     test_execute_prompt_file_ready_returns_nonzero_and_says_manual,
     test_execute_optional_root_argument_works,
     test_execute_command_ready_returns_zero_when_valid_patch_produced,
+    test_execute_command_output_includes_stdout_preview,
+    test_execute_command_output_includes_stderr_preview,
+    test_execute_command_output_truncates_long_stdout,
+    test_execute_command_output_does_not_print_full_patch_content,
+    test_execute_command_output_shows_timeout_row,
+    test_execute_command_passes_configured_timeout_to_executor,
+    test_execute_command_timeout_failure_returns_nonzero_and_shows_timeout_status,
     test_execute_command_missing_patch_returns_nonzero,
     test_execute_command_empty_patch_returns_nonzero,
     test_execute_command_invalid_patch_returns_nonzero,

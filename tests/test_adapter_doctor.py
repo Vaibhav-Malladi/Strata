@@ -36,6 +36,7 @@ def test_adapter_doctor_prompt_file_ready_when_config_and_prompt_exist():
         assert result["prompt"] == ".aidc/agent_prompt.md"
         assert result["patch"].replace("\\", "/").endswith(".aidc/agent_patch.diff")
         assert result["command"] == "-"
+        assert result["command_timeout_seconds"] is None
         assert result["message"] == "Adapter configuration looks ready."
         assert result["errors"] == []
         assert result["warnings"] == []
@@ -77,9 +78,10 @@ def test_adapter_doctor_command_ready_when_command_and_prompt_exist():
         assert result["adapter"] == "command"
         assert result["adapter_family"] == "command"
         assert result["command"] == "my-ai --prompt .aidc/agent_prompt.md"
+        assert result["command_timeout_seconds"] == 120
         assert result["errors"] == []
         assert result["message"] == "Adapter configuration looks ready."
-        assert [check["status"] for check in result["checks"]] == ["pass", "pass", "pass", "pass", "info"]
+        assert [check["status"] for check in result["checks"]] == ["pass", "pass", "pass", "pass", "pass", "info"]
 
 
 def test_adapter_doctor_command_not_ready_when_command_missing():
@@ -95,6 +97,7 @@ def test_adapter_doctor_command_not_ready_when_command_missing():
         assert result["errors"] == ["Command adapter requires a configured command."]
         assert result["message"] == "Adapter configuration is not ready."
         assert result["adapter_family"] == "command"
+        assert result["command_timeout_seconds"] == 120
 
 
 def test_adapter_doctor_command_not_ready_when_prompt_missing():
@@ -113,6 +116,7 @@ def test_adapter_doctor_command_not_ready_when_prompt_missing():
         assert result["ready"] is False
         assert result["errors"] == ["Prompt file not found: .aidc/agent_prompt.md"]
         assert result["adapter_family"] == "command"
+        assert result["command_timeout_seconds"] == 120
 
 
 def test_adapter_doctor_http_planned_adapters_return_not_ready_with_family():

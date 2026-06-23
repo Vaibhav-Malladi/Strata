@@ -56,6 +56,7 @@ strata config init
 strata config set mode hybrid
 strata config set agent codex
 strata config set auto_snapshot false
+strata config set command_timeout_seconds 120
 
 strata run "fix helper bug"
 # Paste .aidc\agent_prompt.md into your AI coding tool.
@@ -104,6 +105,10 @@ This does not execute the configured command adapter, and it does not create or 
 adapter contract and the patch output, not whether the external tool is actually AI.
 Command execution is explicit, separate from `strata run`, and patch application still
 requires `strata apply`.
+
+Command execution has a timeout. It defaults to 120 seconds and can be adjusted in
+local workflow config. `strata execute` may also show short stdout/stderr previews
+from the command it ran, but it still does not apply patches automatically.
 
 Strata groups adapters into three families: `prompt_file`, `command`, and `http`.
 Named adapters are presets or aliases that map onto one of those families.
@@ -217,6 +222,7 @@ strata config set agent codex
 strata config set auto_snapshot false
 strata config set auto_verify true
 strata config set require_gate true
+strata config set command_timeout_seconds 120
 ```
 
 Supported keys:
@@ -227,6 +233,7 @@ Supported keys:
 - `prompt_path`: path to the generated AI prompt file; defaults to `.aidc/agent_prompt.md`
 - `model`: optional model name for future adapters
 - `command`: optional command string for the command adapter
+- `command_timeout_seconds`: optional command timeout in seconds, default `120`
 - `auto_snapshot`: `true` | `false`
 - `auto_verify`: `true` | `false`
 - `require_gate_pass_before_commit`: `true` | `false`

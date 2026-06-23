@@ -21,6 +21,7 @@ def parse_command(command: str) -> list[str]:
 
 def execute_command_adapter(root=".", command=None, timeout_seconds=DEFAULT_TIMEOUT_SECONDS) -> dict:
     root_path = Path(root)
+    effective_timeout = timeout_seconds if type(timeout_seconds) is int and timeout_seconds > 0 else DEFAULT_TIMEOUT_SECONDS
 
     if command is None or not str(command).strip():
         return _build_result(
@@ -83,7 +84,7 @@ def execute_command_adapter(root=".", command=None, timeout_seconds=DEFAULT_TIME
             cwd=str(root_path),
             capture_output=True,
             text=True,
-            timeout=timeout_seconds,
+            timeout=effective_timeout,
             check=False,
         )
     except subprocess.TimeoutExpired as error:
@@ -113,7 +114,7 @@ def execute_command_adapter(root=".", command=None, timeout_seconds=DEFAULT_TIME
             patch_status=patch_status,
             patch_valid=False,
             targets=[],
-            errors=[f"Command timed out after {timeout_seconds} seconds."],
+            errors=[f"Command timed out after {effective_timeout} seconds."],
             warnings=[],
             message="Command execution timed out.",
         )

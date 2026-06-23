@@ -31,6 +31,7 @@ def test_default_config_includes_adapter_fields():
     assert config["prompt_path"] == ".aidc/agent_prompt.md"
     assert config["model"] is None
     assert config["command"] is None
+    assert config["command_timeout_seconds"] == 120
     assert config["auto_snapshot"] is True
     assert config["auto_verify"] is True
     assert config["require_gate_pass_before_commit"] is True
@@ -114,9 +115,39 @@ def test_validate_config_backfills_missing_adapter_fields():
     assert normalized["prompt_path"] == ".aidc/agent_prompt.md"
     assert normalized["model"] is None
     assert normalized["command"] is None
+    assert normalized["command_timeout_seconds"] == 120
     assert normalized["auto_snapshot"] is True
     assert normalized["auto_verify"] is True
     assert normalized["require_gate_pass_before_commit"] is True
+
+
+def test_validate_config_accepts_valid_command_timeout():
+    normalized = validate_config({"command_timeout_seconds": 30})
+
+    assert normalized["command_timeout_seconds"] == 30
+
+
+def test_validate_config_accepts_timeout_alias():
+    normalized = validate_config({"timeout": 45})
+
+    assert normalized["command_timeout_seconds"] == 45
+
+
+def test_validate_config_rejects_invalid_command_timeout_values():
+    for value in (0, -1, 1.5, "30"):
+        _expect_value_error(
+            validate_config,
+            {"command_timeout_seconds": value},
+            contains="command_timeout_seconds",
+        )
+
+
+def test_validate_config_rejects_overly_large_command_timeout():
+    _expect_value_error(
+        validate_config,
+        {"command_timeout_seconds": 3601},
+        contains="command_timeout_seconds",
+    )
 
 
 def test_validate_config_normalizes_adapter_alias():
@@ -187,6 +218,7 @@ def test_load_config_merges_old_config_file():
         assert loaded["prompt_path"] == ".aidc/agent_prompt.md"
         assert loaded["model"] is None
         assert loaded["command"] is None
+        assert loaded["command_timeout_seconds"] == 120
         assert loaded["auto_snapshot"] is True
         assert loaded["auto_verify"] is True
         assert loaded["require_gate_pass_before_commit"] is True
@@ -302,6 +334,10 @@ TESTS = [
     test_load_config_returns_defaults_when_missing,
     test_save_config_creates_aidc_and_writes_pretty_json,
     test_validate_config_backfills_missing_adapter_fields,
+    test_validate_config_accepts_valid_command_timeout,
+    test_validate_config_accepts_timeout_alias,
+    test_validate_config_rejects_invalid_command_timeout_values,
+    test_validate_config_rejects_overly_large_command_timeout,
     test_validate_config_normalizes_adapter_alias,
     test_validate_config_rejects_unknown_adapter,
     test_validate_config_rejects_empty_prompt_path,

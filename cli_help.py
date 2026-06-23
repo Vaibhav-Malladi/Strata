@@ -32,6 +32,7 @@ def print_usage() -> None:
     print("  strata config set mode hybrid")
     print("  strata config set agent codex")
     print("  strata config set auto_snapshot false")
+    print("  strata config set command_timeout_seconds 120")
     print('  strata brief "<task>"')
     print('  strata brief <path> "<task>"')
     print("  strata cycles [path]")

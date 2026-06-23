@@ -3,6 +3,7 @@ import tempfile
 import textwrap
 from pathlib import Path
 
+import command_executor as command_executor_module
 from command_executor import execute_command_adapter, parse_command
 
 
@@ -204,6 +205,78 @@ def test_timeout_returns_timeout():
         assert result["errors"] == ["Command timed out after 1 seconds."]
 
 
+def test_default_timeout_is_passed_to_subprocess_run():
+    captured = {}
+
+    def _fake_run(*_args, **kwargs):
+        captured["timeout"] = kwargs.get("timeout")
+
+        class _Completed:
+            returncode = 0
+            stdout = ""
+            stderr = ""
+
+        return _Completed()
+
+    original_run = command_executor_module.subprocess.run
+    command_executor_module.subprocess.run = _fake_run
+    try:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            script_path = _write_script(
+                root,
+                "fake_ai.py",
+                """
+                from pathlib import Path
+
+                Path(".aidc").mkdir(parents=True, exist_ok=True)
+                Path(".aidc/agent_patch.diff").write_text("", encoding="utf-8")
+                """,
+            )
+
+            execute_command_adapter(root, command=_python_command(script_path))
+    finally:
+        command_executor_module.subprocess.run = original_run
+
+    assert captured["timeout"] == 120
+
+
+def test_custom_timeout_is_passed_to_subprocess_run():
+    captured = {}
+
+    def _fake_run(*_args, **kwargs):
+        captured["timeout"] = kwargs.get("timeout")
+
+        class _Completed:
+            returncode = 0
+            stdout = ""
+            stderr = ""
+
+        return _Completed()
+
+    original_run = command_executor_module.subprocess.run
+    command_executor_module.subprocess.run = _fake_run
+    try:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            script_path = _write_script(
+                root,
+                "fake_ai.py",
+                """
+                from pathlib import Path
+
+                Path(".aidc").mkdir(parents=True, exist_ok=True)
+                Path(".aidc/agent_patch.diff").write_text("", encoding="utf-8")
+                """,
+            )
+
+            execute_command_adapter(root, command=_python_command(script_path), timeout_seconds=7)
+    finally:
+        command_executor_module.subprocess.run = original_run
+
+    assert captured["timeout"] == 7
+
+
 def test_stdout_and_stderr_are_captured():
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
@@ -318,6 +391,8 @@ TESTS = [
     test_command_writing_empty_patch_returns_empty_patch,
     test_command_writing_invalid_patch_returns_invalid_patch,
     test_timeout_returns_timeout,
+    test_default_timeout_is_passed_to_subprocess_run,
+    test_custom_timeout_is_passed_to_subprocess_run,
     test_stdout_and_stderr_are_captured,
     test_command_runs_with_cwd_root,
     test_result_dict_uses_fresh_lists,

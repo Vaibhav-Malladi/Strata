@@ -17,6 +17,7 @@ _SUPPORTED_KEYS = {
     "prompt_path",
     "model",
     "command",
+    "command_timeout_seconds",
     "auto_snapshot",
     "auto_verify",
     "require_gate_pass_before_commit",
@@ -29,9 +30,11 @@ _VALID_KEYS = (
     "prompt_path",
     "model",
     "command",
+    "command_timeout_seconds",
     "auto_snapshot",
     "auto_verify",
     "require_gate_pass_before_commit",
+    "timeout",
     "require_gate",
     "require_gate_pass",
     "snapshot",
@@ -39,6 +42,7 @@ _VALID_KEYS = (
 )
 
 _KEY_ALIASES = {
+    "timeout": "command_timeout_seconds",
     "require_gate": "require_gate_pass_before_commit",
     "require_gate_pass": "require_gate_pass_before_commit",
     "snapshot": "auto_snapshot",
@@ -200,6 +204,7 @@ def _config_rows(
             ("Prompt path", config["prompt_path"]),
             ("Model", config["model"] if config["model"] is not None else "null"),
             ("Command", config["command"] if config["command"] is not None else "null"),
+            ("Command timeout seconds", config["command_timeout_seconds"]),
             ("Auto snapshot", _bool_text(config["auto_snapshot"])),
             ("Auto verify", _bool_text(config["auto_verify"])),
             (
@@ -253,6 +258,21 @@ def _parse_value(key: str, value: str) -> object:
             return None
         return normalized
 
+    if key == "command_timeout_seconds":
+        try:
+            timeout = int(normalized)
+        except ValueError as error:
+            raise ValueError(
+                "Invalid value for command_timeout_seconds. Expected an integer between 1 and 3600."
+            ) from error
+
+        if timeout <= 0 or timeout > 3600:
+            raise ValueError(
+                "Invalid value for command_timeout_seconds. Expected an integer between 1 and 3600."
+            )
+
+        return timeout
+
     return _parse_bool(key, normalized)
 
 
@@ -277,5 +297,6 @@ def _usage_text() -> str:
             "  strata config [root]",
             "  strata config init [root]",
             "  strata config set <key> <value> [root]",
+            "  strata config set command_timeout_seconds 120",
         ]
     )

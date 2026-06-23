@@ -58,6 +58,7 @@ def check_adapter(root: str | Path = ".") -> dict[str, Any]:
             prompt=_display_prompt(prompt_config),
             patch=_display_patch(),
             command=_display_command(command_config),
+            command_timeout_seconds=None,
             adapter_family=None,
             checks=[
                 _check("config", "fail", "Workflow config loaded, but the adapter is unsupported."),
@@ -85,6 +86,7 @@ def check_adapter(root: str | Path = ".") -> dict[str, Any]:
             prompt=prompt_display,
             patch=patch_display,
             command="-",
+            command_timeout_seconds=None,
             message=check_message,
             checks=[
                 _check("config", "pass", "Workflow config loaded."),
@@ -111,6 +113,7 @@ def check_adapter(root: str | Path = ".") -> dict[str, Any]:
         prompt=_display_prompt(prompt_config),
         patch=_display_patch(),
         command=_display_command(command_config),
+        command_timeout_seconds=None,
     )
 
 
@@ -131,6 +134,7 @@ def _check_prompt_file(root_path: Path, config: dict[str, Any], mode: str, agent
             prompt=prompt_display,
             patch=patch_display,
             command="-",
+            command_timeout_seconds=None,
             message="Adapter configuration looks ready.",
             checks=[
                 _check("config", "pass", "Workflow config loaded."),
@@ -150,6 +154,7 @@ def _check_prompt_file(root_path: Path, config: dict[str, Any], mode: str, agent
         prompt=prompt_display,
         patch=patch_display,
         command="-",
+        command_timeout_seconds=None,
         message="Adapter configuration is not ready.",
         checks=[
             _check("config", "pass", "Workflow config loaded."),
@@ -168,6 +173,7 @@ def _check_command(root_path: Path, config: dict[str, Any], mode: str, agent: st
     prompt_display = _display_prompt(prompt_config)
     patch_display = _display_patch()
     command_display = _display_command(command_config)
+    timeout_display = _display_timeout(config.get("command_timeout_seconds"))
     errors: list[str] = []
     checks = [
         _check("config", "pass", "Workflow config loaded."),
@@ -179,6 +185,8 @@ def _check_command(root_path: Path, config: dict[str, Any], mode: str, agent: st
         checks.append(_check("command", "fail", "Command is missing."))
     else:
         checks.append(_check("command", "pass", "Command is configured."))
+
+    checks.append(_check("timeout", "pass", "Command timeout is configured."))
 
     if resolved_prompt_path.exists():
         checks.append(_check("prompt", "pass", "Prompt file exists."))
@@ -199,6 +207,7 @@ def _check_command(root_path: Path, config: dict[str, Any], mode: str, agent: st
             prompt=prompt_display,
             patch=patch_display,
             command=command_display,
+            command_timeout_seconds=timeout_display,
             message="Adapter configuration is not ready.",
             checks=checks,
             errors=errors,
@@ -214,6 +223,7 @@ def _check_command(root_path: Path, config: dict[str, Any], mode: str, agent: st
         prompt=prompt_display,
         patch=patch_display,
         command=command_display,
+        command_timeout_seconds=timeout_display,
         message="Adapter configuration looks ready.",
         checks=checks,
     )
@@ -229,6 +239,7 @@ def _build_invalid_result(
     prompt: str | None = None,
     patch: str | None = None,
     command: str | None = None,
+    command_timeout_seconds: int | None = None,
     adapter_family: str | None = None,
     checks: list[dict[str, str]] | None = None,
 ) -> dict[str, Any]:
@@ -242,6 +253,7 @@ def _build_invalid_result(
         prompt=prompt,
         patch=patch,
         command=command,
+        command_timeout_seconds=command_timeout_seconds,
         message=message,
         checks=checks
         or [
@@ -262,6 +274,7 @@ def _build_result(
     prompt: str | None,
     patch: str | None,
     command: str | None,
+    command_timeout_seconds: int | None,
     message: str,
     checks: list[dict[str, str]],
     errors: list[str] | None = None,
@@ -277,6 +290,7 @@ def _build_result(
         "prompt": prompt,
         "patch": patch,
         "command": command,
+        "command_timeout_seconds": command_timeout_seconds,
         "checks": [dict(check) for check in checks],
         "errors": list(errors or []),
         "warnings": list(warnings or []),
@@ -308,3 +322,10 @@ def _display_command(configured_command: object) -> str:
         return configured_command
 
     return "-"
+
+
+def _display_timeout(configured_timeout: object) -> int | None:
+    if type(configured_timeout) is int and configured_timeout > 0:
+        return configured_timeout
+
+    return None

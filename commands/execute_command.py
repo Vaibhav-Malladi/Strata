@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from adapter_doctor import check_adapter
-from command_executor import execute_command_adapter
+from command_executor import DEFAULT_TIMEOUT_SECONDS, execute_command_adapter
+from workflow_config import load_config
 from ui import (
     build_banner,
     build_kv_table,
@@ -23,11 +24,19 @@ def write_execute_command(root_path: str = ".") -> int:
     status = str(result.get("status", "invalid")).lower()
     ready = bool(result.get("ready"))
     execution_result = None
+    config = None
+    timeout_seconds = None
+
+    try:
+        config = load_config(root_path)
+    except ValueError:
+        config = None
 
     display_status, message = _build_display_status_and_message(result)
     prompt = _format_path_or_dash(result.get("prompt"))
     patch = _format_path_or_dash(result.get("patch"))
     command = _format_command(result.get("command"))
+    timeout = _format_value(config.get("command_timeout_seconds") if config is not None else None)
     executes_command = "no"
     applies_patch = "no"
     return_code = "-"
@@ -37,7 +46,14 @@ def write_execute_command(root_path: str = ".") -> int:
     next_step = None
 
     if ready and adapter == "command":
-        execution_result = execute_command_adapter(root_path, command=result.get("command"))
+        timeout_seconds = config.get("command_timeout_seconds") if config is not None else None
+        if type(timeout_seconds) is not int or timeout_seconds <= 0:
+            timeout_seconds = DEFAULT_TIMEOUT_SECONDS
+        execution_result = execute_command_adapter(
+            root_path,
+            command=result.get("command"),
+            timeout_seconds=timeout_seconds,
+        )
         display_status = _format_execution_status(str(execution_result.get("status", "failed")).lower())
         message = str(execution_result.get("message", ""))
         executes_command = "yes" if execution_result.get("executed") else "no"
@@ -56,6 +72,7 @@ def write_execute_command(root_path: str = ".") -> int:
         ("Prompt", prompt),
         ("Patch", patch),
         ("Command", command),
+        ("Timeout seconds", timeout),
         ("Executes command", executes_command),
         ("Applies patch", applies_patch),
         ("Return code", return_code),
@@ -79,6 +96,14 @@ def write_execute_command(root_path: str = ".") -> int:
 
     if errors:
         rows.append(("Errors", _format_notes(errors)))
+
+    if execution_result is not None:
+        stdout_preview = _preview_text(execution_result.get("stdout", ""))
+        stderr_preview = _preview_text(execution_result.get("stderr", ""))
+        if stdout_preview:
+            rows.append(("Stdout", stdout_preview))
+        if stderr_preview:
+            rows.append(("Stderr", stderr_preview))
 
     print(build_banner())
     print()
@@ -200,3 +225,22 @@ def _format_notes(notes: object) -> str:
         return "-"
 
     return "; ".join(str(note) for note in notes)
+
+
+def _preview_text(text: object, max_chars: int = 500) -> str:
+    if text is None:
+        return ""
+
+    normalized = str(text).replace("\r\n", "\n").replace("\r", "\n")
+    compact = " | ".join(part.strip() for part in normalized.split("\n") if part.strip())
+
+    if not compact:
+        return ""
+
+    if len(compact) <= max_chars:
+        return compact
+
+    if max_chars <= 3:
+        return compact[:max_chars]
+
+    return compact[: max_chars - 3] + "..."
