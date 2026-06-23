@@ -35,6 +35,7 @@ import test_diff_engine
 import test_verify
 import test_verify_command
 import test_diff_command
+import test_scan_command
 from tests import test_languages
 from tests import test_javascript_parser
 from tests import test_typescript_parser
@@ -69,6 +70,7 @@ TEST_MODULES = [
     test_verify,
     test_verify_command,
     test_diff_command,
+    test_scan_command,
     test_languages,
     test_javascript_parser,
     test_typescript_parser,
