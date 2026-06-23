@@ -107,6 +107,7 @@ def test_doctor_http_planned_adapter_shows_family_and_not_ready():
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
         _create_repo(root)
+        _write_prompt(root)
         _save_config(root, adapter="ollama", http_timeout_seconds=180)
 
         with change_directory(root):
@@ -120,7 +121,7 @@ def test_doctor_http_planned_adapter_shows_family_and_not_ready():
         assert "Command timeout" in output
         assert "HTTP timeout seconds" in output
         assert "180" in output
-        assert "Ollama health checks are not implemented yet." in output
+        assert "Ollama adapter is not ready yet." in output
         assert "http://localhost:11434" in output
 
 
@@ -128,6 +129,7 @@ def test_doctor_http_adapter_shows_base_url_api_key_env_and_http_timeout():
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
         _create_repo(root)
+        _write_prompt(root)
         _save_config(
             root,
             adapter="openai_compatible_http",
@@ -140,8 +142,8 @@ def test_doctor_http_adapter_shows_base_url_api_key_env_and_http_timeout():
             with change_argv(["cli.py", "doctor", "adapter"]):
                 exit_code, output = capture_output(cli_main)
 
-        assert exit_code == 1
-        assert "not_ready" in output
+        assert exit_code == 0
+        assert "ready" in output
         assert "Adapter family" in output
         assert "http" in output
         assert "Base URL" in output
@@ -150,7 +152,7 @@ def test_doctor_http_adapter_shows_base_url_api_key_env_and_http_timeout():
         assert "OPENAI_API_KEY" in output
         assert "HTTP timeout seconds" in output
         assert "240" in output
-        assert "HTTP adapter execution is not implemented yet." in output
+        assert "HTTP adapter appears ready for execution." in output
 
 
 def test_doctor_without_target_returns_nonzero_and_shows_usage():

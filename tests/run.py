@@ -30,6 +30,7 @@ import test_apply_command
 import test_command_executor
 import test_execute_command
 import test_adapter_doctor
+import test_http_executor
 import test_http_adapter_contract
 import test_doctor_command
 import test_patch_applier
@@ -82,6 +83,7 @@ TEST_MODULES = [
     test_command_executor,
     test_execute_command,
     test_adapter_doctor,
+    test_http_executor,
     test_http_adapter_contract,
     test_doctor_command,
     test_patch_applier,

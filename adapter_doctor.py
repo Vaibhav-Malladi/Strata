@@ -14,7 +14,7 @@ from http_adapter_contract import build_http_contract_summary
 from workflow_config import load_config
 
 _PLANNED_COMMAND_ADAPTERS = {"aider", "codex_cli"}
-_PLANNED_HTTP_ADAPTERS = {"ollama", "openai_compatible_http"}
+_PLANNED_HTTP_ADAPTERS = {"ollama"}
 _PLANNED_ADAPTERS = _PLANNED_COMMAND_ADAPTERS | _PLANNED_HTTP_ADAPTERS
 _ALL_SUPPORTED_ADAPTERS = supported_adapters()
 
@@ -67,6 +67,9 @@ def check_adapter(root: str | Path = ".") -> dict[str, Any]:
         )
 
     family = adapter_family(adapter)
+
+    if adapter == "openai_compatible_http":
+        return _check_http(root_path, config, mode, agent, adapter)
 
     if adapter in _PLANNED_HTTP_ADAPTERS:
         return _check_http(root_path, config, mode, agent, adapter)
@@ -250,27 +253,20 @@ def _check_http(root_path: Path, config: dict[str, Any], mode: str, agent: str, 
     prompt_config = config.get("prompt_path")
     prompt_display = _display_prompt(prompt_config)
     patch_display = _display_patch()
-    contract = build_http_contract_summary(config, prompt_exists=prompt_path(root_path, prompt_config).exists())
+    prompt_exists = prompt_path(root_path, prompt_config).exists()
+    contract = build_http_contract_summary(config, prompt_exists=prompt_exists)
     base_url = contract.get("base_url")
+    request_url = contract.get("request_url")
     api_key_env = contract.get("api_key_env")
     http_timeout = contract.get("http_timeout_seconds")
     checks = [
         _check("config", "pass", "Workflow config loaded."),
-        _check(
-            "adapter",
-            "info",
-            "HTTP adapter execution is not implemented yet. "
-            "HTTP request/response contract is available locally; network execution is not implemented yet.",
-        ),
-        _check("prompt", "info", "Prompt path is configured."),
+        _check("adapter", "pass", "HTTP adapter appears ready for execution."),
         _check("patch", "info", "Patch path is configured."),
     ]
     errors: list[str] = []
     warnings: list[str] = []
-    message = (
-        "HTTP adapter execution is not implemented yet. "
-        "HTTP request/response contract is available locally; network execution is not implemented yet."
-    )
+    message = "HTTP adapter appears ready for execution."
 
     if adapter == "openai_compatible_http":
         if base_url is None:
@@ -279,10 +275,21 @@ def _check_http(root_path: Path, config: dict[str, Any], mode: str, agent: str, 
         else:
             checks.append(_check("base_url", "pass", "Base URL is configured."))
 
+        if prompt_exists:
+            checks.append(_check("prompt", "pass", "Prompt file exists."))
+        else:
+            errors.append(f"Prompt file not found: {prompt_display}")
+            checks.append(_check("prompt", "fail", "Prompt file is missing."))
+
         if api_key_env is not None:
             checks.append(
                 _check("api_key_env", "info", "API key environment variable name is configured.")
             )
+
+        if base_url is None or not prompt_exists:
+            message = "HTTP adapter is not ready for execution."
+        else:
+            message = "HTTP adapter appears ready for execution."
     else:
         if base_url is None:
             warning = "Base URL is not configured. Ollama commonly uses http://localhost:11434."
@@ -291,19 +298,29 @@ def _check_http(root_path: Path, config: dict[str, Any], mode: str, agent: str, 
         else:
             checks.append(_check("base_url", "pass", "Base URL is configured."))
 
+        if prompt_exists:
+            checks.append(_check("prompt", "pass", "Prompt file exists."))
+        else:
+            errors.append(f"Prompt file not found: {prompt_display}")
+            checks.append(_check("prompt", "fail", "Prompt file is missing."))
+
         if api_key_env is not None:
             checks.append(
                 _check("api_key_env", "info", "API key environment variable name is configured.")
             )
 
         message = (
-            "Ollama health checks are not implemented yet. "
-            "HTTP request/response contract is available locally; network execution is not implemented yet."
+            "Ollama adapter is not ready yet. "
+            "If the endpoint is OpenAI-compatible, use `openai_compatible_http`; otherwise wait for the Ollama adapter."
         )
 
+    ready = adapter == "openai_compatible_http" and base_url is not None and prompt_exists
+    status = "ready" if ready else "not_ready"
+    ready_message = "HTTP adapter appears ready for execution." if ready else message
+
     return _build_result(
-        status="not_ready",
-        ready=False,
+        status=status,
+        ready=ready,
         adapter=adapter,
         adapter_family="http",
         mode=mode,
@@ -315,7 +332,7 @@ def _check_http(root_path: Path, config: dict[str, Any], mode: str, agent: str, 
         base_url=base_url,
         api_key_env=api_key_env,
         http_timeout_seconds=http_timeout,
-        message=message,
+        message=ready_message,
         checks=checks,
         errors=errors,
         warnings=warnings,

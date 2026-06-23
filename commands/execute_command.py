@@ -5,6 +5,7 @@ from pathlib import Path
 from adapter_doctor import check_adapter
 from command_executor import DEFAULT_TIMEOUT_SECONDS, execute_command_adapter
 from http_adapter_contract import build_http_contract_summary
+from http_executor import execute_openai_compatible_http_adapter
 from workflow_config import load_config
 from ui import (
     build_banner,
@@ -17,19 +18,17 @@ from ui import (
 )
 
 _PLANNED_COMMAND_ADAPTERS = {"aider", "codex_cli"}
-_PLANNED_HTTP_ADAPTERS = {"ollama", "openai_compatible_http"}
+_PLANNED_HTTP_ADAPTERS = {"ollama"}
 _PLANNED_ADAPTERS = _PLANNED_COMMAND_ADAPTERS | _PLANNED_HTTP_ADAPTERS
 
 
-def write_execute_command(root_path: str = ".") -> int:
+def write_execute_command(root_path: str = ".", dry_run: bool = False) -> int:
     result = check_adapter(root_path)
     adapter = str(result.get("adapter", "") or "")
     adapter_family = str(result.get("adapter_family", "") or "")
-    status = str(result.get("status", "invalid")).lower()
     ready = bool(result.get("ready"))
     execution_result = None
     config = None
-    timeout_seconds = None
     prompt_exists = False
 
     try:
@@ -42,66 +41,90 @@ def write_execute_command(root_path: str = ".") -> int:
             if isinstance(prompt_config, str) and prompt_config:
                 prompt_exists = (Path(root_path) / prompt_config).is_file()
 
+    http_contract = build_http_contract_summary(config or {}, prompt_exists=prompt_exists)
+
     display_status, message = _build_display_status_and_message(result)
     prompt = _format_path_or_dash(result.get("prompt"))
     patch = _format_path_or_dash(result.get("patch"))
     command = _format_command(result.get("command"))
     timeout = _format_value(config.get("command_timeout_seconds") if config is not None else None)
-    base_url = _format_value(config.get("base_url") if config is not None else None)
-    api_key_env = _format_value(config.get("api_key_env") if config is not None else None)
-    http_timeout = _format_value(config.get("http_timeout_seconds") if config is not None else None)
-    http_contract = build_http_contract_summary(config or {}, prompt_exists=prompt_exists)
     executes_command = "no"
+    executes_http = "no"
     applies_patch = "no"
     return_code = "-"
+    http_status = "-"
     patch_status = "-"
     patch_valid = "no"
     targets = "-"
     next_step = None
 
-    if ready and adapter == "command":
-        timeout_seconds = config.get("command_timeout_seconds") if config is not None else None
-        if type(timeout_seconds) is not int or timeout_seconds <= 0:
-            timeout_seconds = DEFAULT_TIMEOUT_SECONDS
-        execution_result = execute_command_adapter(
-            root_path,
-            command=result.get("command"),
-            timeout_seconds=timeout_seconds,
-        )
-        display_status = _format_execution_status(str(execution_result.get("status", "failed")).lower())
-        message = str(execution_result.get("message", ""))
-        executes_command = "yes" if execution_result.get("executed") else "no"
-        return_code = _format_return_code(execution_result.get("returncode"))
-        patch_status = _format_patch_status(execution_result.get("patch_status"))
-        patch_valid = _format_yes_no(bool(execution_result.get("patch_valid")))
-        targets = _format_targets(execution_result.get("targets", []))
-        if execution_result.get("status") == "patch_ready":
-            next_step = "Run `strata patch`, then `strata apply --dry-run`, then `strata apply`."
+    if dry_run and ready:
+        display_status = format_success("dry-run")
+        message = _dry_run_message(adapter, adapter_family)
 
-    rows = [
-        ("Status", display_status),
-        ("Mode", _format_value(result.get("mode"))),
-        ("Agent", _format_value(result.get("agent"))),
-        ("Adapter", _format_value(adapter)),
-        ("Prompt", prompt),
-        ("Patch", patch),
-        ("Command", command),
-        ("Timeout seconds", timeout),
-        ("Executes command", executes_command),
-        ("Applies patch", applies_patch),
-        ("Return code", return_code),
-        ("Patch status", patch_status),
-        ("Patch valid", patch_valid),
-        ("Targets", targets),
-        ("Message", message),
-    ]
+    if not dry_run:
+        if ready and adapter == "command":
+            timeout_seconds = config.get("command_timeout_seconds") if config is not None else None
+            if type(timeout_seconds) is not int or timeout_seconds <= 0:
+                timeout_seconds = DEFAULT_TIMEOUT_SECONDS
+            execution_result = execute_command_adapter(
+                root_path,
+                command=result.get("command"),
+                timeout_seconds=timeout_seconds,
+            )
+            display_status = _format_execution_status(str(execution_result.get("status", "failed")).lower())
+            message = str(execution_result.get("message", ""))
+            executes_command = "yes" if execution_result.get("executed") else "no"
+            return_code = _format_return_code(execution_result.get("returncode"))
+            patch_status = _format_patch_status(execution_result.get("patch_status"))
+            patch_valid = _format_yes_no(bool(execution_result.get("patch_valid")))
+            targets = _format_targets(execution_result.get("targets", []))
+            if execution_result.get("status") == "patch_ready":
+                next_step = "Run `strata patch`, then `strata apply --dry-run`, then `strata apply`."
+
+        if ready and adapter == "openai_compatible_http":
+            execution_result = execute_openai_compatible_http_adapter(root_path, config=config or {})
+            display_status = _format_execution_status(str(execution_result.get("status", "failed")).lower())
+            message = str(execution_result.get("message", ""))
+            executes_http = "yes" if execution_result.get("executed") else "no"
+            http_status = _format_return_code(execution_result.get("http_status"))
+            patch_status = _format_patch_status(execution_result.get("patch_status"))
+            patch_valid = _format_yes_no(bool(execution_result.get("patch_valid")))
+            targets = _format_targets(execution_result.get("targets", []))
+            if execution_result.get("status") == "patch_ready":
+                next_step = "Run `strata patch`, then `strata apply --dry-run`, then `strata apply`."
 
     if adapter_family == "http":
-        rows.insert(8, ("Base URL", base_url))
-        rows.insert(9, ("API key env", api_key_env))
-        rows.insert(10, ("HTTP timeout seconds", http_timeout))
-        rows.insert(11, ("HTTP request URL", _format_value(http_contract.get("request_url"))))
-        rows.insert(12, ("HTTP response text", _format_value(http_contract.get("response_text_path"))))
+        rows = _build_http_rows(
+            result=result,
+            http_contract=http_contract,
+            display_status=display_status,
+            message=message,
+            executes_http=executes_http,
+            applies_patch=applies_patch,
+            http_status=http_status,
+            patch_status=patch_status,
+            patch_valid=patch_valid,
+            targets=targets,
+        )
+    else:
+        rows = [
+            ("Status", display_status),
+            ("Mode", _format_value(result.get("mode"))),
+            ("Agent", _format_value(result.get("agent"))),
+            ("Adapter", _format_value(adapter)),
+            ("Prompt", prompt),
+            ("Patch", patch),
+            ("Command", command),
+            ("Timeout seconds", timeout),
+            ("Executes command", executes_command),
+            ("Applies patch", applies_patch),
+            ("Return code", return_code),
+            ("Patch status", patch_status),
+            ("Patch valid", patch_valid),
+            ("Targets", targets),
+            ("Message", message),
+        ]
 
     if execution_result is None:
         rows[0] = ("Status", display_status)
@@ -131,6 +154,9 @@ def write_execute_command(root_path: str = ".") -> int:
     print(build_section("Execute adapter"))
     print(build_kv_table(rows))
 
+    if dry_run:
+        return 0 if ready else 1
+
     if execution_result is not None and execution_result.get("status") == "patch_ready":
         return 0
 
@@ -148,6 +174,9 @@ def _build_display_status_and_message(result: dict[str, object]) -> tuple[str, s
 
     if ready and adapter == "command":
         return format_error("not_implemented"), "Command execution is not implemented yet."
+
+    if ready and adapter == "openai_compatible_http":
+        return format_success("ready"), "HTTP adapter appears ready for execution."
 
     if adapter in _PLANNED_ADAPTERS:
         if adapter_family == "command":
@@ -203,7 +232,18 @@ def _format_execution_status(status: str) -> str:
     if status == "patch_ready":
         return format_success("patch_ready")
 
-    if status in {"invalid_patch", "command_failed", "timeout", "invalid_command"}:
+    if status in {
+        "invalid_patch",
+        "command_failed",
+        "timeout",
+        "invalid_command",
+        "http_error",
+        "missing_api_key",
+        "invalid_json",
+        "invalid_response",
+        "missing_base_url",
+        "missing_prompt",
+    }:
         return format_error(status)
 
     if status in {"missing_patch", "empty_patch", "not_ready"}:
@@ -250,6 +290,58 @@ def _format_notes(notes: object) -> str:
         return "-"
 
     return "; ".join(str(note) for note in notes)
+
+
+def _build_http_rows(
+    *,
+    result: dict[str, object],
+    http_contract: dict[str, object],
+    display_status: str,
+    message: str,
+    executes_http: str,
+    applies_patch: str,
+    http_status: str,
+    patch_status: str,
+    patch_valid: str,
+    targets: str,
+) -> list[tuple[str, object]]:
+    rows = [
+        ("Status", display_status),
+        ("Mode", _format_value(result.get("mode"))),
+        ("Agent", _format_value(result.get("agent"))),
+        ("Adapter", _format_value(result.get("adapter"))),
+        ("Adapter family", _format_value(result.get("adapter_family"))),
+        ("Prompt", _format_path_or_dash(result.get("prompt"))),
+        ("Prompt exists", _format_yes_no(bool(http_contract.get("prompt_exists")))),
+        ("Patch", _format_path_or_dash(result.get("patch"))),
+        ("Base URL", _format_value(http_contract.get("base_url"))),
+        ("URL", _format_value(http_contract.get("request_url"))),
+        ("Model", _format_value(http_contract.get("model"))),
+        ("API key env", _format_value(http_contract.get("api_key_env"))),
+        ("HTTP timeout seconds", _format_value(http_contract.get("http_timeout_seconds"))),
+        ("Executes HTTP", executes_http),
+        ("Applies patch", applies_patch),
+        ("HTTP status", http_status),
+        ("Patch status", patch_status),
+        ("Patch valid", patch_valid),
+        ("Targets", targets),
+        ("Message", message),
+    ]
+
+    return rows
+
+
+def _dry_run_message(adapter: str, adapter_family: str) -> str:
+    if adapter_family == "http":
+        return "Dry run only. No HTTP request was made."
+
+    if adapter == "command":
+        return "Dry run only. No command was executed."
+
+    if adapter == "prompt_file":
+        return "Dry run only. Prompt file execution was not started."
+
+    return "Dry run only. No execution was performed."
 
 
 def _preview_text(text: object, max_chars: int = 500) -> str:

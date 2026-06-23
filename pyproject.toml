@@ -60,6 +60,7 @@ py-modules = [
     "patch_applier",
     "patch_validator",
     "command_executor",
+    "http_executor",
     "languages",
     "map_writer",
     "preflight",

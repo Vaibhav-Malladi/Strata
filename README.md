@@ -11,7 +11,7 @@ Strata does **not** edit source files by itself. Strata does **not** call cloud 
 ## Status
 
 ```text
-v0.5.0 / V4 workflow preview
+v0.5.1 / HTTP execution foundation
 ```
 
 ## Install / Local Development
@@ -101,43 +101,46 @@ This does not execute the configured command adapter, and it does not create or 
 
 ## Patch-first Command Execution
 
-`strata execute` runs the configured `command` adapter only. Strata verifies the
-adapter contract and the patch output, not whether the external tool is actually AI.
-Command execution is explicit, separate from `strata run`, and patch application still
-requires `strata apply`.
+`strata execute` runs the configured `command` adapter or experimental
+`openai_compatible_http` adapter. Strata verifies the adapter contract and the patch
+output, not whether the external tool is actually AI. Command execution is explicit,
+separate from `strata run`, and patch application still requires `strata apply`.
 
 Command execution has a timeout. It defaults to 120 seconds and can be adjusted in
 local workflow config. `strata execute` may also show short stdout/stderr previews
 from the command it ran, but it still does not apply patches automatically.
 
-HTTP-family adapters are still config-only in this batch. `strata doctor adapter`
-validates `base_url`, `api_key_env`, and timeout config locally without reading the
-actual environment variable or making any network call. The HTTP request/response
-contract helpers are already in place, including the OpenAI-compatible URL, payload,
-and response-text extraction shapes. `strata execute` still returns not implemented
-for HTTP adapters until a later batch.
+HTTP-family adapters now have an experimental execution path for
+`openai_compatible_http`. `strata doctor adapter` still validates `base_url`,
+`api_key_env`, and timeout config locally without reading the actual environment
+variable or making any network call. The HTTP request/response contract helpers are
+already in place, including the OpenAI-compatible URL, payload, and response-text
+extraction shapes. `strata execute` can now POST to OpenAI-compatible chat
+completion endpoints, extract a unified diff, write `.aidc/agent_patch.diff`, and
+validate the patch. It still does not apply patches automatically. `ollama` remains
+not implemented for execution in this batch.
 
 Strata groups adapters into three families: `prompt_file`, `command`, and `http`.
 Named adapters are presets or aliases that map onto one of those families.
 
-`prompt_file` remains manual. `command` is the only family with real execution today.
+`prompt_file` remains manual. `command` is the only family with real command-line
+execution today, and `openai_compatible_http` adds experimental HTTP execution.
 Planned command-family presets like `aider` and `codex_cli` are not direct
-integrations yet. Planned http-family adapters like `ollama` and
-`openai_compatible_http` are still future work.
+integrations yet. Planned http-family adapters like `ollama` are still future work.
 
 Safe workflow:
 
 1. configure adapter
 2. run or prepare task
 3. doctor check
-4. execute command adapter
+4. execute adapter
 5. inspect patch
 6. dry-run apply
 7. apply patch
 8. review and gate
 9. commit manually only after tests and gate pass
 
-The configured command is expected to produce `.aidc/agent_patch.diff`.
+The configured adapter is expected to produce `.aidc/agent_patch.diff`.
 The patch must be a safe unified diff. Validation rejects dangerous paths such as
 `.git`, `.env`, `.ssh`, and `.aidc/config.json`.
 `strata apply --dry-run` validates patch format and safety without applying.
@@ -197,8 +200,8 @@ del .aidc\agent_patch.diff
 |---|---|---|---|
 | `prompt_file` | `prompt_file` | Implemented | Writes/uses `.aidc/agent_prompt.md`; user pastes it into an AI tool manually. |
 | `command` | `command` | Implemented | Runs the configured command adapter and writes `.aidc/agent_patch.diff`. |
-| `ollama` | `http` | Planned | Future local model adapter; doctor validates config only and the HTTP contract is still local-only. |
-| `openai_compatible_http` | `http` | Planned | Future local/remote HTTP model adapter; doctor validates config only and the HTTP contract is still local-only. |
+| `ollama` | `http` | Planned | Future local model adapter; doctor validates config only and execution is not implemented yet. |
+| `openai_compatible_http` | `http` | Experimental | OpenAI-compatible HTTP execution writes `.aidc/agent_patch.diff`, validates the patch, and still does not apply it automatically. |
 | `aider` | `command` | Planned | Future Aider preset on the command family. |
 | `codex_cli` | `command` | Planned | Future Codex CLI preset on the command family. |
 
@@ -262,23 +265,35 @@ Important notes:
   explain whether a configured adapter is manual, command-driven, or HTTP-shaped.
 - `api_key_env` stores only the environment variable name. Do not put the secret
   value in config.
-- `ollama` and `openai_compatible_http` remain planned adapters in this batch.
+- `ollama` remains planned for execution in this batch.
+- `openai_compatible_http` can execute against OpenAI-compatible chat completion
+  endpoints and still keeps patch application separate.
 - `strata doctor adapter` validates HTTP config only and does not make network calls.
-- The new HTTP adapter contract helpers build deterministic OpenAI-compatible request
-  and response shapes locally, but they still do not execute network calls.
+- The HTTP adapter contract helpers build deterministic OpenAI-compatible request
+  and response shapes locally, and `strata execute` now uses them for
+  `openai_compatible_http`.
 
-Example future HTTP setup:
+Example HTTP setup:
 
 ```powershell
 strata config set adapter openai_compatible_http
 strata config set base_url http://localhost:1234/v1
 strata config set api_key_env OPENAI_API_KEY
 strata config set http_timeout_seconds 120
+strata run "fix helper bug"
 strata doctor adapter
+strata execute --dry-run
+strata execute
+strata patch
+strata apply --dry-run
+strata apply
+strata review
 ```
 
-The example above is configuration-only for now. HTTP execution is not implemented
-yet in this batch.
+This example shows the experimental HTTP execution flow. `strata execute --dry-run`
+does not make a network call, and `strata execute` writes `.aidc/agent_patch.diff`
+without applying it. Use `strata patch`, `strata apply --dry-run`, and
+`strata apply` afterward.
 
 ---
 
@@ -343,7 +358,7 @@ If review passes, inspect the reports, run tests and gate, and then commit manua
 | `strata run "<task>" [root]` | Model-agnostic workflow shell. Plans the task, prepares context, writes `.aidc/agent_prompt.md`, and routes through the configured adapter without executing commands automatically. |
 | `strata prepare "<task>" [root]` | Generate task context and prompt files before editing. |
 | `strata doctor adapter` | Validate the configured adapter and contract before execution. |
-| `strata execute [root]` | Run the configured command adapter and produce `.aidc/agent_patch.diff`. |
+| `strata execute [--dry-run] [root]` | Run the configured command adapter or experimental OpenAI-compatible HTTP adapter and produce `.aidc/agent_patch.diff` without applying it. |
 | `strata patch [root]` | Inspect the generated patch. |
 | `strata apply [--dry-run] [root]` | Validate or apply the generated patch. |
 | `strata review [root]` | Run diff, verify, and gate after editing. |
@@ -429,10 +444,10 @@ All tests passed.
 - `mode=auto` is planned workflow state, not autonomous execution.
 - `strata run` prepares the workflow and does not execute commands automatically.
 - `prompt_file` remains the manual default for the run workflow.
-- `strata execute` runs the configured `command` adapter, and Strata still does not decide whether the external tool is AI.
+- `strata execute` runs the configured `command` adapter or experimental OpenAI-compatible HTTP adapter, and Strata still does not decide whether the external tool is AI.
 - `strata execute` writes a patch; it does not apply patches automatically.
 - `strata apply` is separate and explicit, and `--dry-run` validates patch safety without applying.
-- Other adapters such as `ollama`, `openai_compatible_http`, `aider`, and `codex_cli` remain planned unless you use them through the command adapter path.
+- Other adapters such as `ollama`, `aider`, and `codex_cli` remain planned unless you use them through the command adapter path.
 - Strata never commits changes automatically; gate remains the safety boundary.
 - Interactive setup prompts are not implemented yet.
 - Richer language support is still growing.

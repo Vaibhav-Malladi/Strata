@@ -1,3 +1,5 @@
+import json
+import os
 import contextlib
 import socket
 import sys
@@ -9,6 +11,7 @@ import commands.execute_command as execute_command_module
 from cli import main as cli_main
 from command_executor import execute_command_adapter
 from tests.helpers import capture_output, change_directory
+from test_http_executor import _valid_patch_text, run_http_server
 from workflow_config import default_config, save_config
 
 
@@ -556,34 +559,150 @@ def test_execute_missing_prompt_returns_nonzero_and_says_not_ready():
         assert "Prompt file not found" in output
 
 
-def test_execute_planned_adapter_returns_nonzero_with_clear_message():
+def test_execute_http_dry_run_returns_zero_and_makes_no_network_call():
+    original_execute = execute_command_module.execute_openai_compatible_http_adapter
+
+    def _fail(*_args, **_kwargs):
+        raise AssertionError("HTTP execution should not run during dry-run")
+
+    execute_command_module.execute_openai_compatible_http_adapter = _fail
+    try:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            _create_repo(root)
+            _write_prompt(root)
+            _save_config(
+                root,
+                mode="hybrid",
+                agent="local",
+                adapter="openai_compatible_http",
+                prompt_path=".aidc/agent_prompt.md",
+                base_url="http://localhost:1234/v1",
+                api_key_env="OPENAI_API_KEY",
+                http_timeout_seconds=150,
+            )
+
+            exit_code, output = _run_execute_cli(Path(temp_dir), "--dry-run", str(root))
+
+            assert exit_code == 0
+            assert "dry-run" in output
+            assert "Prompt exists" in output
+            assert "Executes HTTP" in output
+            assert "Applies patch" in output
+            assert "Base URL" in output
+            assert "URL" in output
+            assert "Model" in output
+    finally:
+        execute_command_module.execute_openai_compatible_http_adapter = original_execute
+
+
+def test_execute_http_normal_execute_against_local_fake_server_returns_patch_ready():
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
         _create_repo(root)
-        _save_config(
-            root,
-            mode="hybrid",
-            agent="local",
-            adapter="openai_compatible_http",
-            prompt_path=".aidc/agent_prompt.md",
-            base_url="http://localhost:1234/v1",
-            api_key_env="OPENAI_API_KEY",
-            http_timeout_seconds=150,
-        )
+        _write_prompt(root)
+        secret = "sk-test-secret-cli"
+        original = os.environ.get("OPENAI_API_KEY")
+        os.environ["OPENAI_API_KEY"] = secret
+        try:
+            _save_config(
+                root,
+                mode="hybrid",
+                agent="local",
+                adapter="openai_compatible_http",
+                prompt_path=".aidc/agent_prompt.md",
+                base_url="http://localhost:1234/v1",
+                api_key_env="OPENAI_API_KEY",
+                model="qwen2.5-coder",
+                http_timeout_seconds=150,
+            )
 
-        exit_code, output = _run_execute_cli(root)
+            with run_http_server(
+                response_body=json.dumps(
+                    {
+                        "choices": [
+                            {
+                                "message": {
+                                    "content": _valid_patch_text(),
+                                }
+                            }
+                        ]
+                    }
+                ),
+                response_headers={"Content-Type": "application/json"},
+            ) as (server, base_url):
+                _save_config(
+                    root,
+                    mode="hybrid",
+                    agent="local",
+                    adapter="openai_compatible_http",
+                    prompt_path=".aidc/agent_prompt.md",
+                    base_url=base_url,
+                    api_key_env="OPENAI_API_KEY",
+                    model="qwen2.5-coder",
+                    http_timeout_seconds=150,
+                )
 
-        assert exit_code == 1
-        assert "not_implemented" in output
-        assert "HTTP adapter execution is not implemented yet." in output
-        assert "HTTP request URL" in output
-        assert "choices[0].message.content" in output
-        assert "Base URL" in output
-        assert "http://localhost:1234/v1" in output
-        assert "API key env" in output
-        assert "OPENAI_API_KEY" in output
-        assert "HTTP timeout seconds" in output
-        assert "150" in output
+                exit_code, output = _run_execute_cli(root)
+
+            assert exit_code == 0
+            assert "patch_ready" in output
+            assert "HTTP status" in output
+            assert "Patch valid" in output
+            assert "Targets" in output
+            assert "main.py" in output
+            assert "Next" in output
+            assert "strata patch" in output
+            assert "print(\"hello\")" not in output
+            assert secret not in output
+            assert server.last_request is not None
+            auth_header = next(
+                (
+                    value
+                    for key, value in server.last_request["headers"].items()
+                    if key.lower() == "authorization"
+                ),
+                None,
+            )
+            assert auth_header == f"Bearer {secret}"
+        finally:
+            if original is None:
+                os.environ.pop("OPENAI_API_KEY", None)
+            else:
+                os.environ["OPENAI_API_KEY"] = original
+
+
+def test_execute_http_missing_base_url_returns_nonzero():
+    original_execute = execute_command_module.execute_openai_compatible_http_adapter
+
+    def _fail(*_args, **_kwargs):
+        raise AssertionError("HTTP execution should not run when base_url is missing")
+
+    execute_command_module.execute_openai_compatible_http_adapter = _fail
+    try:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            _create_repo(root)
+            _write_prompt(root)
+            _save_config(
+                root,
+                mode="hybrid",
+                agent="local",
+                adapter="openai_compatible_http",
+                prompt_path=".aidc/agent_prompt.md",
+                base_url=None,
+                api_key_env="OPENAI_API_KEY",
+                http_timeout_seconds=150,
+            )
+
+            exit_code, output = _run_execute_cli(root)
+
+            assert exit_code == 1
+            assert "not_ready" in output
+            assert "base_url is required for HTTP adapters." in output
+            assert "Executes HTTP" in output
+    finally:
+        execute_command_module.execute_openai_compatible_http_adapter = original_execute
 
 
 def test_execute_command_family_planned_adapters_do_not_execute():
@@ -626,7 +745,7 @@ def test_execute_http_family_planned_adapters_do_not_execute():
     execute_command_module.execute_command_adapter = _fail
     socket.create_connection = _fail
     try:
-        for adapter in ("ollama", "openai_compatible_http"):
+        for adapter in ("ollama",):
             with tempfile.TemporaryDirectory() as temp_dir:
                 root = Path(temp_dir)
                 _create_repo(root)
@@ -647,8 +766,7 @@ def test_execute_http_family_planned_adapters_do_not_execute():
                 assert "not_implemented" in output
                 assert "HTTP adapter execution is not implemented yet." in output
                 assert adapter in output
-                assert "HTTP request URL" in output
-                assert "choices[0].message.content" in output
+                assert "URL" in output
                 assert "HTTP timeout seconds" in output
     finally:
         execute_command_module.execute_command_adapter = original_execute
@@ -735,7 +853,10 @@ TESTS = [
     test_execute_command_invalid_patch_returns_nonzero,
     test_execute_command_non_zero_exit_returns_nonzero,
     test_execute_missing_prompt_returns_nonzero_and_says_not_ready,
-    test_execute_planned_adapter_returns_nonzero_with_clear_message,
+    test_execute_http_dry_run_returns_zero_and_makes_no_network_call,
+    test_execute_http_normal_execute_against_local_fake_server_returns_patch_ready,
+    test_execute_http_missing_base_url_returns_nonzero,
+    test_execute_http_family_planned_adapters_do_not_execute,
     test_execute_output_includes_expected_rows,
     test_execute_command_captures_stdout_and_stderr_and_does_not_apply_patch,
 ]

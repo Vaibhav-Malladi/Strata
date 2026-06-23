@@ -281,9 +281,14 @@ def _handle_apply_command(args: list[str]) -> int:
 
 
 def _handle_execute_command(args: list[str]) -> int:
+    dry_run = False
     positionals: list[str] = []
 
     for arg in args:
+        if arg == "--dry-run":
+            dry_run = True
+            continue
+
         if arg.startswith("-"):
             print_usage()
             return 1
@@ -295,7 +300,7 @@ def _handle_execute_command(args: list[str]) -> int:
         return 1
 
     root = positionals[0] if positionals else "."
-    return write_execute_command(root)
+    return write_execute_command(root, dry_run=dry_run)
 
 
 if __name__ == "__main__":
