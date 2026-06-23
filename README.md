@@ -72,12 +72,9 @@ It does not lock Strata to one AI model or tool. Instead, it reads the local wor
 config, builds a deterministic task plan, runs prepare, and routes through the configured
 adapter.
 
-Today, the safe default adapter is `prompt_file`. That means Strata prepares
+The safe default adapter is still `prompt_file`. That means Strata prepares
 `.aidc/agent_prompt.md` and tells you where to paste it next. It does not execute AI
-automatically yet.
-
-Future adapter support may include `command`, `ollama`, `openai_compatible_http`,
-`aider`, and `codex_cli`.
+automatically.
 
 Safe example:
 
@@ -94,37 +91,66 @@ strata run --dry-run "fix broken helper import"
 This shows the detected task type and planned steps. It does not write files, create
 `.aidc`, run prepare, call adapters, or execute AI.
 
-This only previews how a future command adapter would be called. It does not execute
-the configured command, does not execute AI, and does not create or apply
-`.aidc/agent_patch.diff`. It is useful for checking adapter configuration safely
-before real execution support exists.
+This does not execute the configured command adapter, and it does not create or apply
+`.aidc/agent_patch.diff`.
+
+## Patch-first Command Execution
+
+`strata execute` runs the configured `command` adapter only. Strata verifies the
+adapter contract and the patch output, not whether the external tool is actually AI.
+
+`prompt_file` remains manual. Planned adapters like `ollama`,
+`openai_compatible_http`, `aider`, and `codex_cli` are still future work unless they
+are already supported through the command adapter path.
+
+Safe workflow:
+
+1. configure adapter
+2. run or prepare task
+3. doctor check
+4. execute command adapter
+5. inspect patch
+6. dry-run apply
+7. apply patch
+8. review and gate
+9. commit manually only after tests and gate pass
+
+The configured command is expected to produce `.aidc/agent_patch.diff`.
+The patch must be a safe unified diff. Validation rejects dangerous paths such as
+`.git`, `.env`, `.ssh`, and `.aidc/config.json`.
+`strata apply --dry-run` validates patch format and safety without applying.
+`strata apply` applies only after validation.
+Strata never commits automatically.
+
+PowerShell example:
+
+```powershell
+strata config set adapter command
+strata config set command "python fake_ai.py"
+strata run "fix helper bug"
+strata doctor adapter
+strata execute
+strata patch
+strata apply --dry-run
+strata apply
+strata review
+py tests.py
+py tests\run.py
+.\strata gate
+git add .
+git commit -m "Fix helper bug"
+```
 
 ## Adapter Status
 
 | Adapter | Status | Behavior |
 |---|---|---|
 | `prompt_file` | Implemented | Writes/uses `.aidc/agent_prompt.md`; user pastes it into an AI tool manually. |
-| `command` | Dry-run preview | Shows the configured command, prompt path, and patch path without executing anything. Real execution is planned. |
+| `command` | Implemented | Runs the configured command adapter and writes `.aidc/agent_patch.diff`. |
 | `ollama` | Planned | Future local model adapter. |
 | `openai_compatible_http` | Planned | Future local/remote HTTP model adapter. |
 | `aider` | Planned | Future Aider adapter. |
 | `codex_cli` | Planned | Future Codex CLI adapter. |
-
-### Command adapter dry-run
-
-The `command` adapter can now preview its configured command without executing it.
-This is useful when you want to verify the planned handoff before real execution is
-implemented.
-
-```powershell
-strata config set adapter command
-strata config set command "my-ai --prompt .aidc/agent_prompt.md"
-
-strata run --dry-run "fix broken helper import"
-
-strata config set adapter prompt_file
-strata config set command null
-```
 
 Manual safety loop:
 
@@ -173,6 +199,7 @@ Important notes:
 - It does not yet mean Strata will automatically run an AI coding agent.
 - `agent=codex` currently means Strata generates Codex-ready prompt context.
 - It does not yet execute Codex.
+- `prompt_file` stays manual even when `command` is configured.
 
 ---
 
@@ -223,7 +250,7 @@ This writes:
 - `.aidc/gate_report.md`
 - `.aidc/gate_report.json`
 
-If review passes, inspect the reports and commit if expected. If review fails, inspect the generated reports and fix the issues. Review does not commit automatically.
+If review passes, inspect the reports, run tests and gate, and then commit manually if expected. If review fails, inspect the generated reports and fix the issues. Review does not commit automatically.
 
 ---
 
@@ -234,8 +261,12 @@ If review passes, inspect the reports and commit if expected. If review fails, i
 | `strata config [root]` | Show workflow config for the repository. |
 | `strata config init [root]` | Create `.aidc/config.json` if missing; validate and preserve an existing valid config. |
 | `strata config set <key> <value> [root]` | Set a workflow config value. |
-| `strata run "<task>" [root]` | Model-agnostic workflow shell. Plans the task, prepares context, writes `.aidc/agent_prompt.md`, and routes through the configured adapter. Currently uses `prompt_file`, so AI is not executed automatically yet. |
+| `strata run "<task>" [root]` | Model-agnostic workflow shell. Plans the task, prepares context, writes `.aidc/agent_prompt.md`, and routes through the configured adapter. `prompt_file` remains the manual default. |
 | `strata prepare "<task>" [root]` | Generate task context and prompt files before editing. |
+| `strata doctor adapter` | Validate the configured adapter and contract before execution. |
+| `strata execute [root]` | Run the configured command adapter and write `.aidc/agent_patch.diff`. |
+| `strata patch [root]` | Inspect the generated patch. |
+| `strata apply [--dry-run] [root]` | Validate or apply the generated patch. |
 | `strata review [root]` | Run diff, verify, and gate after editing. |
 | `strata scan` | Build `.aidc/graph.json`. |
 | `strata context "task"` | Generate a compact deterministic context pack. |
@@ -318,10 +349,11 @@ All tests passed.
 
 - `mode=auto` is planned workflow state, not autonomous execution.
 - `strata run` currently uses `prompt_file`, so AI is not executed automatically yet.
-- `command` adapter has dry-run preview only; real command execution is planned but not implemented.
-- Patch/apply flow is planned but not implemented.
-- Other adapters such as `ollama`, `openai_compatible_http`, `aider`, and `codex_cli` are planned but not implemented.
-- AI never commits changes; gate remains the safety boundary.
+- `strata execute` can run the configured `command` adapter, but Strata still does not decide whether the external tool is AI.
+- `strata execute` writes a patch; it does not apply patches automatically.
+- `strata apply` is separate and explicit, and `--dry-run` validates patch safety without applying.
+- Other adapters such as `ollama`, `openai_compatible_http`, `aider`, and `codex_cli` are still planned.
+- Strata never commits changes automatically; gate remains the safety boundary.
 - Interactive setup prompts are not implemented yet.
 - Richer language support is still growing.
 - Optional spinners and animations are future polish work.

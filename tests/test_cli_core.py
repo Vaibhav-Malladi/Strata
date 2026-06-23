@@ -407,6 +407,26 @@ def test_cli_help_prefers_strata_commands():
     assert "py cli.py scan [path]" not in output
 
 
+def test_editable_install_imports_command_executor_from_clean_cwd():
+    import subprocess
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "import command_executor; print(command_executor.__file__)",
+            ],
+            cwd=temp_dir,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+
+    assert result.returncode == 0, result.stderr
+    assert "command_executor.py" in result.stdout.replace("\\", "/")
+
+
 def test_cli_doctor_adapter_dispatches():
     with tempfile.TemporaryDirectory() as temp_dir:
         repo_root = Path(temp_dir)
@@ -457,5 +477,6 @@ TESTS = [
     test_cli_apply_dry_run_command_smoke,
     test_cli_run_command_smoke,
     test_cli_help_prefers_strata_commands,
+    test_editable_install_imports_command_executor_from_clean_cwd,
     test_cli_doctor_adapter_dispatches,
 ]
