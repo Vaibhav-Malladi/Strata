@@ -27,6 +27,7 @@ import test_preflight
 import test_prepare_command
 import test_run_command
 import test_apply_command
+import test_command_executor
 import test_execute_command
 import test_adapter_doctor
 import test_doctor_command
@@ -77,6 +78,7 @@ TEST_MODULES = [
     test_prepare_command,
     test_run_command,
     test_apply_command,
+    test_command_executor,
     test_execute_command,
     test_adapter_doctor,
     test_doctor_command,

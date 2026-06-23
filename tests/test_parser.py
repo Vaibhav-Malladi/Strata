@@ -3,6 +3,15 @@ import sys
 import tempfile
 from pathlib import Path
 
+TESTS_DIR = os.path.dirname(__file__)
+PROJECT_ROOT = os.path.dirname(TESTS_DIR)
+
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+if TESTS_DIR not in sys.path:
+    sys.path.insert(0, TESTS_DIR)
+
 from languages import detect_language, parse_source_file
 from python_parser import parse_file
 from tests.helpers import write_file

@@ -1,10 +1,11 @@
 import contextlib
-import subprocess
 import sys
 import tempfile
+import textwrap
 from pathlib import Path
 
 from cli import main as cli_main
+from command_executor import execute_command_adapter
 from tests.helpers import capture_output, change_directory
 from workflow_config import default_config, save_config
 
@@ -43,6 +44,26 @@ def _run_execute_cli(root: Path, *args: str):
             return capture_output(cli_main)
 
 
+def _write_script(root: Path, name: str, body: str) -> Path:
+    script_path = root / name
+    script_path.write_text(textwrap.dedent(body).lstrip(), encoding="utf-8")
+    return script_path
+
+
+def _python_command(script_path: Path) -> str:
+    return f'"{sys.executable}" "{script_path}"'
+
+
+def _valid_patch_text() -> str:
+    return (
+        "diff --git a/main.py b/main.py\n"
+        "--- /dev/null\n"
+        "+++ b/main.py\n"
+        "@@ -0,0 +1 @@\n"
+        '+print("hello")\n'
+    )
+
+
 def test_execute_prompt_file_ready_returns_nonzero_and_says_manual():
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
@@ -74,47 +95,186 @@ def test_execute_optional_root_argument_works():
         assert "manual" in output
 
 
-def test_execute_command_ready_returns_nonzero_and_says_not_implemented():
+def test_execute_command_ready_returns_zero_when_valid_patch_produced():
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
         _create_repo(root)
+        _write_prompt(root)
+
+        script_path = _write_script(
+            root,
+            "fake_ai.py",
+            f"""
+            from pathlib import Path
+
+            Path(".aidc").mkdir(parents=True, exist_ok=True)
+            Path(".aidc/agent_patch.diff").write_text({ _valid_patch_text()!r }, encoding="utf-8")
+            """,
+        )
+        command = _python_command(script_path)
         _save_config(
             root,
             mode="hybrid",
             agent="local",
             adapter="command",
             prompt_path=".aidc/agent_prompt.md",
-            command="my-ai --prompt .aidc/agent_prompt.md --patch .aidc/agent_patch.diff",
+            command=command,
         )
-        _write_prompt(root)
 
         exit_code, output = _run_execute_cli(root)
 
-        assert exit_code == 1
-        assert "command" in output
-        assert "not_implemented" in output
-        assert "Command execution is not implemented yet." in output
+        assert exit_code == 0
+        assert "Execute adapter" in output
+        assert "patch_ready" in output
+        assert "Executes command  yes" in output
+        assert "Applies patch     no" in output
+        assert "Return code" in output
+        assert "Patch status" in output
+        assert "Patch valid       yes" in output
+        assert "Targets           main.py" in output
+        assert "Next" in output
+        assert "strata patch" in output
+        assert "strata apply --dry-run" in output
+        assert "strata apply" in output
+        assert (root / "main.py").read_text(encoding="utf-8") == "print('hello')\n"
 
 
-def test_execute_command_missing_command_returns_nonzero_and_says_not_ready():
+def test_execute_command_missing_patch_returns_nonzero():
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
         _create_repo(root)
+        _write_prompt(root)
+
+        script_path = _write_script(
+            root,
+            "fake_ai.py",
+            """
+            from pathlib import Path
+
+            Path(".aidc").mkdir(parents=True, exist_ok=True)
+            """,
+        )
+        command = _python_command(script_path)
         _save_config(
             root,
             mode="hybrid",
             agent="local",
             adapter="command",
             prompt_path=".aidc/agent_prompt.md",
-            command=None,
+            command=command,
         )
-        _write_prompt(root)
 
         exit_code, output = _run_execute_cli(root)
 
         assert exit_code == 1
-        assert "not_ready" in output
-        assert "Adapter configuration is not ready." in output
+        assert "missing_patch" in output
+        assert "Command did not produce a patch file." in output
+        assert "Patch valid       no" in output
+        assert "Targets           -" in output
+
+
+def test_execute_command_empty_patch_returns_nonzero():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _create_repo(root)
+        _write_prompt(root)
+
+        script_path = _write_script(
+            root,
+            "fake_ai.py",
+            """
+            from pathlib import Path
+
+            Path(".aidc").mkdir(parents=True, exist_ok=True)
+            Path(".aidc/agent_patch.diff").write_text("", encoding="utf-8")
+            """,
+        )
+        command = _python_command(script_path)
+        _save_config(
+            root,
+            mode="hybrid",
+            agent="local",
+            adapter="command",
+            prompt_path=".aidc/agent_prompt.md",
+            command=command,
+        )
+
+        exit_code, output = _run_execute_cli(root)
+
+        assert exit_code == 1
+        assert "empty_patch" in output
+        assert "Command executed but produced an empty patch." in output
+        assert "Patch valid       no" in output
+
+
+def test_execute_command_invalid_patch_returns_nonzero():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _create_repo(root)
+        _write_prompt(root)
+
+        script_path = _write_script(
+            root,
+            "fake_ai.py",
+            """
+            from pathlib import Path
+
+            Path(".aidc").mkdir(parents=True, exist_ok=True)
+            Path(".aidc/agent_patch.diff").write_text("this is not a diff\\n", encoding="utf-8")
+            """,
+        )
+        command = _python_command(script_path)
+        _save_config(
+            root,
+            mode="hybrid",
+            agent="local",
+            adapter="command",
+            prompt_path=".aidc/agent_prompt.md",
+            command=command,
+        )
+
+        exit_code, output = _run_execute_cli(root)
+
+        assert exit_code == 1
+        assert "invalid_patch" in output
+        assert "Patch failed validation." in output
+        assert "Patch valid       no" in output
+        assert "Targets           -" in output
+
+
+def test_execute_command_non_zero_exit_returns_nonzero():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _create_repo(root)
+        _write_prompt(root)
+
+        script_path = _write_script(
+            root,
+            "fake_ai.py",
+            """
+            import sys
+
+            sys.exit(2)
+            """,
+        )
+        command = _python_command(script_path)
+        _save_config(
+            root,
+            mode="hybrid",
+            agent="local",
+            adapter="command",
+            prompt_path=".aidc/agent_prompt.md",
+            command=command,
+        )
+
+        exit_code, output = _run_execute_cli(root)
+
+        assert exit_code == 1
+        assert "command_failed" in output
+        assert "Command exited with code 2." in output
+        assert "Return code       2" in output
+        assert "Patch status" in output
+        assert "missing" in output
 
 
 def test_execute_missing_prompt_returns_nonzero_and_says_not_ready():
@@ -175,81 +335,61 @@ def test_execute_output_includes_expected_rows():
         assert "Command" in output
         assert "Executes command" in output
         assert "Applies patch" in output
+        assert "Return code" in output
+        assert "Patch status" in output
+        assert "Patch valid" in output
+        assert "Targets" in output
         assert "Message" in output
 
 
-def test_execute_command_does_not_execute_configured_command():
+def test_execute_command_captures_stdout_and_stderr_and_does_not_apply_patch():
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
         _create_repo(root)
+        _write_prompt(root)
+        (root / "main.py").write_text("print('old')\n", encoding="utf-8")
+
+        script_path = _write_script(
+            root,
+            "fake_ai.py",
+            f"""
+            import sys
+            from pathlib import Path
+
+            sys.stdout.write("stdout-line\\n")
+            sys.stderr.write("stderr-line\\n")
+            Path(".aidc").mkdir(parents=True, exist_ok=True)
+            Path(".aidc/agent_patch.diff").write_text({ _valid_patch_text()!r }, encoding="utf-8")
+            """,
+        )
+        command = _python_command(script_path)
         _save_config(
             root,
             mode="hybrid",
             agent="local",
             adapter="command",
             prompt_path=".aidc/agent_prompt.md",
-            command="my-ai --prompt .aidc/agent_prompt.md --patch .aidc/agent_patch.diff",
+            command=command,
         )
-        _write_prompt(root)
 
-        original_run = subprocess.run
+        result = execute_command_adapter(root, command=command)
 
-        def _fail(*_args, **_kwargs):
-            raise AssertionError("subprocess.run should not be called")
-
-        subprocess.run = _fail
-        try:
-            exit_code, output = _run_execute_cli(root)
-        finally:
-            subprocess.run = original_run
-
-        assert exit_code == 1
-        assert "Command execution is not implemented yet." in output
-
-
-def test_execute_command_does_not_create_aidc():
-    with tempfile.TemporaryDirectory() as temp_dir:
-        root = Path(temp_dir)
-        _create_repo(root)
-
-        exit_code, output = _run_execute_cli(root)
-
-        assert exit_code == 1
-        assert not (root / ".aidc").exists()
-        assert "Execute adapter" in output
-
-
-def test_execute_command_does_not_apply_patches():
-    with tempfile.TemporaryDirectory() as temp_dir:
-        root = Path(temp_dir)
-        _create_repo(root)
-        _save_config(
-            root,
-            mode="hybrid",
-            agent="local",
-            adapter="command",
-            prompt_path=".aidc/agent_prompt.md",
-            command="my-ai --prompt .aidc/agent_prompt.md --patch .aidc/agent_patch.diff",
-        )
-        _write_prompt(root)
-        (root / "main.py").write_text("print('hello')\n", encoding="utf-8")
-
-        exit_code, output = _run_execute_cli(root)
-
-        assert exit_code == 1
-        assert (root / "main.py").read_text(encoding="utf-8") == "print('hello')\n"
-        assert "Applies patch" in output
+        assert result["status"] == "patch_ready"
+        assert "stdout-line" in result["stdout"]
+        assert "stderr-line" in result["stderr"]
+        assert (root / "main.py").read_text(encoding="utf-8") == "print('old')\n"
 
 
 TESTS = [
     test_execute_prompt_file_ready_returns_nonzero_and_says_manual,
     test_execute_optional_root_argument_works,
-    test_execute_command_ready_returns_nonzero_and_says_not_implemented,
-    test_execute_command_missing_command_returns_nonzero_and_says_not_ready,
+    test_execute_command_ready_returns_zero_when_valid_patch_produced,
+    test_execute_command_missing_patch_returns_nonzero,
+    test_execute_command_empty_patch_returns_nonzero,
+    test_execute_command_invalid_patch_returns_nonzero,
+    test_execute_command_non_zero_exit_returns_nonzero,
     test_execute_missing_prompt_returns_nonzero_and_says_not_ready,
     test_execute_planned_adapter_returns_nonzero_with_clear_message,
     test_execute_output_includes_expected_rows,
-    test_execute_command_does_not_execute_configured_command,
-    test_execute_command_does_not_create_aidc,
-    test_execute_command_does_not_apply_patches,
+    test_execute_command_captures_stdout_and_stderr_and_does_not_apply_patch,
 ]

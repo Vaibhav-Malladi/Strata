@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 from adapter_doctor import check_adapter
+from command_executor import execute_command_adapter
 from ui import (
     build_banner,
     build_kv_table,
     build_section,
     format_error,
     format_path,
+    format_success,
+    format_warning,
 )
 
 _PLANNED_ADAPTERS = {"ollama", "openai_compatible_http", "aider", "codex_cli"}
@@ -17,11 +20,31 @@ def write_execute_command(root_path: str = ".") -> int:
     adapter = str(result.get("adapter", "") or "")
     status = str(result.get("status", "invalid")).lower()
     ready = bool(result.get("ready"))
+    execution_result = None
 
     display_status, message = _build_display_status_and_message(result)
     prompt = _format_path_or_dash(result.get("prompt"))
     patch = _format_path_or_dash(result.get("patch"))
     command = _format_command(result.get("command"))
+    executes_command = "no"
+    applies_patch = "no"
+    return_code = "-"
+    patch_status = "-"
+    patch_valid = "no"
+    targets = "-"
+    next_step = None
+
+    if ready and adapter == "command":
+        execution_result = execute_command_adapter(root_path, command=result.get("command"))
+        display_status = _format_execution_status(str(execution_result.get("status", "failed")).lower())
+        message = str(execution_result.get("message", ""))
+        executes_command = "yes" if execution_result.get("executed") else "no"
+        return_code = _format_return_code(execution_result.get("returncode"))
+        patch_status = _format_patch_status(execution_result.get("patch_status"))
+        patch_valid = _format_yes_no(bool(execution_result.get("patch_valid")))
+        targets = _format_targets(execution_result.get("targets", []))
+        if execution_result.get("status") == "patch_ready":
+            next_step = "Run `strata patch`, then `strata apply --dry-run`, then `strata apply`."
 
     rows = [
         ("Status", display_status),
@@ -31,27 +54,37 @@ def write_execute_command(root_path: str = ".") -> int:
         ("Prompt", prompt),
         ("Patch", patch),
         ("Command", command),
-        ("Executes command", "no"),
-        ("Applies patch", "no"),
+        ("Executes command", executes_command),
+        ("Applies patch", applies_patch),
+        ("Return code", return_code),
+        ("Patch status", patch_status),
+        ("Patch valid", patch_valid),
+        ("Targets", targets),
         ("Message", message),
     ]
+
+    if execution_result is None:
+        rows[0] = ("Status", display_status)
+
+    if next_step is not None:
+        rows.append(("Next", next_step))
+
+    errors = (
+        list(execution_result.get("errors", []))
+        if execution_result is not None
+        else list(result.get("errors", []))
+    )
+
+    if errors:
+        rows.append(("Errors", _format_notes(errors)))
 
     print(build_banner())
     print()
     print(build_section("Execute adapter"))
     print(build_kv_table(rows))
 
-    if ready and adapter == "prompt_file":
-        return 1
-
-    if ready and adapter == "command":
-        return 1
-
-    if adapter in _PLANNED_ADAPTERS:
-        return 1
-
-    if status == "ready":
-        return 1
+    if execution_result is not None and execution_result.get("status") == "patch_ready":
+        return 0
 
     return 1
 
@@ -105,3 +138,56 @@ def _format_command(value: object) -> object:
         return "-"
 
     return format_path(value)
+
+
+def _format_execution_status(status: str) -> str:
+    if status == "patch_ready":
+        return format_success("patch_ready")
+
+    if status in {"invalid_patch", "command_failed", "timeout", "invalid_command"}:
+        return format_error(status)
+
+    if status in {"missing_patch", "empty_patch", "not_ready"}:
+        return format_warning(status)
+
+    return format_warning(status)
+
+
+def _format_return_code(value: object) -> str:
+    if value is None:
+        return "-"
+
+    return str(value)
+
+
+def _format_patch_status(value: object) -> str:
+    status = str(value).lower()
+
+    if status == "ready":
+        return format_success("ready")
+
+    if status == "empty":
+        return format_warning("empty")
+
+    if status == "missing":
+        return format_warning("missing")
+
+    return format_warning(status or "-")
+
+
+def _format_yes_no(value: bool) -> str:
+    return "yes" if value else "no"
+
+
+def _format_targets(targets: object) -> str:
+    if not targets:
+        return "-"
+
+    return ", ".join(str(target) for target in targets)
+
+
+def _format_notes(notes: object) -> str:
+    if not notes:
+        return "-"
+
+    return "; ".join(str(note) for note in notes)
