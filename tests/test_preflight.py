@@ -3,7 +3,7 @@ from pathlib import Path
 
 from cli import write_preflight
 from preflight import generate_preflight_report, write_preflight_report
-from tests.helpers import run_silently, change_directory, temporary_repo
+from tests.helpers import capture_output, change_directory, temporary_repo
 
 
 def preflight_test_graph():
@@ -168,17 +168,23 @@ def test_write_preflight_report_creates_file():
 def test_cli_write_preflight_creates_preflight_file():
     with temporary_repo(
         {
-            "cli.py": "def main():\n    return 0\n",
-            "map_writer.py": "def generate_project_map(graph):\n    return ''\n",
-            "tests/test_map_writer.py": (
-                "def test_cli_write_map_creates_project_map_file():\n"
-                "    pass\n"
+            "main.py": (
+                "from helper import helper\n\n"
+                "def run():\n"
+                "    return helper()\n"
             ),
-            "tests.py": "import tests.run\n",
+            "helper.py": (
+                "def helper():\n"
+                "    return True\n"
+            ),
         }
     ) as root:
         with change_directory(root):
-            exit_code = run_silently(write_preflight, str(root), "add map command tests")
+            exit_code, output = capture_output(
+                write_preflight,
+                str(root),
+                "fix helper bug",
+            )
 
         assert exit_code == 0
         assert (root / ".aidc" / "graph.json").exists()
@@ -187,8 +193,20 @@ def test_cli_write_preflight_creates_preflight_file():
         with open(root / ".aidc" / "preflight.md", "r", encoding="utf-8") as file:
             content = file.read()
 
+        normalized_output = output.replace("\\", "/")
+
+        assert "Strata" in output
+        assert "Preflight complete" in output
+        assert "fix helper bug" in output
+        assert ".aidc" in normalized_output
+        assert "preflight.md" in output
+        assert "graph.json" in output
+        assert "Files" in output
+        assert "Symbols" in output
+        assert "Routes" in output
+        assert "Relevant files" in output
         assert "# Preflight Report" in content
-        assert "add map command tests" in content
+        assert "fix helper bug" in content
         assert "## Repository Health" in content
         assert "## Relevant Source Files" in content
         assert "## Relevant Test Files" in content
