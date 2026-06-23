@@ -58,7 +58,10 @@ def test_parse_syntax_error_file():
 
 def test_language_detection():
     assert detect_language("main.py") == "python"
-    assert detect_language("app.js") is None
+    assert detect_language("app.js") == "javascript"
+    assert detect_language("app.ts") == "typescript"
+    assert detect_language("Main.java") == "java"
+    assert detect_language("main.rs") == "rust"
     assert detect_language("README.md") is None
 
 

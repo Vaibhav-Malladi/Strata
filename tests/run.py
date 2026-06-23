@@ -24,6 +24,7 @@ import test_test_mapper
 import test_preflight
 import test_agent_export
 import test_status
+from tests import test_languages
 
 
 TEST_MODULES = [
@@ -41,6 +42,7 @@ TEST_MODULES = [
     test_preflight,
     test_agent_export,
     test_status,
+    test_languages,
 ]
 
 
