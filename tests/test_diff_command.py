@@ -4,7 +4,9 @@ import os
 import tempfile
 from pathlib import Path
 
+from cli_core import build_graph
 from commands.diff_command import write_diff_command
+from routes import collect_routes
 from tests.helpers import capture_output
 
 
@@ -82,34 +84,23 @@ def test_diff_command_writes_diff_reports_from_latest_snapshot():
         root = Path(temp_dir) / "repo"
         create_repo(root)
 
-        write_snapshot_state(
-            root,
-            timestamp="20240102_030405",
-            graph={
-                "schema_version": 1,
-                "root": str(root),
-                "files": [
-                    {
-                        "path": "src/main.py",
-                        "language": "python",
-                        "imports": [],
-                        "external_imports": [],
-                        "unresolved_imports": [],
-                        "unresolved_import_details": [],
-                        "classes": [],
-                        "functions": [],
-                        "interfaces": [],
-                        "types": [],
-                        "enums": [],
-                        "exports": [],
-                    }
-                ],
-                "edges": [],
-            },
-        )
-
         with change_directory(root):
+            graph = build_graph(".")
+            assert graph is not None
+
+            write_snapshot_state(
+                root,
+                timestamp="20240102_030405",
+                graph=graph,
+                routes=collect_routes(graph),
+            )
+
             exit_code, output = capture_output(write_diff_command, ".")
+
+        payload = json.loads(
+            (root / ".aidc" / "diff_report.json").read_text(encoding="utf-8")
+        )
+        normalized_output = output.replace("\\", "/")
 
         assert exit_code == 0
         assert (root / ".aidc" / "diff_report.md").exists()
@@ -117,11 +108,32 @@ def test_diff_command_writes_diff_reports_from_latest_snapshot():
         assert "# Strata Structural Diff" in (
             root / ".aidc" / "diff_report.md"
         ).read_text(encoding="utf-8")
-        payload = json.loads((root / ".aidc" / "diff_report.json").read_text(encoding="utf-8"))
-        assert "summary" in payload
-        assert "files_added" in payload["summary"]
-        assert "routes_added" in payload["summary"]
-        assert "Structural diff generated" in output
+        assert "Strata" in output
+        assert "Diff complete" in output
+        assert ".aidc" in normalized_output
+        assert "diff_report.md" in output
+        assert "diff_report.json" in output
+        assert "Snapshot" in output
+        assert "Files added" in output
+        assert "Files removed" in output
+        assert "Edges added" in output
+        assert "Edges removed" in output
+        assert "Routes added" in output
+        assert "Routes removed" in output
+        assert "Unresolved added" in output
+        assert "Unresolved removed" in output
+        assert "Symbols added" in output
+        assert "Symbols removed" in output
+        assert payload["summary"]["files_added"] == 0
+        assert payload["summary"]["files_removed"] == 0
+        assert payload["summary"]["edges_added"] == 0
+        assert payload["summary"]["edges_removed"] == 0
+        assert payload["summary"]["routes_added"] == 0
+        assert payload["summary"]["routes_removed"] == 0
+        assert payload["summary"]["unresolved_imports_added"] == 0
+        assert payload["summary"]["unresolved_imports_removed"] == 0
+        assert payload["summary"]["symbols_added"] == 0
+        assert payload["summary"]["symbols_removed"] == 0
 
 
 def test_diff_command_handles_missing_routes_json():
@@ -145,7 +157,7 @@ def test_diff_command_handles_missing_routes_json():
             exit_code, output = capture_output(write_diff_command, ".")
 
         assert exit_code == 0
-        assert "Status" in output
+        assert "Diff complete" in output
         assert (root / ".aidc" / "diff_report.md").exists()
         assert (root / ".aidc" / "diff_report.json").exists()
 

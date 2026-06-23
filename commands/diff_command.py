@@ -7,16 +7,18 @@ from cli_core import (
     DIFF_REPORT_MD_FILE,
     build_graph,
 )
-from cli_ui import green, print_kv, print_title, red
 from diff_engine import compare_graphs, write_diff_report
 from routes import collect_routes
+from ui import build_banner, build_kv_table, build_section, format_path
 
 
 def write_diff_command(root_path: str) -> int:
     latest_snapshot = _load_latest_snapshot(root_path)
 
     if latest_snapshot is None:
-        print_title(red("No snapshot found"))
+        print(build_banner())
+        print()
+        print(build_section("Diff unavailable"))
         print('No snapshot found. Run `strata snapshot` first.')
         return 1
 
@@ -37,15 +39,30 @@ def write_diff_command(root_path: str) -> int:
 
     write_diff_report(root_path, diff)
 
-    print_title("Structural diff generated")
-    print_kv("Markdown", DIFF_REPORT_MD_FILE)
-    print_kv("JSON", DIFF_REPORT_JSON_FILE)
-    print_kv("Snapshot", snapshot_timestamp)
-    print_kv("Files added", diff["summary"].get("files_added", 0))
-    print_kv("Files removed", diff["summary"].get("files_removed", 0))
-    print_kv("Routes added", diff["summary"].get("routes_added", 0))
-    print_kv("Routes removed", diff["summary"].get("routes_removed", 0))
-    print_kv("Status", green("complete"))
+    summary = diff.get("summary", {}) if isinstance(diff, dict) else {}
+
+    print(build_banner())
+    print()
+    print(build_section("Diff complete"))
+    print(
+        build_kv_table(
+            [
+                ("Markdown", format_path(DIFF_REPORT_MD_FILE)),
+                ("JSON", format_path(DIFF_REPORT_JSON_FILE)),
+                ("Snapshot", snapshot_timestamp),
+                ("Files added", summary.get("files_added", 0)),
+                ("Files removed", summary.get("files_removed", 0)),
+                ("Edges added", summary.get("edges_added", 0)),
+                ("Edges removed", summary.get("edges_removed", 0)),
+                ("Routes added", summary.get("routes_added", 0)),
+                ("Routes removed", summary.get("routes_removed", 0)),
+                ("Unresolved added", summary.get("unresolved_imports_added", 0)),
+                ("Unresolved removed", summary.get("unresolved_imports_removed", 0)),
+                ("Symbols added", summary.get("symbols_added", 0)),
+                ("Symbols removed", summary.get("symbols_removed", 0)),
+            ]
+        )
+    )
 
     return 0
 
