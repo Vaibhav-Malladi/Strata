@@ -403,6 +403,8 @@ def test_cli_help_prefers_strata_commands():
     assert "strata doctor adapter <root>" in output
     assert "strata review" in output
     assert "strata review <root>" in output
+    assert "Run the configured command adapter and produce .aidc/agent_patch.diff." in output
+    assert "Build a workflow plan, prepare artifacts, and route through the configured adapter without executing commands automatically." in output
     assert "Legacy fallback: use `py cli.py ...`" in output
     assert "py cli.py scan [path]" not in output
 

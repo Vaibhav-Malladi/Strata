@@ -239,7 +239,7 @@ def test_run_adapter_command_dry_run():
         assert result["command"] == "my-ai --prompt .aidc/agent_prompt.md"
 
 
-def test_run_adapter_command_normal_not_implemented():
+def test_run_adapter_command_normal_reports_ready():
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
 
@@ -251,12 +251,14 @@ def test_run_adapter_command_normal_not_implemented():
         )
 
         assert result["adapter"] == "command"
-        assert result["status"] == "not_implemented"
+        assert result["status"] == "ready"
         assert result["executed"] is False
+        assert result["command"] == "my-ai --prompt .aidc/agent_prompt.md"
         assert Path(result["prompt_path"]) == root / ".aidc" / "agent_prompt.md"
         assert Path(result["patch_path"]) == root / ".aidc" / "agent_patch.diff"
-        assert "real execution is not implemented yet" in result["message"]
-        assert "dry-run" in result["message"]
+        assert "Command adapter is configured" in result["message"]
+        assert "strata doctor adapter" in result["message"]
+        assert "strata execute" in result["message"]
 
 
 def test_adapter_supports_dry_run_command():
@@ -319,7 +321,7 @@ TESTS = [
     test_command_dry_run_uses_configured_prompt_path,
     test_command_dry_run_never_creates_files,
     test_run_adapter_command_dry_run,
-    test_run_adapter_command_normal_not_implemented,
+    test_run_adapter_command_normal_reports_ready,
     test_adapter_supports_dry_run_command,
     test_run_adapter_supported_unimplemented_returns_not_implemented,
     test_run_adapter_never_creates_files,

@@ -92,7 +92,7 @@ def test_run_dry_run_command_adapter_shows_command_without_execution():
         assert not (repo_root / ".aidc").exists()
 
 
-def test_run_normal_command_adapter_returns_nonzero():
+def test_run_normal_command_adapter_returns_ready_and_points_to_execute():
     with tempfile.TemporaryDirectory() as temp_dir:
         repo_root = Path(temp_dir)
         _create_run_repo(repo_root)
@@ -112,9 +112,10 @@ def test_run_normal_command_adapter_returns_nonzero():
                 "fix bug",
             )
 
-        assert exit_code == 1
-        assert "real execution is not implemented yet" in output
-        assert "dry-run" in output
+        assert exit_code == 0
+        assert "ready" in output
+        assert "strata doctor adapter" in output
+        assert "strata execute" in output
 
 
 def test_run_dry_run_command_adapter_missing_command_returns_nonzero():
@@ -395,7 +396,7 @@ def test_run_outputs_single_banner():
 TESTS = [
     test_run_dry_run_does_not_create_aidc,
     test_run_dry_run_command_adapter_shows_command_without_execution,
-    test_run_normal_command_adapter_returns_nonzero,
+    test_run_normal_command_adapter_returns_ready_and_points_to_execute,
     test_run_dry_run_command_adapter_missing_command_returns_nonzero,
     test_run_dry_run_prompt_file_still_works,
     test_run_dry_run_shows_plan,

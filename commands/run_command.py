@@ -83,7 +83,13 @@ def write_run_command(root_path: str, *args: str) -> int:
     next_message = adapter_result.get("message") or "Adapter finished."
 
     if status == "ready":
-        next_message = _prompt_next_step(config["agent"], prompt_path)
+        if adapter_result.get("adapter") == "command":
+            next_message = str(
+                next_message
+                or "Command adapter is configured. Run `strata doctor adapter`, then `strata execute` to produce `.aidc/agent_patch.diff`."
+            )
+        else:
+            next_message = _prompt_next_step(config["agent"], prompt_path)
         status_text = format_success("ready")
         exit_code = 0
     elif status == "not_implemented":

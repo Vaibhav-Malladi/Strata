@@ -164,6 +164,52 @@ def build_command_dry_run_result(
     }
 
 
+def build_command_ready_result(
+    root: str | Path = ".",
+    config: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Build the deterministic ready result for the configured command adapter."""
+
+    configured_command = None
+    configured_prompt_path = None
+
+    if config is not None:
+        configured_command = config.get("command")
+        configured_prompt_path = config.get("prompt_path")
+
+    resolved_prompt_path = prompt_path(root, configured_prompt_path)
+    resolved_patch_path = patch_path(root)
+
+    if not isinstance(configured_command, str) or not configured_command.strip():
+        return {
+            "adapter": "command",
+            "status": "not_ready",
+            "executed": False,
+            "command": configured_command,
+            "prompt_path": str(resolved_prompt_path),
+            "patch_path": str(resolved_patch_path),
+            "message": (
+                "Command adapter needs a configured command. "
+                "Run `strata doctor adapter`, then `strata execute` to produce "
+                "`.aidc/agent_patch.diff`."
+            ),
+        }
+
+    return {
+        "adapter": "command",
+        "status": "ready",
+        "executed": False,
+        "command": configured_command,
+        "prompt_path": str(resolved_prompt_path),
+        "patch_path": str(resolved_patch_path),
+        "message": (
+            "Command adapter is configured. "
+            "Run `strata doctor adapter`, then `strata execute` to produce "
+            "`.aidc/agent_patch.diff`."
+        ),
+    }
+
+
 def run_adapter(
     adapter: str | None,
     root: str | Path = ".",
@@ -185,20 +231,7 @@ def run_adapter(
             return build_prompt_file_result(root, configured_prompt_path)
 
     if normalized == "command":
-        configured_prompt_path = None
-        if config is not None:
-            configured_prompt_path = config.get("prompt_path")
-        return {
-            "adapter": "command",
-            "status": "not_implemented",
-            "executed": False,
-            "prompt_path": str(prompt_path(root, configured_prompt_path)),
-            "patch_path": str(patch_path(root)),
-            "message": (
-                "Adapter 'command' is planned but real execution is not implemented yet. "
-                "Use dry-run to preview the configured command."
-            ),
-        }
+        return build_command_ready_result(root, config)
 
     if normalized == "prompt_file":
         configured_prompt_path = None

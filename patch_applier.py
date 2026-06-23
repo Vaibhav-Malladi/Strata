@@ -16,8 +16,6 @@ _NO_NEWLINE_MARKER = r"\ No newline at end of file"
 _UNSUPPORTED_PREFIXES = (
     "rename from ",
     "rename to ",
-    "new file mode ",
-    "deleted file mode ",
     "old mode ",
     "new mode ",
     "similarity index ",
@@ -254,6 +252,16 @@ def parse_unified_diff(patch_text: str) -> dict:
         if line.startswith("index ") and current_file is not None:
             index += 1
             continue
+
+        if line.startswith("new file mode ") or line.startswith("deleted file mode "):
+            mode = line.split(" ", 3)[-1].strip()
+
+            if mode == "100644":
+                index += 1
+                continue
+
+            errors.append(f"Unsupported patch feature: {line}")
+            break
 
         errors.append(f"Unsupported patch line: {line}")
         break

@@ -58,6 +58,8 @@ def test_apply_patch_text_creates_new_file():
         root = Path(temp_dir)
         patch = (
             "diff --git a/new_file.py b/new_file.py\n"
+            "new file mode 100644\n"
+            "index 0000000..1111111\n"
             "--- /dev/null\n"
             "+++ b/new_file.py\n"
             "@@ -0,0 +1,2 @@\n"
@@ -80,6 +82,8 @@ def test_apply_patch_text_deletes_file():
         _write_file(root, "remove_me.py", 'print("delete")\n')
         patch = (
             "diff --git a/remove_me.py b/remove_me.py\n"
+            "deleted file mode 100644\n"
+            "index 2222222..0000000\n"
             "--- a/remove_me.py\n"
             "+++ /dev/null\n"
             "@@ -1 +0,0 @@\n"
@@ -93,6 +97,91 @@ def test_apply_patch_text_deletes_file():
         assert result["targets"] == ["remove_me.py"]
         assert result["changed_files"] == ["remove_me.py"]
         assert not (root / "remove_me.py").exists()
+
+
+def test_apply_patch_text_rejects_rename_patch():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        patch = (
+            "diff --git a/old_name.py b/new_name.py\n"
+            "rename from old_name.py\n"
+            "rename to new_name.py\n"
+            "--- a/old_name.py\n"
+            "+++ b/new_name.py\n"
+            "@@ -1 +1 @@\n"
+            '-print("old")\n'
+            '+print("new")\n'
+        )
+
+        result = apply_patch_text(root, patch)
+
+        assert result["status"] == "failed"
+        assert result["applied"] is False
+        assert "rename from" in result["errors"][0]
+
+
+def test_apply_patch_text_rejects_binary_patch():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        patches = [
+            "diff --git a/image.png b/image.png\n"
+            "Binary files a/image.png and b/image.png differ\n",
+            "diff --git a/image.png b/image.png\n"
+            "GIT binary patch\n"
+            "literal 0\n",
+        ]
+
+        for patch in patches:
+            result = apply_patch_text(root, patch)
+
+            assert result["status"] == "failed"
+            assert result["applied"] is False
+            assert any(
+                marker in error
+                for marker in ("Binary files", "GIT binary patch")
+                for error in result["errors"]
+            )
+
+
+def test_apply_patch_text_rejects_mode_only_change_patch():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        patch = (
+            "diff --git a/script.py b/script.py\n"
+            "old mode 100644\n"
+            "new mode 100755\n"
+            "--- a/script.py\n"
+            "+++ b/script.py\n"
+            "@@ -1 +1 @@\n"
+            '-print("old")\n'
+            '+print("new")\n'
+        )
+
+        result = apply_patch_text(root, patch)
+
+        assert result["status"] == "failed"
+        assert result["applied"] is False
+        assert any("mode" in error for error in result["errors"])
+
+
+def test_apply_patch_text_rejects_symlink_mode_patch():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        patch = (
+            "diff --git a/link b/link\n"
+            "new file mode 120000\n"
+            "index 0000000..1234567\n"
+            "--- /dev/null\n"
+            "+++ b/link\n"
+            "@@ -0,0 +1 @@\n"
+            "+target\n"
+        )
+
+        result = apply_patch_text(root, patch)
+
+        assert result["status"] == "failed"
+        assert result["applied"] is False
+        assert "120000" in result["errors"][0]
 
 
 def test_apply_patch_text_handles_multiple_files():
@@ -331,6 +420,10 @@ TESTS = [
     test_apply_patch_file_modifies_existing_file,
     test_apply_patch_text_creates_new_file,
     test_apply_patch_text_deletes_file,
+    test_apply_patch_text_rejects_rename_patch,
+    test_apply_patch_text_rejects_binary_patch,
+    test_apply_patch_text_rejects_mode_only_change_patch,
+    test_apply_patch_text_rejects_symlink_mode_patch,
     test_apply_patch_text_handles_multiple_files,
     test_apply_patch_text_handles_multiple_hunks,
     test_apply_patch_text_fails_safely_when_target_file_is_missing_for_modification,
