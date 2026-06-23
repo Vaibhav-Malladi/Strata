@@ -53,17 +53,37 @@ def run_gate_via_cli(root: Path):
         return capture_output(cli_main)
 
 
-def test_gate_command_writes_reports():
+def test_gate_command_writes_reports_and_formats_terminal_output():
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir) / "repo"
         root.mkdir()
         create_gate_repo(root)
 
-        exit_code, _ = capture_output(write_gate_command, str(root))
+        exit_code, output = capture_output(write_gate_command, str(root))
+        payload = json.loads(
+            (root / ".aidc" / "gate_report.json").read_text(encoding="utf-8")
+        )
+        normalized_output = output.replace("\\", "/")
 
         assert exit_code == 0
         assert (root / ".aidc" / "gate_report.md").exists()
         assert (root / ".aidc" / "gate_report.json").exists()
+        assert "Strata" in output
+        assert "Local-first repository intelligence for AI-assisted coding" in output
+        assert "Gate complete" in output
+        assert "PASS" in output
+        assert "✓" in output
+        assert "Failures" in output
+        assert "Warnings" in output
+        assert ".aidc/gate_report.md" in normalized_output
+        assert ".aidc/gate_report.json" in normalized_output
+        assert payload["status"] == "PASS"
+        assert payload["failures"] == []
+        assert payload["warnings"] == []
+        assert payload["recommended_commands"] == [
+            "py tests.py",
+            "py tests\\run.py",
+        ]
 
 
 def test_gate_command_markdown_contains_required_sections():
@@ -99,19 +119,21 @@ def test_gate_command_json_contains_expected_fields():
         assert "warnings" in payload
 
 
-def test_gate_command_clean_repo_reports_pass_or_warn_without_crashing():
+def test_gate_command_clean_repo_reports_pass_without_crashing():
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir) / "repo"
         root.mkdir()
         create_gate_repo(root)
 
-        exit_code, _ = run_gate_via_cli(root)
+        exit_code, output = run_gate_via_cli(root)
         payload = json.loads(
             (root / ".aidc" / "gate_report.json").read_text(encoding="utf-8")
         )
 
         assert exit_code == 0
-        assert payload["status"] in {"PASS", "WARN"}
+        assert payload["status"] == "PASS"
+        assert "Gate complete" in output
+        assert "✓ PASS" in output
 
 
 def test_gate_command_reports_fail_for_unresolved_imports():
@@ -159,10 +181,10 @@ def test_gate_command_invalid_root_prints_clear_message_and_does_not_crash():
 
 
 TESTS = [
-    test_gate_command_writes_reports,
+    test_gate_command_writes_reports_and_formats_terminal_output,
     test_gate_command_markdown_contains_required_sections,
     test_gate_command_json_contains_expected_fields,
-    test_gate_command_clean_repo_reports_pass_or_warn_without_crashing,
+    test_gate_command_clean_repo_reports_pass_without_crashing,
     test_gate_command_reports_fail_for_unresolved_imports,
     test_gate_command_works_with_no_backend_routes,
     test_gate_command_invalid_root_prints_clear_message_and_does_not_crash,
