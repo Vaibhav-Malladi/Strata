@@ -1,7 +1,7 @@
 import os
 import sys
 
-from languages import parse_source_file
+from languages import detect_language, parse_source_file
 
 
 IGNORED_DIRS = {
@@ -11,6 +11,27 @@ IGNORED_DIRS = {
     "__pycache__",
     ".aidc",
 }
+
+
+SOURCE_EXTENSIONS = [
+    ".py",
+    ".js",
+    ".jsx",
+    ".mjs",
+    ".cjs",
+    ".ts",
+    ".tsx",
+]
+
+
+JAVASCRIPT_TYPESCRIPT_EXTENSIONS = [
+    ".js",
+    ".jsx",
+    ".mjs",
+    ".cjs",
+    ".ts",
+    ".tsx",
+]
 
 
 def module_name_from_path(root_path: str, file_path: str) -> str:
@@ -30,10 +51,105 @@ def is_stdlib_import(import_name: str) -> bool:
     return top_level_name in sys.stdlib_module_names
 
 
+def is_relative_import(import_name: str) -> bool:
+    return import_name.startswith("./") or import_name.startswith("../")
+
+
+def is_external_import(language: str | None, import_name: str) -> bool:
+    if language == "python":
+        return is_stdlib_import(import_name)
+
+    if language in {"javascript", "typescript"}:
+        return not is_relative_import(import_name)
+
+    return False
+
+
 def find_import_line(file_info: dict, import_name: str) -> int | None:
     for import_detail in file_info.get("import_details", []):
         if import_detail["name"] == import_name:
             return import_detail["line"]
+
+    return None
+
+
+def relative_import_candidates(file_path: str, import_name: str) -> list[str]:
+    folder = os.path.dirname(file_path)
+    base_path = os.path.normpath(os.path.join(folder, import_name))
+
+    root, extension = os.path.splitext(base_path)
+
+    candidates = []
+
+    if extension in SOURCE_EXTENSIONS:
+        candidates.append(base_path)
+    else:
+        for source_extension in SOURCE_EXTENSIONS:
+            candidates.append(base_path + source_extension)
+
+        for source_extension in JAVASCRIPT_TYPESCRIPT_EXTENSIONS:
+            candidates.append(
+                os.path.join(base_path, "index" + source_extension)
+            )
+
+    return [os.path.normpath(candidate) for candidate in candidates]
+
+
+def resolve_python_import(
+    from_path: str,
+    import_name: str,
+    module_index: dict,
+    path_index: dict,
+) -> str | None:
+    if import_name in module_index:
+        return module_index[import_name]
+
+    same_folder_path = same_folder_module_path(from_path, import_name)
+
+    if same_folder_path in path_index:
+        return same_folder_path
+
+    return None
+
+
+def resolve_javascript_typescript_import(
+    from_path: str,
+    import_name: str,
+    path_index: dict,
+) -> str | None:
+    if not is_relative_import(import_name):
+        return None
+
+    for candidate in relative_import_candidates(from_path, import_name):
+        if candidate in path_index:
+            return candidate
+
+    return None
+
+
+def resolve_import(
+    file_info: dict,
+    import_name: str,
+    module_index: dict,
+    path_index: dict,
+) -> str | None:
+    language = file_info.get("language")
+    from_path = file_info["path"]
+
+    if language == "python":
+        return resolve_python_import(
+            from_path,
+            import_name,
+            module_index,
+            path_index,
+        )
+
+    if language in {"javascript", "typescript"}:
+        return resolve_javascript_typescript_import(
+            from_path,
+            import_name,
+            path_index,
+        )
 
     return None
 
@@ -79,17 +195,15 @@ def scan_repo(root_path: str) -> dict:
 
     for file_info in graph["files"]:
         from_path = file_info["path"]
+        language = detect_language(from_path)
 
         for import_name in file_info["imports"]:
-            target_path = None
-
-            if import_name in module_index:
-                target_path = module_index[import_name]
-            else:
-                same_folder_path = same_folder_module_path(from_path, import_name)
-
-                if same_folder_path in path_index:
-                    target_path = same_folder_path
+            target_path = resolve_import(
+                file_info,
+                import_name,
+                module_index,
+                path_index,
+            )
 
             if target_path is not None:
                 graph["edges"].append(
@@ -100,7 +214,7 @@ def scan_repo(root_path: str) -> dict:
                         "import": import_name,
                     }
                 )
-            elif is_stdlib_import(import_name):
+            elif is_external_import(language, import_name):
                 file_info["external_imports"].append(import_name)
             else:
                 file_info["unresolved_imports"].append(import_name)

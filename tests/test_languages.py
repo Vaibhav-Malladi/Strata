@@ -34,14 +34,22 @@ def test_unknown_files_return_none():
     assert detect_language("data.json") is None
 
 
-def test_only_python_is_parsed_in_first_multilanguage_batch():
-    assert parse_source_file("example.js") is None
-    assert parse_source_file("example.ts") is None
+def test_unwired_languages_are_not_parsed_yet():
     assert parse_source_file("Example.java") is None
     assert parse_source_file("main.rs") is None
 
 def test_python_parser_is_registered():
     assert parse_source_file("README.md") is None
+
+def test_javascript_and_typescript_parsers_are_registered():
+    js_result = parse_source_file("missing-file.js")
+    ts_result = parse_source_file("missing-file.ts")
+
+    assert js_result["language"] == "javascript"
+    assert js_result["error"]["type"] == "read_error"
+
+    assert ts_result["language"] == "typescript"
+    assert ts_result["error"]["type"] == "read_error"
 
 TESTS = [
     test_detects_python_files,
@@ -50,6 +58,7 @@ TESTS = [
     test_detects_java_files,
     test_detects_rust_files,
     test_unknown_files_return_none,
-    test_only_python_is_parsed_in_first_multilanguage_batch,
+    test_unwired_languages_are_not_parsed_yet,
     test_python_parser_is_registered,
+    test_javascript_and_typescript_parsers_are_registered,
 ]

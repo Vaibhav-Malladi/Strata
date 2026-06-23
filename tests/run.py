@@ -25,6 +25,9 @@ import test_preflight
 import test_agent_export
 import test_status
 from tests import test_languages
+from tests import test_javascript_parser
+from tests import test_typescript_parser
+from tests import test_multilang_scanner
 
 
 TEST_MODULES = [
@@ -43,6 +46,9 @@ TEST_MODULES = [
     test_agent_export,
     test_status,
     test_languages,
+    test_javascript_parser,
+    test_typescript_parser,
+    test_multilang_scanner,
 ]
 
 
