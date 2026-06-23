@@ -31,7 +31,10 @@ def test_default_config_includes_adapter_fields():
     assert config["prompt_path"] == ".aidc/agent_prompt.md"
     assert config["model"] is None
     assert config["command"] is None
+    assert config["base_url"] is None
+    assert config["api_key_env"] is None
     assert config["command_timeout_seconds"] == 120
+    assert config["http_timeout_seconds"] == 120
     assert config["auto_snapshot"] is True
     assert config["auto_verify"] is True
     assert config["require_gate_pass_before_commit"] is True
@@ -99,6 +102,9 @@ def test_save_config_creates_aidc_and_writes_pretty_json():
         assert payload["prompt_path"] == "custom/prompt.md"
         assert payload["model"] is None
         assert payload["command"] is None
+        assert payload["base_url"] is None
+        assert payload["api_key_env"] is None
+        assert payload["http_timeout_seconds"] == 120
         assert payload["auto_snapshot"] is False
         assert payload["auto_verify"] is True
         assert payload["require_gate_pass_before_commit"] is False
@@ -115,7 +121,10 @@ def test_validate_config_backfills_missing_adapter_fields():
     assert normalized["prompt_path"] == ".aidc/agent_prompt.md"
     assert normalized["model"] is None
     assert normalized["command"] is None
+    assert normalized["base_url"] is None
+    assert normalized["api_key_env"] is None
     assert normalized["command_timeout_seconds"] == 120
+    assert normalized["http_timeout_seconds"] == 120
     assert normalized["auto_snapshot"] is True
     assert normalized["auto_verify"] is True
     assert normalized["require_gate_pass_before_commit"] is True
@@ -133,6 +142,12 @@ def test_validate_config_accepts_timeout_alias():
     assert normalized["command_timeout_seconds"] == 45
 
 
+def test_validate_config_accepts_http_timeout_alias():
+    normalized = validate_config({"http_timeout": 45})
+
+    assert normalized["http_timeout_seconds"] == 45
+
+
 def test_validate_config_rejects_invalid_command_timeout_values():
     for value in (0, -1, 1.5, "30"):
         _expect_value_error(
@@ -147,6 +162,56 @@ def test_validate_config_rejects_overly_large_command_timeout():
         validate_config,
         {"command_timeout_seconds": 3601},
         contains="command_timeout_seconds",
+    )
+
+
+def test_validate_config_accepts_valid_base_url():
+    normalized = validate_config({"base_url": "http://localhost:1234/v1"})
+
+    assert normalized["base_url"] == "http://localhost:1234/v1"
+
+
+def test_validate_config_accepts_valid_api_key_env():
+    normalized = validate_config({"api_key_env": "OPENAI_API_KEY"})
+
+    assert normalized["api_key_env"] == "OPENAI_API_KEY"
+
+
+def test_validate_config_accepts_valid_http_timeout_seconds():
+    normalized = validate_config({"http_timeout_seconds": 120})
+
+    assert normalized["http_timeout_seconds"] == 120
+
+
+def test_validate_config_accepts_null_base_url_and_api_key_env():
+    normalized = validate_config({"base_url": None, "api_key_env": None})
+
+    assert normalized["base_url"] is None
+    assert normalized["api_key_env"] is None
+
+
+def test_validate_config_rejects_empty_base_url():
+    _expect_value_error(validate_config, {"base_url": ""}, contains="base_url")
+
+
+def test_validate_config_rejects_empty_api_key_env():
+    _expect_value_error(validate_config, {"api_key_env": ""}, contains="api_key_env")
+
+
+def test_validate_config_rejects_invalid_http_timeout_values():
+    for value in (0, -1, 1.5, "30"):
+        _expect_value_error(
+            validate_config,
+            {"http_timeout_seconds": value},
+            contains="http_timeout_seconds",
+        )
+
+
+def test_validate_config_rejects_overly_large_http_timeout():
+    _expect_value_error(
+        validate_config,
+        {"http_timeout_seconds": 3601},
+        contains="http_timeout_seconds",
     )
 
 
@@ -218,7 +283,10 @@ def test_load_config_merges_old_config_file():
         assert loaded["prompt_path"] == ".aidc/agent_prompt.md"
         assert loaded["model"] is None
         assert loaded["command"] is None
+        assert loaded["base_url"] is None
+        assert loaded["api_key_env"] is None
         assert loaded["command_timeout_seconds"] == 120
+        assert loaded["http_timeout_seconds"] == 120
         assert loaded["auto_snapshot"] is True
         assert loaded["auto_verify"] is True
         assert loaded["require_gate_pass_before_commit"] is True
@@ -274,6 +342,9 @@ def test_ensure_config_creates_new_schema():
         assert payload["prompt_path"] == ".aidc/agent_prompt.md"
         assert payload["model"] is None
         assert payload["command"] is None
+        assert payload["base_url"] is None
+        assert payload["api_key_env"] is None
+        assert payload["http_timeout_seconds"] == 120
 
 
 def test_ensure_config_preserves_existing_valid_config():
@@ -304,6 +375,9 @@ def test_ensure_config_preserves_existing_valid_config():
         assert loaded["prompt_path"] == "custom/prompt.md"
         assert loaded["model"] == "gpt-4o"
         assert loaded["command"] == "python run.py"
+        assert loaded["base_url"] is None
+        assert loaded["api_key_env"] is None
+        assert loaded["http_timeout_seconds"] == 120
 
 
 def test_unknown_extra_keys_are_preserved():
@@ -336,8 +410,17 @@ TESTS = [
     test_validate_config_backfills_missing_adapter_fields,
     test_validate_config_accepts_valid_command_timeout,
     test_validate_config_accepts_timeout_alias,
+    test_validate_config_accepts_http_timeout_alias,
     test_validate_config_rejects_invalid_command_timeout_values,
     test_validate_config_rejects_overly_large_command_timeout,
+    test_validate_config_accepts_valid_base_url,
+    test_validate_config_accepts_valid_api_key_env,
+    test_validate_config_accepts_valid_http_timeout_seconds,
+    test_validate_config_accepts_null_base_url_and_api_key_env,
+    test_validate_config_rejects_empty_base_url,
+    test_validate_config_rejects_empty_api_key_env,
+    test_validate_config_rejects_invalid_http_timeout_values,
+    test_validate_config_rejects_overly_large_http_timeout,
     test_validate_config_normalizes_adapter_alias,
     test_validate_config_rejects_unknown_adapter,
     test_validate_config_rejects_empty_prompt_path,

@@ -392,6 +392,10 @@ def test_cli_help_prefers_strata_commands():
     assert "strata config init [root]" in output
     assert "strata config set <key> <value> [root]" in output
     assert "strata config set command_timeout_seconds 120" in output
+    assert "strata config set http_timeout_seconds 120" in output
+    assert "strata config set http_timeout 120" in output
+    assert "strata config set base_url http://localhost:1234/v1" in output
+    assert "strata config set api_key_env OPENAI_API_KEY" in output
     assert "strata patch [root]" in output
     assert 'strata prepare "<task>"' in output
     assert 'strata prepare "<task>" <root>' in output
@@ -467,7 +471,10 @@ def test_cli_doctor_adapter_dispatches():
         assert "Prompt" in output
         assert "Patch" in output
         assert "Message" in output
-        assert "Timeout seconds" in output
+        assert "Command timeout" in output
+        assert "Base URL" in output
+        assert "API key env" in output
+        assert "HTTP timeout seconds" in output
 
 
 TESTS = [

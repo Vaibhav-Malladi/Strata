@@ -49,6 +49,10 @@ def test_config_shows_defaults_without_creating_file():
         assert "manual" in output
         assert "Agent" in output
         assert "true" in output.lower()
+        assert "Base URL" in output
+        assert "API key env" in output
+        assert "HTTP timeout seconds" in output
+        assert "null" in output
         assert "Command timeout seconds" in output
         assert "120" in output
 
@@ -284,6 +288,73 @@ def test_config_set_command_timeout_value():
         assert payload["command_timeout_seconds"] == 30
 
 
+def test_config_set_base_url_value():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+
+        with change_directory(root):
+            exit_code, _ = capture_output(
+                write_config_set_command,
+                "base_url",
+                "http://localhost:1234/v1",
+                ".",
+            )
+
+        payload = json.loads(config_path(root).read_text(encoding="utf-8"))
+
+        assert exit_code == 0
+        assert payload["base_url"] == "http://localhost:1234/v1"
+
+
+def test_config_set_api_key_env_value():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+
+        with change_directory(root):
+            exit_code, _ = capture_output(
+                write_config_set_command,
+                "api_key_env",
+                "OPENAI_API_KEY",
+                ".",
+            )
+
+        payload = json.loads(config_path(root).read_text(encoding="utf-8"))
+
+        assert exit_code == 0
+        assert payload["api_key_env"] == "OPENAI_API_KEY"
+
+
+def test_config_set_http_timeout_seconds_value():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+
+        with change_directory(root):
+            exit_code, _ = capture_output(
+                write_config_set_command,
+                "http_timeout_seconds",
+                "120",
+                ".",
+            )
+
+        payload = json.loads(config_path(root).read_text(encoding="utf-8"))
+
+        assert exit_code == 0
+        assert payload["http_timeout_seconds"] == 120
+
+
+def test_config_set_http_timeout_alias_value():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+
+        with change_directory(root):
+            exit_code, _ = capture_output(write_config_set_command, "http_timeout", "75", ".")
+
+        payload = json.loads(config_path(root).read_text(encoding="utf-8"))
+
+        assert exit_code == 0
+        assert payload["http_timeout_seconds"] == 75
+
+
 def test_config_set_timeout_alias_value():
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
@@ -398,7 +469,10 @@ def test_config_set_invalid_key_returns_nonzero():
         assert "prompt_path" in output
         assert "model" in output
         assert "command" in output
+        assert "base_url" in output
+        assert "api_key_env" in output
         assert "command_timeout_seconds" in output
+        assert "http_timeout_seconds" in output
         assert not config_path(root).exists()
 
 
@@ -440,6 +514,23 @@ def test_config_set_invalid_timeout_returns_nonzero():
 
         assert exit_code == 1
         assert "command_timeout_seconds" in output
+        assert not config_path(root).exists()
+
+
+def test_config_set_invalid_http_timeout_returns_nonzero():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+
+        with change_directory(root):
+            exit_code, output = capture_output(
+                write_config_set_command,
+                "http_timeout_seconds",
+                "0",
+                ".",
+            )
+
+        assert exit_code == 1
+        assert "http_timeout_seconds" in output
         assert not config_path(root).exists()
 
 
@@ -531,6 +622,9 @@ def test_help_mentions_config():
     assert "strata config [root]" in output
     assert "strata config init [root]" in output
     assert "strata config set <key> <value> [root]" in output
+    assert "strata config set base_url http://localhost:1234/v1" in output
+    assert "strata config set api_key_env OPENAI_API_KEY" in output
+    assert "strata config set http_timeout_seconds 120" in output
     assert "config" in output
 
 
@@ -551,6 +645,10 @@ TESTS = [
     test_config_set_model_null_clears,
     test_config_set_command_value,
     test_config_set_command_timeout_value,
+    test_config_set_base_url_value,
+    test_config_set_api_key_env_value,
+    test_config_set_http_timeout_seconds_value,
+    test_config_set_http_timeout_alias_value,
     test_config_set_timeout_alias_value,
     test_config_set_command_null_clears,
     test_config_set_boolean_false,
@@ -562,6 +660,7 @@ TESTS = [
     test_config_set_invalid_mode_returns_nonzero,
     test_config_set_invalid_boolean_returns_nonzero,
     test_config_set_invalid_timeout_returns_nonzero,
+    test_config_set_invalid_http_timeout_returns_nonzero,
     test_config_set_preserves_other_values,
     test_invalid_existing_config_is_not_overwritten,
     test_invalid_config_returns_nonzero,

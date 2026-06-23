@@ -67,15 +67,13 @@ def check_adapter(root: str | Path = ".") -> dict[str, Any]:
 
     family = adapter_family(adapter)
 
-    if adapter in _PLANNED_ADAPTERS:
+    if adapter in _PLANNED_HTTP_ADAPTERS:
+        return _check_http(root_path, config, mode, agent, adapter)
+
+    if adapter in _PLANNED_COMMAND_ADAPTERS:
         prompt_display = _display_prompt(prompt_config)
         patch_display = _display_patch()
-        if family == "command":
-            check_message = "Command-family preset execution is not implemented yet."
-        elif family == "http":
-            check_message = "HTTP adapter health check is not implemented yet."
-        else:
-            check_message = "Adapter health check is not implemented yet."
+        check_message = "Command-family preset execution is not implemented yet."
         return _build_result(
             status="not_ready",
             ready=False,
@@ -87,6 +85,9 @@ def check_adapter(root: str | Path = ".") -> dict[str, Any]:
             patch=patch_display,
             command="-",
             command_timeout_seconds=None,
+            base_url=None,
+            api_key_env=None,
+            http_timeout_seconds=None,
             message=check_message,
             checks=[
                 _check("config", "pass", "Workflow config loaded."),
@@ -114,6 +115,9 @@ def check_adapter(root: str | Path = ".") -> dict[str, Any]:
         patch=_display_patch(),
         command=_display_command(command_config),
         command_timeout_seconds=None,
+        base_url=None,
+        api_key_env=None,
+        http_timeout_seconds=None,
     )
 
 
@@ -135,6 +139,9 @@ def _check_prompt_file(root_path: Path, config: dict[str, Any], mode: str, agent
             patch=patch_display,
             command="-",
             command_timeout_seconds=None,
+            base_url=None,
+            api_key_env=None,
+            http_timeout_seconds=None,
             message="Adapter configuration looks ready.",
             checks=[
                 _check("config", "pass", "Workflow config loaded."),
@@ -155,6 +162,9 @@ def _check_prompt_file(root_path: Path, config: dict[str, Any], mode: str, agent
         patch=patch_display,
         command="-",
         command_timeout_seconds=None,
+        base_url=None,
+        api_key_env=None,
+        http_timeout_seconds=None,
         message="Adapter configuration is not ready.",
         checks=[
             _check("config", "pass", "Workflow config loaded."),
@@ -208,6 +218,9 @@ def _check_command(root_path: Path, config: dict[str, Any], mode: str, agent: st
             patch=patch_display,
             command=command_display,
             command_timeout_seconds=timeout_display,
+            base_url=None,
+            api_key_env=None,
+            http_timeout_seconds=None,
             message="Adapter configuration is not ready.",
             checks=checks,
             errors=errors,
@@ -224,8 +237,75 @@ def _check_command(root_path: Path, config: dict[str, Any], mode: str, agent: st
         patch=patch_display,
         command=command_display,
         command_timeout_seconds=timeout_display,
+        base_url=None,
+        api_key_env=None,
+        http_timeout_seconds=None,
         message="Adapter configuration looks ready.",
         checks=checks,
+    )
+
+
+def _check_http(root_path: Path, config: dict[str, Any], mode: str, agent: str, adapter: str) -> dict[str, Any]:
+    prompt_config = config.get("prompt_path")
+    prompt_display = _display_prompt(prompt_config)
+    patch_display = _display_patch()
+    base_url = _display_optional_string(config.get("base_url"))
+    api_key_env = _display_optional_string(config.get("api_key_env"))
+    http_timeout = _display_timeout(config.get("http_timeout_seconds"))
+    checks = [
+        _check("config", "pass", "Workflow config loaded."),
+        _check("adapter", "info", "HTTP adapter execution is not implemented yet."),
+        _check("prompt", "info", "Prompt path is configured."),
+        _check("patch", "info", "Patch path is configured."),
+    ]
+    errors: list[str] = []
+    warnings: list[str] = []
+    message = "HTTP adapter execution is not implemented yet."
+
+    if adapter == "openai_compatible_http":
+        if base_url is None:
+            errors.append("base_url is required for HTTP adapters.")
+            checks.append(_check("base_url", "fail", "base_url is required for HTTP adapters."))
+        else:
+            checks.append(_check("base_url", "pass", "Base URL is configured."))
+
+        if api_key_env is not None:
+            checks.append(
+                _check("api_key_env", "info", "API key environment variable name is configured.")
+            )
+    else:
+        if base_url is None:
+            warning = "Base URL is not configured. Ollama commonly uses http://localhost:11434."
+            warnings.append(warning)
+            checks.append(_check("base_url", "info", warning))
+        else:
+            checks.append(_check("base_url", "pass", "Base URL is configured."))
+
+        if api_key_env is not None:
+            checks.append(
+                _check("api_key_env", "info", "API key environment variable name is configured.")
+            )
+
+        message = "Ollama health checks are not implemented yet."
+
+    return _build_result(
+        status="not_ready",
+        ready=False,
+        adapter=adapter,
+        adapter_family="http",
+        mode=mode,
+        agent=agent,
+        prompt=prompt_display,
+        patch=patch_display,
+        command="-",
+        command_timeout_seconds=None,
+        base_url=base_url,
+        api_key_env=api_key_env,
+        http_timeout_seconds=http_timeout,
+        message=message,
+        checks=checks,
+        errors=errors,
+        warnings=warnings,
     )
 
 
@@ -240,6 +320,9 @@ def _build_invalid_result(
     patch: str | None = None,
     command: str | None = None,
     command_timeout_seconds: int | None = None,
+    base_url: str | None = None,
+    api_key_env: str | None = None,
+    http_timeout_seconds: int | None = None,
     adapter_family: str | None = None,
     checks: list[dict[str, str]] | None = None,
 ) -> dict[str, Any]:
@@ -254,6 +337,9 @@ def _build_invalid_result(
         patch=patch,
         command=command,
         command_timeout_seconds=command_timeout_seconds,
+        base_url=base_url,
+        api_key_env=api_key_env,
+        http_timeout_seconds=http_timeout_seconds,
         message=message,
         checks=checks
         or [
@@ -275,6 +361,9 @@ def _build_result(
     patch: str | None,
     command: str | None,
     command_timeout_seconds: int | None,
+    base_url: str | None,
+    api_key_env: str | None,
+    http_timeout_seconds: int | None,
     message: str,
     checks: list[dict[str, str]],
     errors: list[str] | None = None,
@@ -291,6 +380,9 @@ def _build_result(
         "patch": patch,
         "command": command,
         "command_timeout_seconds": command_timeout_seconds,
+        "base_url": base_url,
+        "api_key_env": api_key_env,
+        "http_timeout_seconds": http_timeout_seconds,
         "checks": [dict(check) for check in checks],
         "errors": list(errors or []),
         "warnings": list(warnings or []),
@@ -322,6 +414,13 @@ def _display_command(configured_command: object) -> str:
         return configured_command
 
     return "-"
+
+
+def _display_optional_string(configured_value: object) -> str | None:
+    if isinstance(configured_value, str) and configured_value:
+        return configured_value
+
+    return None
 
 
 def _display_timeout(configured_timeout: object) -> int | None:

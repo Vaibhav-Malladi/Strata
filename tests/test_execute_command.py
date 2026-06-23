@@ -1,4 +1,5 @@
 import contextlib
+import socket
 import sys
 import tempfile
 import textwrap
@@ -563,8 +564,11 @@ def test_execute_planned_adapter_returns_nonzero_with_clear_message():
             root,
             mode="hybrid",
             agent="local",
-            adapter="ollama",
+            adapter="openai_compatible_http",
             prompt_path=".aidc/agent_prompt.md",
+            base_url="http://localhost:1234/v1",
+            api_key_env="OPENAI_API_KEY",
+            http_timeout_seconds=150,
         )
 
         exit_code, output = _run_execute_cli(root)
@@ -572,6 +576,12 @@ def test_execute_planned_adapter_returns_nonzero_with_clear_message():
         assert exit_code == 1
         assert "not_implemented" in output
         assert "HTTP adapter execution is not implemented yet." in output
+        assert "Base URL" in output
+        assert "http://localhost:1234/v1" in output
+        assert "API key env" in output
+        assert "OPENAI_API_KEY" in output
+        assert "HTTP timeout seconds" in output
+        assert "150" in output
 
 
 def test_execute_command_family_planned_adapters_do_not_execute():
@@ -606,11 +616,13 @@ def test_execute_command_family_planned_adapters_do_not_execute():
 
 def test_execute_http_family_planned_adapters_do_not_execute():
     original_execute = execute_command_module.execute_command_adapter
+    original_create_connection = socket.create_connection
 
     def _fail(*_args, **_kwargs):
-        raise AssertionError("execute_command_adapter should not be called")
+        raise AssertionError("network or command execution should not be called")
 
     execute_command_module.execute_command_adapter = _fail
+    socket.create_connection = _fail
     try:
         for adapter in ("ollama", "openai_compatible_http"):
             with tempfile.TemporaryDirectory() as temp_dir:
@@ -622,6 +634,9 @@ def test_execute_http_family_planned_adapters_do_not_execute():
                     agent="local",
                     adapter=adapter,
                     prompt_path=".aidc/agent_prompt.md",
+                    base_url="http://localhost:11434" if adapter == "ollama" else "http://localhost:1234/v1",
+                    api_key_env="OPENAI_API_KEY" if adapter == "openai_compatible_http" else None,
+                    http_timeout_seconds=180,
                 )
 
                 exit_code, output = _run_execute_cli(root)
@@ -630,8 +645,10 @@ def test_execute_http_family_planned_adapters_do_not_execute():
                 assert "not_implemented" in output
                 assert "HTTP adapter execution is not implemented yet." in output
                 assert adapter in output
+                assert "HTTP timeout seconds" in output
     finally:
         execute_command_module.execute_command_adapter = original_execute
+        socket.create_connection = original_create_connection
 
 
 def test_execute_output_includes_expected_rows():

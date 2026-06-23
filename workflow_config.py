@@ -19,6 +19,10 @@ DEFAULT_CONFIG = {
     "prompt_path": ".aidc/agent_prompt.md",
     "model": None,
     "command": None,
+    "base_url": None,
+    "api_key_env": None,
+    "command_timeout_seconds": 120,
+    "http_timeout_seconds": 120,
     "auto_snapshot": True,
     "auto_verify": True,
     "require_gate_pass_before_commit": True,
@@ -26,6 +30,10 @@ DEFAULT_CONFIG = {
 
 _ALLOWED_MODES = {"manual", "hybrid", "auto"}
 _ALLOWED_AGENTS = {"manual", "local", "codex", "aider"}
+_CONFIG_KEY_ALIASES = {
+    "timeout": "command_timeout_seconds",
+    "http_timeout": "http_timeout_seconds",
+}
 _SAFETY_FLAGS = {
     "auto_snapshot",
     "auto_verify",
@@ -100,22 +108,32 @@ def validate_config(config: Mapping[str, Any]) -> dict:
         if not isinstance(key, str):
             raise ValueError("config keys must be strings")
 
-        if key == "mode":
-            normalized[key] = _validate_mode(value)
-        elif key == "agent":
-            normalized[key] = _validate_agent(value)
-        elif key == "adapter":
-            normalized[key] = validate_adapter_name(value)
-        elif key == "prompt_path":
-            normalized[key] = _validate_nonempty_string(key, value)
-        elif key == "model":
-            normalized[key] = _validate_optional_nonempty_string(key, value)
-        elif key == "command":
-            normalized[key] = _validate_optional_nonempty_string(key, value)
-        elif key in _SAFETY_FLAGS:
-            normalized[key] = _validate_bool(key, value)
+        canonical_key = _CONFIG_KEY_ALIASES.get(key, key)
+
+        if canonical_key == "mode":
+            normalized[canonical_key] = _validate_mode(value)
+        elif canonical_key == "agent":
+            normalized[canonical_key] = _validate_agent(value)
+        elif canonical_key == "adapter":
+            normalized[canonical_key] = validate_adapter_name(value)
+        elif canonical_key == "prompt_path":
+            normalized[canonical_key] = _validate_nonempty_string(canonical_key, value)
+        elif canonical_key == "model":
+            normalized[canonical_key] = _validate_optional_nonempty_string(canonical_key, value)
+        elif canonical_key == "command":
+            normalized[canonical_key] = _validate_optional_nonempty_string(canonical_key, value)
+        elif canonical_key == "base_url":
+            normalized[canonical_key] = _validate_optional_nonempty_string(canonical_key, value)
+        elif canonical_key == "api_key_env":
+            normalized[canonical_key] = _validate_optional_nonempty_string(canonical_key, value)
+        elif canonical_key == "command_timeout_seconds":
+            normalized[canonical_key] = _validate_timeout_seconds(canonical_key, value)
+        elif canonical_key == "http_timeout_seconds":
+            normalized[canonical_key] = _validate_timeout_seconds(canonical_key, value)
+        elif canonical_key in _SAFETY_FLAGS:
+            normalized[canonical_key] = _validate_bool(canonical_key, value)
         else:
-            normalized[key] = _normalize_json_value(value, key)
+            normalized[canonical_key] = _normalize_json_value(value, canonical_key)
 
     return normalized
 
@@ -162,6 +180,19 @@ def _validate_optional_nonempty_string(key: str, value: Any) -> str | None:
         return None
 
     return _validate_nonempty_string(key, value)
+
+
+def _validate_timeout_seconds(key: str, value: Any) -> int:
+    if type(value) is not int:
+        raise ValueError(f"{key} must be an integer")
+
+    if value <= 0:
+        raise ValueError(f"{key} must be greater than 0")
+
+    if value > 3600:
+        raise ValueError(f"{key} must be at most 3600")
+
+    return value
 
 
 def _validate_bool(key: str, value: Any) -> bool:

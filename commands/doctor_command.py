@@ -44,7 +44,10 @@ def _print_adapter_result(result: dict[str, object]) -> None:
         ("Prompt", _format_path_value(result.get("prompt"))),
         ("Patch", _format_path_value(result.get("patch"))),
         ("Command", _format_value(result.get("command"))),
-        ("Timeout seconds", _format_value(result.get("command_timeout_seconds"))),
+        ("Command timeout", _format_value(result.get("command_timeout_seconds"))),
+        ("Base URL", _format_value(result.get("base_url"))),
+        ("API key env", _format_value(result.get("api_key_env"))),
+        ("HTTP timeout seconds", _format_value(result.get("http_timeout_seconds"))),
         ("Message", _format_value(result.get("message"))),
     ]
 

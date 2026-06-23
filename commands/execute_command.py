@@ -21,6 +21,7 @@ _PLANNED_ADAPTERS = _PLANNED_COMMAND_ADAPTERS | _PLANNED_HTTP_ADAPTERS
 def write_execute_command(root_path: str = ".") -> int:
     result = check_adapter(root_path)
     adapter = str(result.get("adapter", "") or "")
+    adapter_family = str(result.get("adapter_family", "") or "")
     status = str(result.get("status", "invalid")).lower()
     ready = bool(result.get("ready"))
     execution_result = None
@@ -37,6 +38,9 @@ def write_execute_command(root_path: str = ".") -> int:
     patch = _format_path_or_dash(result.get("patch"))
     command = _format_command(result.get("command"))
     timeout = _format_value(config.get("command_timeout_seconds") if config is not None else None)
+    base_url = _format_value(config.get("base_url") if config is not None else None)
+    api_key_env = _format_value(config.get("api_key_env") if config is not None else None)
+    http_timeout = _format_value(config.get("http_timeout_seconds") if config is not None else None)
     executes_command = "no"
     applies_patch = "no"
     return_code = "-"
@@ -81,6 +85,11 @@ def write_execute_command(root_path: str = ".") -> int:
         ("Targets", targets),
         ("Message", message),
     ]
+
+    if adapter_family == "http":
+        rows.insert(8, ("Base URL", base_url))
+        rows.insert(9, ("API key env", api_key_env))
+        rows.insert(10, ("HTTP timeout seconds", http_timeout))
 
     if execution_result is None:
         rows[0] = ("Status", display_status)

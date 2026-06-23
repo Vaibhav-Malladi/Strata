@@ -1,3 +1,4 @@
+import socket
 import subprocess
 import tempfile
 from pathlib import Path
@@ -121,28 +122,104 @@ def test_adapter_doctor_command_not_ready_when_prompt_missing():
 
 def test_adapter_doctor_http_planned_adapters_return_not_ready_with_family():
     original_run = subprocess.run
+    original_create_connection = socket.create_connection
 
     def _fail(*_args, **_kwargs):
-        raise AssertionError("subprocess.run should not be called")
+        raise AssertionError("network or subprocess calls should not be made")
 
     subprocess.run = _fail
+    socket.create_connection = _fail
     try:
-        for adapter in ("ollama", "openai_compatible_http"):
-            with tempfile.TemporaryDirectory() as temp_dir:
-                root = Path(temp_dir)
-                _save_config(root, adapter=adapter)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            _save_config(
+                root,
+                adapter="openai_compatible_http",
+                base_url=None,
+                api_key_env="OPENAI_API_KEY",
+                http_timeout_seconds=150,
+            )
 
-                result = check_adapter(root)
+            result = check_adapter(root)
 
-                assert result["status"] == "not_ready"
-                assert result["ready"] is False
-                assert result["adapter"] == adapter
-                assert result["adapter_family"] == "http"
-                assert result["message"] == "HTTP adapter health check is not implemented yet."
-                assert result["errors"] == ["HTTP adapter health check is not implemented yet."]
-                assert [check["status"] for check in result["checks"]] == ["pass", "info", "info", "info"]
+            assert result["status"] == "not_ready"
+            assert result["ready"] is False
+            assert result["adapter"] == "openai_compatible_http"
+            assert result["adapter_family"] == "http"
+            assert result["base_url"] is None
+            assert result["api_key_env"] == "OPENAI_API_KEY"
+            assert result["http_timeout_seconds"] == 150
+            assert result["message"] == "HTTP adapter execution is not implemented yet."
+            assert result["errors"] == ["base_url is required for HTTP adapters."]
+            assert [check["status"] for check in result["checks"]] == [
+                "pass",
+                "info",
+                "info",
+                "info",
+                "fail",
+                "info",
+            ]
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            _save_config(root, adapter="ollama", http_timeout_seconds=150)
+
+            result = check_adapter(root)
+
+            assert result["status"] == "not_ready"
+            assert result["ready"] is False
+            assert result["adapter"] == "ollama"
+            assert result["adapter_family"] == "http"
+            assert result["base_url"] is None
+            assert result["http_timeout_seconds"] == 150
+            assert result["message"] == "Ollama health checks are not implemented yet."
+            assert result["errors"] == []
+            assert result["warnings"] == [
+                "Base URL is not configured. Ollama commonly uses http://localhost:11434."
+            ]
+            assert [check["status"] for check in result["checks"]] == [
+                "pass",
+                "info",
+                "info",
+                "info",
+                "info",
+            ]
     finally:
         subprocess.run = original_run
+        socket.create_connection = original_create_connection
+
+
+def test_adapter_doctor_openai_http_reports_configured_base_url_and_api_key_env():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _save_config(
+            root,
+            adapter="openai_compatible_http",
+            base_url="http://localhost:1234/v1",
+            api_key_env="OPENAI_API_KEY",
+            http_timeout_seconds=200,
+        )
+
+        result = check_adapter(root)
+
+        assert result["status"] == "not_ready"
+        assert result["ready"] is False
+        assert result["adapter"] == "openai_compatible_http"
+        assert result["adapter_family"] == "http"
+        assert result["base_url"] == "http://localhost:1234/v1"
+        assert result["api_key_env"] == "OPENAI_API_KEY"
+        assert result["http_timeout_seconds"] == 200
+        assert result["message"] == "HTTP adapter execution is not implemented yet."
+        assert result["errors"] == []
+        assert result["warnings"] == []
+        assert [check["status"] for check in result["checks"]] == [
+            "pass",
+            "info",
+            "info",
+            "info",
+            "pass",
+            "info",
+        ]
 
 
 def test_adapter_doctor_command_family_planned_adapters_return_not_ready_with_family():
@@ -228,6 +305,7 @@ TESTS = [
     test_adapter_doctor_command_not_ready_when_command_missing,
     test_adapter_doctor_command_not_ready_when_prompt_missing,
     test_adapter_doctor_http_planned_adapters_return_not_ready_with_family,
+    test_adapter_doctor_openai_http_reports_configured_base_url_and_api_key_env,
     test_adapter_doctor_command_family_planned_adapters_return_not_ready_with_family,
     test_adapter_doctor_invalid_config_returns_invalid,
     test_adapter_doctor_does_not_create_aidc_when_config_and_prompt_missing,

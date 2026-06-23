@@ -110,6 +110,11 @@ Command execution has a timeout. It defaults to 120 seconds and can be adjusted 
 local workflow config. `strata execute` may also show short stdout/stderr previews
 from the command it ran, but it still does not apply patches automatically.
 
+HTTP-family adapters are still config-only in this batch. `strata doctor adapter`
+validates `base_url`, `api_key_env`, and timeout config locally without reading the
+actual environment variable or making any network call. `strata execute` returns
+not implemented for HTTP adapters until a later batch.
+
 Strata groups adapters into three families: `prompt_file`, `command`, and `http`.
 Named adapters are presets or aliases that map onto one of those families.
 
@@ -190,8 +195,8 @@ del .aidc\agent_patch.diff
 |---|---|---|---|
 | `prompt_file` | `prompt_file` | Implemented | Writes/uses `.aidc/agent_prompt.md`; user pastes it into an AI tool manually. |
 | `command` | `command` | Implemented | Runs the configured command adapter and writes `.aidc/agent_patch.diff`. |
-| `ollama` | `http` | Planned | Future local model adapter. |
-| `openai_compatible_http` | `http` | Planned | Future local/remote HTTP model adapter. |
+| `ollama` | `http` | Planned | Future local model adapter; doctor validates config only. |
+| `openai_compatible_http` | `http` | Planned | Future local/remote HTTP model adapter; doctor validates config only. |
 | `aider` | `command` | Planned | Future Aider preset on the command family. |
 | `codex_cli` | `command` | Planned | Future Codex CLI preset on the command family. |
 
@@ -223,6 +228,9 @@ strata config set auto_snapshot false
 strata config set auto_verify true
 strata config set require_gate true
 strata config set command_timeout_seconds 120
+strata config set base_url http://localhost:1234/v1
+strata config set api_key_env OPENAI_API_KEY
+strata config set http_timeout_seconds 120
 ```
 
 Supported keys:
@@ -234,6 +242,9 @@ Supported keys:
 - `model`: optional model name for future adapters
 - `command`: optional command string for the command adapter
 - `command_timeout_seconds`: optional command timeout in seconds, default `120`
+- `base_url`: optional HTTP adapter base URL
+- `api_key_env`: optional environment variable name that stores the API key, not the secret itself
+- `http_timeout_seconds`: optional HTTP adapter timeout in seconds, default `120`
 - `auto_snapshot`: `true` | `false`
 - `auto_verify`: `true` | `false`
 - `require_gate_pass_before_commit`: `true` | `false`
@@ -247,6 +258,23 @@ Important notes:
 - `prompt_file` stays manual even when `command` is configured.
 - The named adapter value is checked against its family, so the docs and CLI can
   explain whether a configured adapter is manual, command-driven, or HTTP-shaped.
+- `api_key_env` stores only the environment variable name. Do not put the secret
+  value in config.
+- `ollama` and `openai_compatible_http` remain planned adapters in this batch.
+- `strata doctor adapter` validates HTTP config only and does not make network calls.
+
+Example future HTTP setup:
+
+```powershell
+strata config set adapter openai_compatible_http
+strata config set base_url http://localhost:1234/v1
+strata config set api_key_env OPENAI_API_KEY
+strata config set http_timeout_seconds 120
+strata doctor adapter
+```
+
+The example above is configuration-only for now. HTTP execution is not implemented
+yet in this batch.
 
 ---
 

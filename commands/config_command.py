@@ -17,7 +17,10 @@ _SUPPORTED_KEYS = {
     "prompt_path",
     "model",
     "command",
+    "base_url",
+    "api_key_env",
     "command_timeout_seconds",
+    "http_timeout_seconds",
     "auto_snapshot",
     "auto_verify",
     "require_gate_pass_before_commit",
@@ -30,11 +33,15 @@ _VALID_KEYS = (
     "prompt_path",
     "model",
     "command",
+    "base_url",
+    "api_key_env",
     "command_timeout_seconds",
+    "http_timeout_seconds",
     "auto_snapshot",
     "auto_verify",
     "require_gate_pass_before_commit",
     "timeout",
+    "http_timeout",
     "require_gate",
     "require_gate_pass",
     "snapshot",
@@ -43,6 +50,7 @@ _VALID_KEYS = (
 
 _KEY_ALIASES = {
     "timeout": "command_timeout_seconds",
+    "http_timeout": "http_timeout_seconds",
     "require_gate": "require_gate_pass_before_commit",
     "require_gate_pass": "require_gate_pass_before_commit",
     "snapshot": "auto_snapshot",
@@ -204,7 +212,10 @@ def _config_rows(
             ("Prompt path", config["prompt_path"]),
             ("Model", config["model"] if config["model"] is not None else "null"),
             ("Command", config["command"] if config["command"] is not None else "null"),
+            ("Base URL", config["base_url"] if config["base_url"] is not None else "null"),
+            ("API key env", config["api_key_env"] if config["api_key_env"] is not None else "null"),
             ("Command timeout seconds", config["command_timeout_seconds"]),
+            ("HTTP timeout seconds", config["http_timeout_seconds"]),
             ("Auto snapshot", _bool_text(config["auto_snapshot"])),
             ("Auto verify", _bool_text(config["auto_verify"])),
             (
@@ -252,23 +263,23 @@ def _parse_value(key: str, value: str) -> object:
     if key == "prompt_path":
         return normalized
 
-    if key in {"model", "command"}:
+    if key in {"model", "command", "base_url", "api_key_env"}:
         candidate = normalized.lower()
         if candidate in {"null", "none"}:
             return None
         return normalized
 
-    if key == "command_timeout_seconds":
+    if key in {"command_timeout_seconds", "http_timeout_seconds"}:
         try:
             timeout = int(normalized)
         except ValueError as error:
             raise ValueError(
-                "Invalid value for command_timeout_seconds. Expected an integer between 1 and 3600."
+                f"Invalid value for {key}. Expected an integer between 1 and 3600."
             ) from error
 
         if timeout <= 0 or timeout > 3600:
             raise ValueError(
-                "Invalid value for command_timeout_seconds. Expected an integer between 1 and 3600."
+                f"Invalid value for {key}. Expected an integer between 1 and 3600."
             )
 
         return timeout
@@ -298,5 +309,9 @@ def _usage_text() -> str:
             "  strata config init [root]",
             "  strata config set <key> <value> [root]",
             "  strata config set command_timeout_seconds 120",
+            "  strata config set http_timeout_seconds 120",
+            "  strata config set http_timeout 120",
+            "  strata config set base_url http://localhost:1234/v1",
+            "  strata config set api_key_env OPENAI_API_KEY",
         ]
     )
