@@ -3,6 +3,7 @@ import sys
 from cli_help import print_usage
 from commands.agent_prompt_command import write_agent_prompt_command
 from commands.brief_command import write_brief
+from commands.config_command import write_config_command, write_config_init_command
 from commands.context_command import write_context
 from commands.cycles_command import show_cycles
 from commands.diff_command import write_diff_command
@@ -96,6 +97,18 @@ def main() -> int:
             return _exit_code(write_gate_command("."))
         if len(args) == 2:
             return _exit_code(write_gate_command(args[1]))
+        print_usage()
+        return 1
+
+    if command == "config":
+        if len(args) == 1:
+            return _exit_code(write_config_command("."))
+        if len(args) == 2:
+            if args[1] == "init":
+                return _exit_code(write_config_init_command("."))
+            return _exit_code(write_config_command(args[1]))
+        if len(args) == 3 and args[1] == "init":
+            return _exit_code(write_config_init_command(args[2]))
         print_usage()
         return 1
 

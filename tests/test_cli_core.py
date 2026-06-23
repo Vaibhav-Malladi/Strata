@@ -256,6 +256,8 @@ def test_cli_help_prefers_strata_commands():
 
     assert "strata scan [path]" in output
     assert "strata gate <root>" in output
+    assert "strata config [root]" in output
+    assert "strata config init [root]" in output
     assert "Legacy fallback: use `py cli.py ...`" in output
     assert "py cli.py scan [path]" not in output
 
