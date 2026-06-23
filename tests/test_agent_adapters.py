@@ -2,8 +2,10 @@ import tempfile
 from pathlib import Path
 
 from agent_adapters import (
+    adapter_supports_dry_run,
     IMPLEMENTED_ADAPTERS,
     SUPPORTED_ADAPTERS,
+    build_command_dry_run_result,
     build_prompt_file_result,
     implemented_adapters,
     is_adapter_implemented,
@@ -156,6 +158,113 @@ def test_run_adapter_prompt_file_uses_config_prompt_path():
         assert Path(result["prompt_path"]) == prompt_file
 
 
+def test_command_dry_run_requires_command():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+
+        for command_value in (None, "", 123):
+            try:
+                build_command_dry_run_result(root, {"command": command_value})
+            except ValueError as error:
+                assert "non-empty string command" in str(error)
+            else:
+                raise AssertionError("Expected ValueError for missing command")
+
+        try:
+            build_command_dry_run_result(root, {})
+        except ValueError as error:
+            assert "non-empty string command" in str(error)
+        else:
+            raise AssertionError("Expected ValueError for missing command")
+
+
+def test_command_dry_run_returns_plan_without_execution():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        result = build_command_dry_run_result(
+            root,
+            {"command": "my-ai --prompt .aidc/agent_prompt.md"},
+        )
+
+        assert result["adapter"] == "command"
+        assert result["status"] == "dry_run"
+        assert result["executed"] is False
+        assert result["command"] == "my-ai --prompt .aidc/agent_prompt.md"
+        assert Path(result["prompt_path"]) == root / ".aidc" / "agent_prompt.md"
+        assert Path(result["patch_path"]) == root / ".aidc" / "agent_patch.diff"
+        assert "No command was executed" in result["message"]
+
+
+def test_command_dry_run_uses_configured_prompt_path():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+
+        result = build_command_dry_run_result(
+            root,
+            {
+                "command": "my-ai --prompt custom/prompt.md",
+                "prompt_path": "custom/prompt.md",
+            },
+        )
+
+        assert Path(result["prompt_path"]) == root / "custom" / "prompt.md"
+
+
+def test_command_dry_run_never_creates_files():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+
+        build_command_dry_run_result(
+            root,
+            {"command": "my-ai --prompt .aidc/agent_prompt.md"},
+        )
+
+        assert not (root / ".aidc").exists()
+
+
+def test_run_adapter_command_dry_run():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+
+        result = run_adapter(
+            "command",
+            root,
+            {"command": "my-ai --prompt .aidc/agent_prompt.md"},
+            dry_run=True,
+        )
+
+        assert result["adapter"] == "command"
+        assert result["status"] == "dry_run"
+        assert result["executed"] is False
+        assert result["command"] == "my-ai --prompt .aidc/agent_prompt.md"
+
+
+def test_run_adapter_command_normal_not_implemented():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+
+        result = run_adapter(
+            "command",
+            root,
+            {"command": "my-ai --prompt .aidc/agent_prompt.md"},
+            dry_run=False,
+        )
+
+        assert result["adapter"] == "command"
+        assert result["status"] == "not_implemented"
+        assert result["executed"] is False
+        assert Path(result["prompt_path"]) == root / ".aidc" / "agent_prompt.md"
+        assert Path(result["patch_path"]) == root / ".aidc" / "agent_patch.diff"
+        assert "real execution is not implemented yet" in result["message"]
+        assert "dry-run" in result["message"]
+
+
+def test_adapter_supports_dry_run_command():
+    assert adapter_supports_dry_run("command") is True
+    assert adapter_supports_dry_run("prompt_file") is True
+    assert adapter_supports_dry_run("ollama") is False
+
+
 def test_run_adapter_supported_unimplemented_returns_not_implemented():
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
@@ -205,6 +314,13 @@ TESTS = [
     test_prompt_file_result_ready_when_prompt_exists,
     test_prompt_file_result_missing_when_prompt_missing,
     test_run_adapter_prompt_file_uses_config_prompt_path,
+    test_command_dry_run_requires_command,
+    test_command_dry_run_returns_plan_without_execution,
+    test_command_dry_run_uses_configured_prompt_path,
+    test_command_dry_run_never_creates_files,
+    test_run_adapter_command_dry_run,
+    test_run_adapter_command_normal_not_implemented,
+    test_adapter_supports_dry_run_command,
     test_run_adapter_supported_unimplemented_returns_not_implemented,
     test_run_adapter_never_creates_files,
     test_run_adapter_invalid_adapter_raises,

@@ -8,15 +8,35 @@ from ui import (
     format_path,
     format_success,
 )
-from workflow_config import config_path, ensure_config, load_config, save_config
+from workflow_config import config_path, ensure_config, load_config, save_config, validate_config
 
 _SUPPORTED_KEYS = {
     "mode",
     "agent",
+    "adapter",
+    "prompt_path",
+    "model",
+    "command",
     "auto_snapshot",
     "auto_verify",
     "require_gate_pass_before_commit",
 }
+
+_VALID_KEYS = (
+    "mode",
+    "agent",
+    "adapter",
+    "prompt_path",
+    "model",
+    "command",
+    "auto_snapshot",
+    "auto_verify",
+    "require_gate_pass_before_commit",
+    "require_gate",
+    "require_gate_pass",
+    "snapshot",
+    "verify",
+)
 
 _KEY_ALIASES = {
     "require_gate": "require_gate_pass_before_commit",
@@ -118,7 +138,16 @@ def write_config_set_command(key: str, value: str, root: str = ".") -> int:
     updated[normalized_key] = parsed_value
 
     try:
-        save_config(updated, root)
+        normalized_config = validate_config(updated)
+    except ValueError as error:
+        print(build_banner())
+        print()
+        print(build_section("Workflow config error"))
+        print(format_error(str(error)))
+        return 1
+
+    try:
+        save_config(normalized_config, root)
     except ValueError as error:
         print(build_banner())
         print()
@@ -133,7 +162,7 @@ def write_config_set_command(key: str, value: str, root: str = ".") -> int:
         build_kv_table(
             _config_rows(
                 path=path,
-                config=updated,
+                config=normalized_config,
                 updated_key=normalized_key,
                 include_exists=False,
             )
@@ -167,6 +196,10 @@ def _config_rows(
         [
             ("Mode", config["mode"]),
             ("Agent", config["agent"]),
+            ("Adapter", config["adapter"]),
+            ("Prompt path", config["prompt_path"]),
+            ("Model", config["model"] if config["model"] is not None else "null"),
+            ("Command", config["command"] if config["command"] is not None else "null"),
             ("Auto snapshot", _bool_text(config["auto_snapshot"])),
             ("Auto verify", _bool_text(config["auto_verify"])),
             (
@@ -187,19 +220,7 @@ def _normalize_key(key: str) -> str:
     canonical = _KEY_ALIASES.get(normalized, normalized)
 
     if canonical not in _SUPPORTED_KEYS:
-        valid = ", ".join(
-            [
-                "mode",
-                "agent",
-                "auto_snapshot",
-                "auto_verify",
-                "require_gate_pass_before_commit",
-                "require_gate",
-                "require_gate_pass",
-                "snapshot",
-                "verify",
-            ]
-        )
+        valid = ", ".join(_VALID_KEYS)
         raise ValueError(f"Unsupported config key: {key}. Valid keys: {valid}")
 
     return canonical
@@ -219,6 +240,18 @@ def _parse_value(key: str, value: str) -> object:
         if candidate not in {"manual", "local", "codex", "aider"}:
             raise ValueError("Invalid value for agent. Allowed values: manual, local, codex, aider")
         return candidate
+
+    if key == "adapter":
+        return normalized
+
+    if key == "prompt_path":
+        return normalized
+
+    if key in {"model", "command"}:
+        candidate = normalized.lower()
+        if candidate in {"null", "none"}:
+            return None
+        return normalized
 
     return _parse_bool(key, normalized)
 

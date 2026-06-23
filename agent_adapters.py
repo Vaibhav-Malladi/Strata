@@ -20,6 +20,8 @@ SUPPORTED_ADAPTERS = frozenset(
 
 IMPLEMENTED_ADAPTERS = frozenset({"prompt_file"})
 
+_DRY_RUN_ADAPTERS = frozenset({"prompt_file", "command"})
+
 _ADAPTER_ALIASES = {
     "prompt": "prompt_file",
     "file": "prompt_file",
@@ -70,6 +72,13 @@ def is_adapter_implemented(name: str | None) -> bool:
 
     normalized = validate_adapter_name(name)
     return normalized in IMPLEMENTED_ADAPTERS
+
+
+def adapter_supports_dry_run(name: str | None) -> bool:
+    """Return whether an adapter has a safe dry-run path."""
+
+    normalized = normalize_adapter_name(name)
+    return normalized in _DRY_RUN_ADAPTERS
 
 
 def prompt_path(root: str | Path = ".", configured_path: str | Path | None = None) -> Path:
@@ -125,14 +134,71 @@ def build_prompt_file_result(
     }
 
 
+def build_command_dry_run_result(
+    root: str | Path = ".",
+    config: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Build the deterministic dry-run result for the planned command adapter."""
+
+    configured_command = None
+    configured_prompt_path = None
+
+    if config is not None:
+        configured_command = config.get("command")
+        configured_prompt_path = config.get("prompt_path")
+
+    if not isinstance(configured_command, str) or not configured_command.strip():
+        raise ValueError("command adapter dry-run requires a non-empty string command")
+
+    resolved_prompt_path = prompt_path(root, configured_prompt_path)
+    resolved_patch_path = patch_path(root)
+
+    return {
+        "adapter": "command",
+        "status": "dry_run",
+        "executed": False,
+        "command": configured_command,
+        "prompt_path": str(resolved_prompt_path),
+        "patch_path": str(resolved_patch_path),
+        "message": "Command adapter dry-run only. No command was executed.",
+    }
+
+
 def run_adapter(
     adapter: str | None,
     root: str | Path = ".",
     config: Mapping[str, Any] | None = None,
+    dry_run: bool = False,
 ) -> dict[str, Any]:
     """Run an adapter in a deterministic, non-executing way."""
 
     normalized = validate_adapter_name(adapter)
+
+    if dry_run:
+        if normalized == "command":
+            return build_command_dry_run_result(root, config)
+
+        if normalized == "prompt_file":
+            configured_prompt_path = None
+            if config is not None:
+                configured_prompt_path = config.get("prompt_path")
+            return build_prompt_file_result(root, configured_prompt_path)
+
+    if normalized == "command":
+        configured_prompt_path = None
+        if config is not None:
+            configured_prompt_path = config.get("prompt_path")
+        return {
+            "adapter": "command",
+            "status": "not_implemented",
+            "executed": False,
+            "prompt_path": str(prompt_path(root, configured_prompt_path)),
+            "patch_path": str(patch_path(root)),
+            "message": (
+                "Adapter 'command' is planned but real execution is not implemented yet. "
+                "Use dry-run to preview the configured command."
+            ),
+        }
 
     if normalized == "prompt_file":
         configured_prompt_path = None

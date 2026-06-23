@@ -1,6 +1,8 @@
+import contextlib
 import tempfile
 from pathlib import Path
 
+import commands.run_command as run_command_module
 from commands.run_command import write_run_command
 from workflow_config import default_config, save_config
 from tests.helpers import capture_output, change_directory
@@ -29,6 +31,16 @@ def _save_run_config(root: Path, **overrides) -> None:
     save_config(config, root)
 
 
+@contextlib.contextmanager
+def _patched_load_config(config: dict):
+    original = run_command_module.load_config
+    run_command_module.load_config = lambda root: config
+    try:
+        yield
+    finally:
+        run_command_module.load_config = original
+
+
 def test_run_dry_run_does_not_create_aidc():
     with tempfile.TemporaryDirectory() as temp_dir:
         repo_root = Path(temp_dir)
@@ -46,6 +58,114 @@ def test_run_dry_run_does_not_create_aidc():
         assert "dry-run" in output
         assert "Executes AI" in output
         assert "no" in output
+
+
+def test_run_dry_run_command_adapter_shows_command_without_execution():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        repo_root = Path(temp_dir)
+        _create_run_repo(repo_root)
+        config = {
+            "mode": "auto",
+            "agent": "custom",
+            "adapter": "command",
+            "command": "my-ai --prompt .aidc/agent_prompt.md",
+            "prompt_path": ".aidc/agent_prompt.md",
+            "auto_snapshot": True,
+            "auto_verify": True,
+            "require_gate_pass_before_commit": True,
+        }
+
+        with _patched_load_config(config):
+            exit_code, output = capture_output(
+                write_run_command,
+                str(repo_root),
+                "--dry-run",
+                "fix bug",
+            )
+
+        assert exit_code == 0
+        assert "command" in output
+        assert "my-ai --prompt .aidc/agent_prompt.md" in output
+        assert "Executes command" in output
+        assert "Executes AI" in output
+        assert "no" in output
+        assert not (repo_root / ".aidc").exists()
+
+
+def test_run_normal_command_adapter_returns_nonzero():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        repo_root = Path(temp_dir)
+        _create_run_repo(repo_root)
+        _save_run_config(
+            repo_root,
+            mode="auto",
+            agent="codex",
+            adapter="command",
+            command="my-ai --prompt .aidc/agent_prompt.md",
+            prompt_path=".aidc/agent_prompt.md",
+        )
+
+        with change_directory(repo_root):
+            exit_code, output = capture_output(
+                write_run_command,
+                str(repo_root),
+                "fix bug",
+            )
+
+        assert exit_code == 1
+        assert "real execution is not implemented yet" in output
+        assert "dry-run" in output
+
+
+def test_run_dry_run_command_adapter_missing_command_returns_nonzero():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        repo_root = Path(temp_dir)
+        _create_run_repo(repo_root)
+        config = {
+            "mode": "auto",
+            "agent": "custom",
+            "adapter": "command",
+            "command": None,
+            "prompt_path": ".aidc/agent_prompt.md",
+            "auto_snapshot": True,
+            "auto_verify": True,
+            "require_gate_pass_before_commit": True,
+        }
+
+        with _patched_load_config(config):
+            exit_code, output = capture_output(
+                write_run_command,
+                str(repo_root),
+                "--dry-run",
+                "fix bug",
+            )
+
+        assert exit_code == 1
+        assert "non-empty string command" in output
+        assert not (repo_root / ".aidc").exists()
+
+
+def test_run_dry_run_prompt_file_still_works():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        repo_root = Path(temp_dir)
+        _create_run_repo(repo_root)
+        config = default_config()
+        config["adapter"] = "prompt_file"
+        config["prompt_path"] = ".aidc/agent_prompt.md"
+
+        with _patched_load_config(config):
+            exit_code, output = capture_output(
+                write_run_command,
+                str(repo_root),
+                "--dry-run",
+                "fix helper bug",
+            )
+
+        assert exit_code == 0
+        assert "prompt_file" in output
+        assert "Executes AI" in output
+        assert "no" in output
+        assert not (repo_root / ".aidc").exists()
 
 
 def test_run_dry_run_shows_plan():
@@ -274,6 +394,10 @@ def test_run_outputs_single_banner():
 
 TESTS = [
     test_run_dry_run_does_not_create_aidc,
+    test_run_dry_run_command_adapter_shows_command_without_execution,
+    test_run_normal_command_adapter_returns_nonzero,
+    test_run_dry_run_command_adapter_missing_command_returns_nonzero,
+    test_run_dry_run_prompt_file_still_works,
     test_run_dry_run_shows_plan,
     test_run_dry_run_accepts_flag_after_task,
     test_run_dry_run_respects_explicit_type,

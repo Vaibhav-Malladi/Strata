@@ -133,6 +133,151 @@ def test_config_set_agent_updates_existing_config():
         assert payload["agent"] == "codex"
 
 
+def test_config_set_adapter_prompt_file():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+
+        with change_directory(root):
+            exit_code, _ = capture_output(write_config_set_command, "adapter", "prompt_file", ".")
+
+        payload = json.loads(config_path(root).read_text(encoding="utf-8"))
+
+        assert exit_code == 0
+        assert payload["adapter"] == "prompt_file"
+
+
+def test_config_set_adapter_alias_manual_normalizes():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+
+        with change_directory(root):
+            exit_code, _ = capture_output(write_config_set_command, "adapter", "manual", ".")
+
+        payload = json.loads(config_path(root).read_text(encoding="utf-8"))
+
+        assert exit_code == 0
+        assert payload["adapter"] == "prompt_file"
+
+
+def test_config_set_adapter_alias_http_normalizes():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+
+        with change_directory(root):
+            exit_code, _ = capture_output(write_config_set_command, "adapter", "http", ".")
+
+        payload = json.loads(config_path(root).read_text(encoding="utf-8"))
+
+        assert exit_code == 0
+        assert payload["adapter"] == "openai_compatible_http"
+
+
+def test_config_set_adapter_rejects_unknown():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+
+        with change_directory(root):
+            exit_code, output = capture_output(write_config_set_command, "adapter", "banana", ".")
+
+        assert exit_code == 1
+        assert "Unknown adapter" in output
+        assert not config_path(root).exists()
+
+
+def test_config_set_prompt_path():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+
+        with change_directory(root):
+            exit_code, _ = capture_output(
+                write_config_set_command,
+                "prompt_path",
+                "custom/prompt.md",
+                ".",
+            )
+
+        payload = json.loads(config_path(root).read_text(encoding="utf-8"))
+
+        assert exit_code == 0
+        assert payload["prompt_path"] == "custom/prompt.md"
+
+
+def test_config_set_prompt_path_rejects_empty():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+
+        with change_directory(root):
+            exit_code, output = capture_output(write_config_set_command, "prompt_path", "", ".")
+
+        assert exit_code == 1
+        assert "prompt_path" in output
+        assert not config_path(root).exists()
+
+
+def test_config_set_model_value():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+
+        with change_directory(root):
+            exit_code, _ = capture_output(
+                write_config_set_command,
+                "model",
+                "qwen2.5-coder:12b",
+                ".",
+            )
+
+        payload = json.loads(config_path(root).read_text(encoding="utf-8"))
+
+        assert exit_code == 0
+        assert payload["model"] == "qwen2.5-coder:12b"
+
+
+def test_config_set_model_null_clears():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        save_config({"mode": "manual", "agent": "manual", "model": "old-model"}, root)
+
+        with change_directory(root):
+            exit_code, _ = capture_output(write_config_set_command, "model", "null", ".")
+
+        payload = json.loads(config_path(root).read_text(encoding="utf-8"))
+
+        assert exit_code == 0
+        assert payload["model"] is None
+
+
+def test_config_set_command_value():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+
+        with change_directory(root):
+            exit_code, _ = capture_output(
+                write_config_set_command,
+                "command",
+                "my-ai --prompt .aidc/agent_prompt.md",
+                ".",
+            )
+
+        payload = json.loads(config_path(root).read_text(encoding="utf-8"))
+
+        assert exit_code == 0
+        assert payload["command"] == "my-ai --prompt .aidc/agent_prompt.md"
+
+
+def test_config_set_command_null_clears():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        save_config({"mode": "manual", "agent": "manual", "command": "old-command"}, root)
+
+        with change_directory(root):
+            exit_code, _ = capture_output(write_config_set_command, "command", "none", ".")
+
+        payload = json.loads(config_path(root).read_text(encoding="utf-8"))
+
+        assert exit_code == 0
+        assert payload["command"] is None
+
+
 def test_config_set_boolean_false():
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
@@ -144,6 +289,30 @@ def test_config_set_boolean_false():
 
         assert exit_code == 0
         assert payload["auto_snapshot"] is False
+
+
+def test_config_set_boolean_true_variants():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+
+        with change_directory(root):
+            exit_code_true, _ = capture_output(write_config_set_command, "auto_snapshot", "true", ".")
+            exit_code_on, _ = capture_output(write_config_set_command, "auto_verify", "on", ".")
+            exit_code_one, _ = capture_output(
+                write_config_set_command,
+                "require_gate",
+                "1",
+                ".",
+            )
+
+        payload = json.loads(config_path(root).read_text(encoding="utf-8"))
+
+        assert exit_code_true == 0
+        assert exit_code_on == 0
+        assert exit_code_one == 0
+        assert payload["auto_snapshot"] is True
+        assert payload["auto_verify"] is True
+        assert payload["require_gate_pass_before_commit"] is True
 
 
 def test_config_set_boolean_alias_yes_no():
@@ -192,6 +361,10 @@ def test_config_set_invalid_key_returns_nonzero():
 
         assert exit_code == 1
         assert "Valid keys" in output or "Usage" in output
+        assert "adapter" in output
+        assert "prompt_path" in output
+        assert "model" in output
+        assert "command" in output
         assert not config_path(root).exists()
 
 
@@ -317,7 +490,18 @@ TESTS = [
     test_config_shows_existing_config,
     test_config_set_mode_creates_config,
     test_config_set_agent_updates_existing_config,
+    test_config_set_adapter_prompt_file,
+    test_config_set_adapter_alias_manual_normalizes,
+    test_config_set_adapter_alias_http_normalizes,
+    test_config_set_adapter_rejects_unknown,
+    test_config_set_prompt_path,
+    test_config_set_prompt_path_rejects_empty,
+    test_config_set_model_value,
+    test_config_set_model_null_clears,
+    test_config_set_command_value,
+    test_config_set_command_null_clears,
     test_config_set_boolean_false,
+    test_config_set_boolean_true_variants,
     test_config_set_boolean_alias_yes_no,
     test_config_set_key_alias,
     test_config_set_root_argument,

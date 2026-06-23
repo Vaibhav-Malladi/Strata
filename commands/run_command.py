@@ -53,15 +53,18 @@ def write_run_command(root_path: str, *args: str) -> int:
         return 1
 
     if dry_run:
+        try:
+            adapter_result = run_adapter(config["adapter"], root, config, dry_run=True)
+        except ValueError as error:
+            _print_error("Run failed", str(error))
+            return 1
+
         _print_plan(
             title="Run plan",
             status=format_success("dry-run"),
             plan=plan,
             config=config,
-            rows=[
-                ("Writes files", "no"),
-                ("Executes AI", "no"),
-            ],
+            rows=_build_dry_run_rows(adapter_result),
         )
         return 0
 
@@ -111,6 +114,34 @@ def write_run_command(root_path: str, *args: str) -> int:
     )
 
     return exit_code
+
+
+def _build_dry_run_rows(adapter_result: dict[str, object]) -> list[tuple[str, object]]:
+    rows: list[tuple[str, object]] = [
+        ("Writes files", "no"),
+        ("Executes AI", "no"),
+    ]
+
+    adapter_name = str(adapter_result.get("adapter", ""))
+    prompt_path = str(adapter_result.get("prompt_path") or "")
+    patch_path = str(adapter_result.get("patch_path") or "")
+    message = str(adapter_result.get("message") or "")
+
+    if adapter_name == "command":
+        command = adapter_result.get("command")
+        rows.append(("Command", command if command is not None else ""))
+        if prompt_path:
+            rows.append(("Prompt", format_path(Path(prompt_path))))
+        if patch_path:
+            rows.append(("Patch", format_path(Path(patch_path))))
+        rows.append(("Executes command", "no"))
+    elif prompt_path:
+        rows.append(("Prompt", format_path(Path(prompt_path))))
+
+    if message:
+        rows.append(("Message", message))
+
+    return rows
 
 
 def _parse_run_args(args: Sequence[str]) -> dict[str, Any]:
