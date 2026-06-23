@@ -8,17 +8,25 @@ from cli_core import (
     VERIFICATION_REPORT_MD_FILE,
     build_graph,
 )
-from cli_ui import green, print_kv, print_title, red, yellow
 from diff_engine import compare_graphs
 from routes import collect_routes
 from verify import verify_diff, write_verification_report
+from ui import (
+    build_banner,
+    build_kv_table,
+    build_section,
+    format_path,
+    format_status,
+)
 
 
 def write_verify_command(root_path: str) -> int:
     latest_snapshot = _load_latest_snapshot(root_path)
 
     if latest_snapshot is None:
-        print_title(red("No snapshot found"))
+        print(build_banner())
+        print()
+        print(build_section("Verification unavailable"))
         print("No snapshot found. Run `strata snapshot` first.")
         return 1
 
@@ -40,19 +48,26 @@ def write_verify_command(root_path: str) -> int:
     write_verification_report(root_path, report)
 
     status = str(report.get("status", "FAIL")).upper()
-    status_label = _status_text(status)
     failures = _count_items(report.get("failures"))
     warnings = _count_items(report.get("warnings"))
     improvements = _count_items(report.get("improvements"))
 
-    print_title("Verification complete")
-    print_kv("Status", status_label)
-    print_kv("Markdown", VERIFICATION_REPORT_MD_FILE)
-    print_kv("JSON", VERIFICATION_REPORT_JSON_FILE)
-    print_kv("Snapshot", snapshot_timestamp)
-    print_kv("Failures", failures)
-    print_kv("Warnings", warnings)
-    print_kv("Improvements", improvements)
+    print(build_banner())
+    print()
+    print(build_section("Verification complete"))
+    print(
+        build_kv_table(
+            [
+                ("Status", format_status(status)),
+                ("Markdown", format_path(VERIFICATION_REPORT_MD_FILE)),
+                ("JSON", format_path(VERIFICATION_REPORT_JSON_FILE)),
+                ("Snapshot", snapshot_timestamp),
+                ("Failures", failures),
+                ("Warnings", warnings),
+                ("Improvements", improvements),
+            ]
+        )
+    )
 
     return 1 if status == "FAIL" else 0
 
@@ -116,13 +131,3 @@ def _count_items(values: object) -> int:
         return 0
 
     return len(values)
-
-
-def _status_text(status: str) -> str:
-    if status == "PASS":
-        return green(status)
-
-    if status == "WARN":
-        return yellow(status)
-
-    return red(status)

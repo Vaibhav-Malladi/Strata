@@ -4,7 +4,9 @@ import os
 import tempfile
 from pathlib import Path
 
+from cli_core import build_graph
 from commands.verify_command import write_verify_command
+from routes import collect_routes
 from tests.helpers import capture_output
 
 
@@ -115,18 +117,45 @@ def test_verify_command_writes_reports_from_latest_snapshot():
         root = Path(temp_dir) / "repo"
         root.mkdir()
         _create_repo(root)
-        _write_snapshot_state(
-            root,
-            timestamp="20240102_030405",
-            graph=_base_graph(root),
-        )
 
         with change_directory(root):
-            exit_code, _ = capture_output(write_verify_command, ".")
+            current_graph = build_graph(".")
+            assert current_graph is not None
+
+            _write_snapshot_state(
+                root,
+                timestamp="20240102_030405",
+                graph=current_graph,
+                routes=collect_routes(current_graph),
+            )
+
+            exit_code, output = capture_output(write_verify_command, ".")
+
+        payload = json.loads(
+            (root / ".aidc" / "verification_report.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        normalized_output = output.replace("\\", "/")
 
         assert exit_code == 0
         assert (root / ".aidc" / "verification_report.md").exists()
         assert (root / ".aidc" / "verification_report.json").exists()
+        assert "Strata" in output
+        assert "Verification complete" in output
+        assert "PASS" in output
+        assert "✓" in output
+        assert "Failures" in output
+        assert "Warnings" in output
+        assert ".aidc/verification_report.md" in normalized_output
+        assert ".aidc/verification_report.json" in normalized_output
+        assert payload["status"] == "PASS"
+        assert payload["failures"] == []
+        assert payload["warnings"] == []
+        assert payload["recommended_commands"] == [
+            "py tests.py",
+            "py tests\\run.py",
+        ]
 
 
 def test_verify_command_markdown_contains_required_sections():
