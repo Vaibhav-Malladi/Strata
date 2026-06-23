@@ -7,12 +7,18 @@ import math
 from pathlib import Path
 from typing import Any
 
+from agent_adapters import validate_adapter_name
+
 CONFIG_DIR_NAME = ".aidc"
 CONFIG_FILE_NAME = "config.json"
 
 DEFAULT_CONFIG = {
     "mode": "manual",
     "agent": "manual",
+    "adapter": "prompt_file",
+    "prompt_path": ".aidc/agent_prompt.md",
+    "model": None,
+    "command": None,
     "auto_snapshot": True,
     "auto_verify": True,
     "require_gate_pass_before_commit": True,
@@ -98,6 +104,14 @@ def validate_config(config: Mapping[str, Any]) -> dict:
             normalized[key] = _validate_mode(value)
         elif key == "agent":
             normalized[key] = _validate_agent(value)
+        elif key == "adapter":
+            normalized[key] = validate_adapter_name(value)
+        elif key == "prompt_path":
+            normalized[key] = _validate_nonempty_string(key, value)
+        elif key == "model":
+            normalized[key] = _validate_optional_nonempty_string(key, value)
+        elif key == "command":
+            normalized[key] = _validate_optional_nonempty_string(key, value)
         elif key in _SAFETY_FLAGS:
             normalized[key] = _validate_bool(key, value)
         else:
@@ -131,6 +145,23 @@ def _validate_agent(value: Any) -> str:
     if value not in _ALLOWED_AGENTS:
         raise ValueError("agent must be one of: manual, local, codex, aider")
     return value
+
+
+def _validate_nonempty_string(key: str, value: Any) -> str:
+    if not isinstance(value, str):
+        raise ValueError(f"{key} must be a string")
+
+    if not value:
+        raise ValueError(f"{key} must be a non-empty string")
+
+    return value
+
+
+def _validate_optional_nonempty_string(key: str, value: Any) -> str | None:
+    if value is None:
+        return None
+
+    return _validate_nonempty_string(key, value)
 
 
 def _validate_bool(key: str, value: Any) -> bool:
