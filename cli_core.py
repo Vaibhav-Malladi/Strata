@@ -13,6 +13,7 @@ TASK_BRIEF_FILE = os.path.join(OUTPUT_DIR, "task_brief.md")
 PREFLIGHT_FILE = os.path.join(OUTPUT_DIR, "preflight.md")
 ROUTES_MD_FILE = os.path.join(OUTPUT_DIR, "routes.md")
 ROUTES_JSON_FILE = os.path.join(OUTPUT_DIR, "routes.json")
+CONTEXT_PACK_FILE = os.path.join(OUTPUT_DIR, "context_pack.md")
 
 
 def normalize_path(path: str) -> str:

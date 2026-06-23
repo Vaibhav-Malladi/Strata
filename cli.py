@@ -3,6 +3,7 @@ import sys
 from cli_help import print_usage
 from commands.agent_prompt_command import write_agent_prompt_command
 from commands.brief_command import write_brief
+from commands.context_command import write_context
 from commands.cycles_command import show_cycles
 from commands.health_command import show_health
 from commands.impact_command import show_impact
@@ -124,6 +125,16 @@ def main() -> None:
             return
         if len(args) == 3:
             write_preflight(args[1], args[2])
+            return
+        print_usage()
+        return
+
+    if command == "context":
+        if len(args) == 2:
+            write_context(".", args[1])
+            return
+        if len(args) == 3:
+            write_context(args[1], args[2])
             return
         print_usage()
         return

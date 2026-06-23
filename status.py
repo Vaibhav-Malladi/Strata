@@ -6,6 +6,7 @@ GENERATED_FILES = [
     ".aidc/project_map.md",
     ".aidc/task_brief.md",
     ".aidc/preflight.md",
+    ".aidc/context_pack.md",
     ".aidc/agent_prompt.md",
     ".aidc/routes.md",
     ".aidc/routes.json",

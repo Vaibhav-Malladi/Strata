@@ -9,6 +9,7 @@ GENERATED_FILE_PATHS = [
     ".aidc/project_map.md",
     ".aidc/task_brief.md",
     ".aidc/preflight.md",
+    ".aidc/context_pack.md",
     ".aidc/agent_prompt.md",
     ".aidc/routes.md",
     ".aidc/routes.json",
@@ -35,6 +36,7 @@ def test_analyze_status_reports_missing_generated_files():
         assert result["state"] == "incomplete"
         assert ".aidc/graph.json" in result["missing_files"]
         assert ".aidc/preflight.md" in result["missing_files"]
+        assert ".aidc/context_pack.md" in result["missing_files"]
         assert ".aidc/routes.md" in result["missing_files"]
         assert ".aidc/routes.json" in result["missing_files"]
 
@@ -58,6 +60,7 @@ def test_analyze_status_reports_current_when_outputs_exist():
         ]
 
         assert ".aidc/routes.md" in paths
+        assert ".aidc/context_pack.md" in paths
         assert ".aidc/routes.json" in paths
 
 
@@ -92,6 +95,11 @@ def test_format_status_report_contains_sections():
                 "modified_time": None,
             },
             {
+                "path": ".aidc/context_pack.md",
+                "exists": False,
+                "modified_time": None,
+            },
+            {
                 "path": ".aidc/routes.json",
                 "exists": False,
                 "modified_time": None,
@@ -100,6 +108,7 @@ def test_format_status_report_contains_sections():
         "missing_files": [
             ".aidc/graph.json",
             ".aidc/routes.md",
+            ".aidc/context_pack.md",
             ".aidc/routes.json",
         ],
         "stale_files": [],
@@ -113,6 +122,7 @@ def test_format_status_report_contains_sections():
     assert "## Missing Outputs" in report
     assert "## Recommended Actions" in report
     assert ".aidc/routes.md" in report
+    assert ".aidc/context_pack.md" in report
     assert ".aidc/routes.json" in report
     assert "py cli.py routes" in report
 
