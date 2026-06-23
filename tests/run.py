@@ -29,6 +29,7 @@ import test_workflow_config
 import test_config_command
 import test_context_command
 import test_agent_export
+import test_agent_adapters
 import test_status
 import test_context_matching
 import test_context_pack
@@ -68,6 +69,7 @@ TEST_MODULES = [
     test_config_command,
     test_context_command,
     test_agent_export,
+    test_agent_adapters,
     test_status,
     test_context_matching,
     test_context_pack,

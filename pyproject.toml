@@ -39,6 +39,7 @@ strata = "cli:main"
 [tool.setuptools]
 py-modules = [
     "agent_export",
+    "agent_adapters",
     "brief",
     "brief_impact",
     "cli",
