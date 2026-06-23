@@ -15,6 +15,7 @@ from commands.gate_command import write_gate_command
 from commands.health_command import show_health
 from commands.impact_command import show_impact
 from commands.map_command import write_map
+from commands.patch_command import write_patch_command
 from commands.prepare_command import write_prepare_command
 from commands.review_command import write_review_command
 from commands.preflight_command import write_preflight
@@ -80,6 +81,14 @@ def main() -> int:
             return _exit_code(write_diff_command("."))
         if len(args) == 2:
             return _exit_code(write_diff_command(args[1]))
+        print_usage()
+        return 1
+
+    if command == "patch":
+        if len(args) == 1:
+            return _exit_code(write_patch_command("."))
+        if len(args) == 2:
+            return _exit_code(write_patch_command(args[1]))
         print_usage()
         return 1
 

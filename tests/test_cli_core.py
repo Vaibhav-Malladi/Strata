@@ -1,8 +1,11 @@
+import contextlib
 import json
 import os
 import tempfile
+import sys
 from pathlib import Path
 
+from cli import main as cli_main
 from cli import write_graph, show_file
 from cli_help import print_usage
 from tests.helpers import run_silently, capture_output, change_directory
@@ -25,6 +28,23 @@ def _create_cli_core_repo(root: Path) -> None:
         "    return helper()\n",
         encoding="utf-8",
     )
+
+
+def _create_patch_file(root: Path, content: str) -> Path:
+    patch_path = root / ".aidc" / "agent_patch.diff"
+    patch_path.parent.mkdir(parents=True, exist_ok=True)
+    patch_path.write_text(content, encoding="utf-8")
+    return patch_path
+
+
+@contextlib.contextmanager
+def change_argv(args: list[str]):
+    original = sys.argv[:]
+    sys.argv = args
+    try:
+        yield
+    finally:
+        sys.argv = original
 
 
 def test_cli_write_graph_creates_output_file():
@@ -251,6 +271,25 @@ def test_cli_status_command_smoke():
         assert "## Recommended Actions" in result.stdout
 
 
+def test_cli_patch_command_smoke():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        repo_root = Path(temp_dir) / "repo"
+        repo_root.mkdir()
+        _create_patch_file(
+            repo_root,
+            "diff --git a/main.py b/main.py\n+print('hello')\n",
+        )
+
+        with change_argv(["cli.py", "patch", str(repo_root)]):
+            exit_code, output = capture_output(cli_main)
+
+        assert exit_code == 0
+        assert "Patch inspect" in output
+        assert ".aidc" in output.replace("\\", "/")
+        assert "ready" in output
+        assert "diff --git" not in output
+
+
 def test_cli_run_command_smoke():
     import os
     import subprocess
@@ -295,6 +334,7 @@ def test_cli_help_prefers_strata_commands():
     assert "strata config [root]" in output
     assert "strata config init [root]" in output
     assert "strata config set <key> <value> [root]" in output
+    assert "strata patch [root]" in output
     assert 'strata prepare "<task>"' in output
     assert 'strata prepare "<task>" <root>' in output
     assert 'strata run "<task>"' in output
@@ -313,6 +353,7 @@ TESTS = [
     test_cli_show_file_displays_backend_routes,
     test_cli_agent_prompt_command_smoke,
     test_cli_status_command_smoke,
+    test_cli_patch_command_smoke,
     test_cli_run_command_smoke,
     test_cli_help_prefers_strata_commands,
 ]
