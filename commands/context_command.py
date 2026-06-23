@@ -8,9 +8,9 @@ from cli_core import (
     build_graph,
     save_graph,
 )
-from cli_ui import green, print_kv, print_title
 from context_pack import build_context_pack, rank_relevant_files
 from routes import collect_routes
+from ui import build_banner, build_kv_table, build_section, format_path
 
 
 def write_context(root_path: str, task: str | None = None) -> int:
@@ -36,13 +36,25 @@ def write_context(root_path: str, task: str | None = None) -> int:
         file.write(content)
 
     relevant_files = rank_relevant_files(graph, task)
+    routes_count = _count_routes(routes_data)
+    symbols_count = _count_symbols(graph)
 
-    print_title(green("Context pack generated"))
-    print_kv("Graph", OUTPUT_FILE)
-    print_kv("Markdown", CONTEXT_PACK_FILE)
-    print_kv("Task", task)
-    print_kv("Relevant files", len(relevant_files))
-    print_kv("Status", green("complete"))
+    print(build_banner())
+    print()
+    print(build_section("Context complete"))
+    print(
+        build_kv_table(
+            [
+                ("Task", task),
+                ("Output", format_path(CONTEXT_PACK_FILE)),
+                ("Graph", format_path(OUTPUT_FILE)),
+                ("Files", len(graph.get("files", []))),
+                ("Symbols", symbols_count),
+                ("Routes", routes_count),
+                ("Relevant files", len(relevant_files)),
+            ]
+        )
+    )
 
     return 0
 
@@ -64,3 +76,36 @@ def _load_routes_data(graph: dict) -> dict:
 def _print_usage() -> None:
     print('Usage: strata context "<task>"')
     print('Usage: strata context <root> "<task>"')
+
+
+def _count_routes(routes_data: dict) -> int:
+    routes = routes_data.get("routes", [])
+
+    if not isinstance(routes, list):
+        return 0
+
+    return len(routes)
+
+
+def _count_symbols(graph: dict) -> int:
+    symbol_keys = (
+        "classes",
+        "functions",
+        "interfaces",
+        "types",
+        "enums",
+        "exports",
+    )
+    total = 0
+
+    for file_info in graph.get("files", []):
+        if not isinstance(file_info, dict):
+            continue
+
+        for key in symbol_keys:
+            values = file_info.get(key, [])
+
+            if isinstance(values, list):
+                total += len(values)
+
+    return total

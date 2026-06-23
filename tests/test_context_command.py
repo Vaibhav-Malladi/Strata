@@ -64,9 +64,17 @@ def test_write_context_creates_context_pack_file():
         assert "# Strata Context Pack" in content
         assert "change user login API" in content
         assert "AI Editing Instructions" in content
-        assert "Context pack generated" in output
-        assert "Markdown" in output
+        assert "Strata" in output
+        assert "Context complete" in output
+        assert "change user login API" in output
+        assert ".aidc" in output.replace("\\", "/")
+        assert "context_pack.md" in output
+        assert "graph.json" in output
+        assert "Files" in output
+        assert "Symbols" in output
+        assert "Routes" in output
         assert "Relevant files" in output
+        assert "user_login.py" in content
 
 
 def test_write_context_prints_usage_when_task_missing():
@@ -100,11 +108,38 @@ def test_write_context_still_works_when_routes_are_missing():
         assert exit_code == 0
         assert output_path.exists()
         assert "No relevant backend routes found." in content
-        assert "Context pack generated" in output
+        assert "Context complete" in output
+        assert "Routes" in output
+
+
+def test_write_context_reports_counts_for_simple_task_case():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        create_context_repo(root)
+
+        with change_directory(root):
+            exit_code, output = capture_output(
+                write_context,
+                str(root),
+                "fix helper bug",
+            )
+
+        content = (root / ".aidc" / "context_pack.md").read_text(encoding="utf-8")
+
+        assert exit_code == 0
+        assert "Context complete" in output
+        assert "Task" in output
+        assert "Output" in output
+        assert "Graph" in output
+        assert "Files" in output
+        assert "Symbols" in output
+        assert "Routes" in output
+        assert "fix helper bug" in content
 
 
 TESTS = [
     test_write_context_creates_context_pack_file,
     test_write_context_prints_usage_when_task_missing,
     test_write_context_still_works_when_routes_are_missing,
+    test_write_context_reports_counts_for_simple_task_case,
 ]
