@@ -26,6 +26,7 @@ import test_test_mapper
 import test_preflight
 import test_prepare_command
 import test_run_command
+import test_apply_command
 import test_workflow_config
 import test_workflow_planner
 import test_config_command
@@ -70,6 +71,7 @@ TEST_MODULES = [
     test_preflight,
     test_prepare_command,
     test_run_command,
+    test_apply_command,
     test_workflow_config,
     test_workflow_planner,
     test_config_command,

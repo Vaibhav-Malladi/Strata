@@ -14,6 +14,7 @@ from commands.diff_command import write_diff_command
 from commands.gate_command import write_gate_command
 from commands.health_command import show_health
 from commands.impact_command import show_impact
+from commands.apply_command import write_apply_command, write_apply_dry_run_command
 from commands.map_command import write_map
 from commands.patch_command import write_patch_command
 from commands.prepare_command import write_prepare_command
@@ -91,6 +92,9 @@ def main() -> int:
             return _exit_code(write_patch_command(args[1]))
         print_usage()
         return 1
+
+    if command == "apply":
+        return _exit_code(_handle_apply_command(args[1:]))
 
     if command == "snapshot":
         if len(args) == 1:
@@ -239,6 +243,33 @@ def _exit_code(result) -> int:
         return 0
 
     return result
+
+
+def _handle_apply_command(args: list[str]) -> int:
+    dry_run = False
+    positionals: list[str] = []
+
+    for arg in args:
+        if arg == "--dry-run":
+            dry_run = True
+            continue
+
+        if arg.startswith("-"):
+            print_usage()
+            return 1
+
+        positionals.append(arg)
+
+    if len(positionals) > 1:
+        print_usage()
+        return 1
+
+    root = positionals[0] if positionals else "."
+
+    if dry_run:
+        return write_apply_dry_run_command(root)
+
+    return write_apply_command(root)
 
 
 if __name__ == "__main__":

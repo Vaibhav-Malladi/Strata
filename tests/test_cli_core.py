@@ -290,6 +290,21 @@ def test_cli_patch_command_smoke():
         assert "diff --git" not in output
 
 
+def test_cli_apply_dry_run_command_smoke():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        repo_root = Path(temp_dir)
+
+        with change_argv(["cli.py", "apply", "--dry-run"]):
+            with change_directory(repo_root):
+                exit_code, output = capture_output(cli_main)
+
+        assert exit_code == 1
+        assert "Apply dry-run" in output
+        assert "missing" in output
+        assert "Patch file not found." in output
+        assert not (repo_root / ".aidc").exists()
+
+
 def test_cli_run_command_smoke():
     import os
     import subprocess
@@ -339,6 +354,8 @@ def test_cli_help_prefers_strata_commands():
     assert 'strata prepare "<task>" <root>' in output
     assert 'strata run "<task>"' in output
     assert 'strata run --dry-run "<task>"' in output
+    assert "strata apply --dry-run" in output
+    assert "strata apply --dry-run <root>" in output
     assert "strata review" in output
     assert "strata review <root>" in output
     assert "Legacy fallback: use `py cli.py ...`" in output
@@ -354,6 +371,7 @@ TESTS = [
     test_cli_agent_prompt_command_smoke,
     test_cli_status_command_smoke,
     test_cli_patch_command_smoke,
+    test_cli_apply_dry_run_command_smoke,
     test_cli_run_command_smoke,
     test_cli_help_prefers_strata_commands,
 ]
