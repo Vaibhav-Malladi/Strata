@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from agent_adapters import validate_adapter_name
+from secret_redaction import validate_env_var_name
 
 CONFIG_DIR_NAME = ".aidc"
 CONFIG_FILE_NAME = "config.json"
@@ -125,7 +126,7 @@ def validate_config(config: Mapping[str, Any]) -> dict:
         elif canonical_key == "base_url":
             normalized[canonical_key] = _validate_optional_nonempty_string(canonical_key, value)
         elif canonical_key == "api_key_env":
-            normalized[canonical_key] = _validate_optional_nonempty_string(canonical_key, value)
+            normalized[canonical_key] = _validate_api_key_env(value)
         elif canonical_key == "command_timeout_seconds":
             normalized[canonical_key] = _validate_timeout_seconds(canonical_key, value)
         elif canonical_key == "http_timeout_seconds":
@@ -180,6 +181,25 @@ def _validate_optional_nonempty_string(key: str, value: Any) -> str | None:
         return None
 
     return _validate_nonempty_string(key, value)
+
+
+def _validate_api_key_env(value: Any) -> str | None:
+    if value is None:
+        return None
+
+    if not isinstance(value, str):
+        raise ValueError("api_key_env must be a string environment variable name")
+
+    candidate = value.strip()
+    if not candidate:
+        raise ValueError("api_key_env must be a non-empty string")
+
+    if not validate_env_var_name(candidate):
+        raise ValueError(
+            "api_key_env must be a valid environment variable name such as OPENAI_API_KEY or ANTHROPIC_API_KEY"
+        )
+
+    return candidate
 
 
 def _validate_timeout_seconds(key: str, value: Any) -> int:

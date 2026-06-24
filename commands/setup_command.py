@@ -3,6 +3,7 @@ from __future__ import annotations
 from http_adapter_contract import normalize_base_url
 from adapter_presets import get_adapter_preset
 from ollama_adapter import DEFAULT_OLLAMA_BASE_URL, DEFAULT_OLLAMA_MODEL, normalize_ollama_base_url
+from secret_redaction import safe_env_status, validate_env_var_name
 from ui import (
     build_kv_table,
     build_section,
@@ -187,6 +188,14 @@ def setup_http(
     if normalized["base_url"] is None:
         warnings.append("Base URL is not configured yet. Run `strata config set base_url <url>`.")
 
+    api_key_env_status = safe_env_status(normalized.get("api_key_env"))
+    if normalized.get("api_key_env"):
+        warnings.append(
+            "API key env is "
+            + api_key_env_status
+            + ". Strata stores only the variable name, not the secret."
+        )
+
     result = _result(
         status="needs_input" if normalized["base_url"] is None else "configured",
         adapter="openai_compatible_http",
@@ -198,6 +207,7 @@ def setup_http(
             f"base_url={normalized['base_url'] if normalized['base_url'] is not None else 'null'}",
             f"model={normalized['model'] if normalized['model'] is not None else 'null'}",
             f"api_key_env={normalized['api_key_env'] if normalized['api_key_env'] is not None else 'null'}",
+            f"api_key={api_key_env_status}",
         ],
         warnings=warnings,
         next_steps=_next_steps(),
@@ -363,6 +373,11 @@ def _run_interactive_setup(root: str) -> int:
         return 0 if result["status"] in {"configured", "needs_input"} else 1
 
     if choice == "http":
+        print(
+            "Strata will not store your key in the repo. It saves only the variable name, "
+            "and the secret stays in your user environment."
+        )
+        print("Common choices: OPENAI_API_KEY, ANTHROPIC_API_KEY, GITHUB_TOKEN.")
         base_url = _prompt_text(
             "Enter the OpenAI-compatible base URL",
             default=_string_or_empty(current.get("base_url")),
@@ -401,6 +416,19 @@ def _run_interactive_setup(root: str) -> int:
                 next_steps=_next_steps(),
             )
             _print_setup_summary(root, current, result, title="Setup cancelled")
+            return 1
+
+        if not validate_env_var_name(api_key_env):
+            result = _result(
+                status="error",
+                adapter="openai_compatible_http",
+                message="HTTP setup failed.",
+                errors=[
+                    "api_key_env must be a valid environment variable name such as OPENAI_API_KEY or ANTHROPIC_API_KEY."
+                ],
+                next_steps=_next_steps(),
+            )
+            _print_setup_summary(root, current, result, title="Setup error")
             return 1
 
         result = setup_http(root, base_url=base_url or None, model=model or None, api_key_env=api_key_env or None)
@@ -514,6 +542,7 @@ def _setup_show_next_steps(config: dict, config_exists: bool) -> list[str]:
 
 
 def _build_summary_rows(root: str, config: dict, result: dict) -> list[tuple[str, object]]:
+    api_key_env = config.get("api_key_env")
     return [
         ("Config path", format_path(config_path(root))),
         ("Status", result["status"]),
@@ -524,7 +553,8 @@ def _build_summary_rows(root: str, config: dict, result: dict) -> list[tuple[str
         ("Command", _display_value(config.get("command"), null_text="null")),
         ("Base URL", _display_value(config.get("base_url"), null_text="null")),
         ("Model", _display_value(config.get("model"), null_text="null")),
-        ("API key env", _display_value(config.get("api_key_env"), null_text="null")),
+        ("API key env", _display_value(api_key_env, null_text="null")),
+        ("API key", safe_env_status(api_key_env)),
         ("Command timeout seconds", _display_value(config.get("command_timeout_seconds"))),
         ("HTTP timeout seconds", _display_value(config.get("http_timeout_seconds"))),
         ("Message", result["message"]),

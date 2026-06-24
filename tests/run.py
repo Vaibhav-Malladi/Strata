@@ -66,6 +66,7 @@ import test_patch_contract
 import test_patch_validator
 import test_patch_create_existing_dry_run
 import test_patch_command
+import test_secret_redaction
 import test_ui
 import test_diff_engine
 import test_verify
@@ -139,6 +140,7 @@ TEST_MODULES = [
     test_patch_validator,
     test_patch_create_existing_dry_run,
     test_patch_command,
+    test_secret_redaction,
     test_ui,
     test_diff_engine,
     test_verify,

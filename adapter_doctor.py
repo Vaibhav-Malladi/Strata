@@ -13,6 +13,7 @@ from agent_adapters import (
 )
 from http_adapter_contract import build_http_contract_summary
 from ollama_adapter import DEFAULT_OLLAMA_BASE_URL, normalize_ollama_base_url
+from secret_redaction import safe_env_status
 from workflow_config import load_config
 
 _PLANNED_COMMAND_ADAPTERS = {"aider", "codex_cli"}
@@ -286,6 +287,7 @@ def _check_http(root_path: Path, config: dict[str, Any], mode: str, agent: str, 
     base_url = contract.get("base_url")
     request_url = contract.get("request_url")
     api_key_env = contract.get("api_key_env")
+    api_key_status = safe_env_status(api_key_env)
     http_timeout = contract.get("http_timeout_seconds")
     checks = [
         _check("config", "pass", "Workflow config loaded."),
@@ -309,10 +311,16 @@ def _check_http(root_path: Path, config: dict[str, Any], mode: str, agent: str, 
             errors.append(f"Prompt file not found: {prompt_display}")
             checks.append(_check("prompt", "fail", "Prompt file is missing."))
 
-        if api_key_env is not None:
-            checks.append(
-                _check("api_key_env", "info", "API key environment variable name is configured.")
+        checks.append(
+            _check(
+                "api_key_env",
+                "info",
+                "API key environment variable name is configured."
+                if api_key_env is not None
+                else "API key environment variable name is not configured.",
             )
+        )
+        checks.append(_check("api_key", "info", f"API key is {api_key_status}."))
 
         if base_url is None or not prompt_exists:
             message = "HTTP adapter is not ready for execution."
@@ -332,10 +340,16 @@ def _check_http(root_path: Path, config: dict[str, Any], mode: str, agent: str, 
             errors.append(f"Prompt file not found: {prompt_display}")
             checks.append(_check("prompt", "fail", "Prompt file is missing."))
 
-        if api_key_env is not None:
-            checks.append(
-                _check("api_key_env", "info", "API key environment variable name is configured.")
+        checks.append(
+            _check(
+                "api_key_env",
+                "info",
+                "API key environment variable name is configured."
+                if api_key_env is not None
+                else "API key environment variable name is not configured.",
             )
+        )
+        checks.append(_check("api_key", "info", f"API key is {api_key_status}."))
 
         message = "HTTP adapter is not ready for execution."
 

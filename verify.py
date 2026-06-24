@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from secret_redaction import redact_text
+
 
 def verify_diff(diff: dict) -> dict:
     """Evaluate a structural diff and return a repo-safety verification report."""
@@ -141,7 +143,7 @@ def build_verification_markdown(report: dict) -> str:
             ]
         )
 
-    return "\n".join(lines)
+    return redact_text("\n".join(lines))
 
 
 def write_verification_report(root: str | Path, report: dict) -> dict:
@@ -155,10 +157,10 @@ def write_verification_report(root: str | Path, report: dict) -> dict:
     markdown_path = output_dir / "verification_report.md"
 
     json_path.write_text(
-        json.dumps(report, indent=2, sort_keys=True),
+        redact_text(json.dumps(report, indent=2, sort_keys=True)),
         encoding="utf-8",
     )
-    markdown_path.write_text(build_verification_markdown(report), encoding="utf-8")
+    markdown_path.write_text(redact_text(build_verification_markdown(report)), encoding="utf-8")
 
     return {
         "root": str(root_path),

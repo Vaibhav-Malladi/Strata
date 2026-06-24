@@ -300,6 +300,31 @@ def test_stdout_and_stderr_are_captured():
         assert "hello stderr" in result["stderr"]
 
 
+def test_stdout_and_stderr_are_redacted_when_they_contain_secrets():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        secret = "sk-testsecret-123456"
+        script_path = _write_script(
+            root,
+            "fake_ai.py",
+            f"""
+            import sys
+
+            sys.stdout.write("token={secret}\\n")
+            sys.stderr.write("Authorization: Bearer {secret}\\n")
+            sys.exit(2)
+            """,
+        )
+
+        result = execute_command_adapter(root, command=_python_command(script_path))
+
+        assert result["status"] == "command_failed"
+        assert secret not in result["stdout"]
+        assert secret not in result["stderr"]
+        assert "<redacted>" in result["stdout"] or "<redacted>" in result["stderr"]
+        assert result["errors"] == ["Command exited with code 2."]
+
+
 def test_command_runs_with_cwd_root():
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
@@ -394,6 +419,7 @@ TESTS = [
     test_default_timeout_is_passed_to_subprocess_run,
     test_custom_timeout_is_passed_to_subprocess_run,
     test_stdout_and_stderr_are_captured,
+    test_stdout_and_stderr_are_redacted_when_they_contain_secrets,
     test_command_runs_with_cwd_root,
     test_result_dict_uses_fresh_lists,
     test_executor_does_not_apply_patch,

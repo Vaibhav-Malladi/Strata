@@ -59,7 +59,7 @@ def _render_setup_help() -> None:
             "`strata setup --codex-cli` - Codex CLI through the command adapter.",
             "`strata setup --aider` - Aider through the command adapter.",
             "`strata setup --command` - any custom CLI command.",
-            "`strata setup --http` - an OpenAI-compatible HTTP API.",
+            "`strata setup --http` - an OpenAI-compatible HTTP API; Strata stores only the environment variable name for the key.",
         ],
     )
     _print_lines(
@@ -159,6 +159,7 @@ def _render_http_help() -> None:
         ],
     )
     _print_intro("Do not hardcode a real API key. Set `api_key_env` to the environment variable name instead.")
+    _print_intro("Strata will check whether the variable is found or missing without showing the value.")
 
 
 def _render_ask_help() -> None:

@@ -1,4 +1,5 @@
 import contextlib
+import os
 import subprocess
 import sys
 import tempfile
@@ -161,9 +162,17 @@ def test_doctor_http_adapter_shows_base_url_api_key_env_and_http_timeout():
             http_timeout_seconds=240,
         )
 
-        with change_directory(root):
-            with change_argv(["cli.py", "doctor", "adapter"]):
-                exit_code, output = capture_output(cli_main)
+        original = os.environ.get("OPENAI_API_KEY")
+        os.environ["OPENAI_API_KEY"] = "sk-testsecret-123456"
+        try:
+            with change_directory(root):
+                with change_argv(["cli.py", "doctor", "adapter"]):
+                    exit_code, output = capture_output(cli_main)
+        finally:
+            if original is None:
+                os.environ.pop("OPENAI_API_KEY", None)
+            else:
+                os.environ["OPENAI_API_KEY"] = original
 
         assert exit_code == 0
         _assert_terms(
@@ -175,6 +184,8 @@ def test_doctor_http_adapter_shows_base_url_api_key_env_and_http_timeout():
             "http://localhost:1234/v1",
             "api key env",
             "openai_api_key",
+            "api key",
+            "found",
             "http timeout seconds",
             "240",
         )
@@ -269,6 +280,27 @@ def test_doctor_command_does_not_create_aidc():
         assert exit_code == 1
         assert not (root / ".aidc").exists()
         assert "Adapter doctor" in output
+
+
+def test_doctor_http_adapter_reports_missing_api_key_status_when_not_configured():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _create_repo(root)
+        _write_prompt(root)
+        _save_config(
+            root,
+            adapter="openai_compatible_http",
+            base_url="http://localhost:1234/v1",
+            api_key_env=None,
+            http_timeout_seconds=240,
+        )
+
+        with change_directory(root):
+            with change_argv(["cli.py", "doctor", "adapter"]):
+                exit_code, output = capture_output(cli_main)
+
+        assert exit_code == 0
+        _assert_terms(output, "api key", "missing", "api key env")
 
 
 def test_doctor_install_reports_python_and_path_diagnostics():
@@ -421,6 +453,7 @@ TESTS = [
     test_doctor_http_adapter_shows_ollama_defaults_and_ready,
     test_doctor_http_adapter_shows_base_url_api_key_env_and_http_timeout,
     test_doctor_command_does_not_create_aidc,
+    test_doctor_http_adapter_reports_missing_api_key_status_when_not_configured,
     test_doctor_install_reports_python_and_path_diagnostics,
     test_install_ps1_contains_bootstrap_prompts,
     test_install_strata_ps1_contains_bootstrap_flow,

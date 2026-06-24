@@ -324,6 +324,24 @@ def test_config_set_api_key_env_value():
         assert payload["api_key_env"] == "OPENAI_API_KEY"
 
 
+def test_config_set_rejects_embedded_secret_values():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+
+        with change_directory(root):
+            exit_code, output = capture_output(
+                write_config_set_command,
+                "command",
+                "my-ai --api-key sk-testsecret-123456",
+                ".",
+            )
+
+        assert exit_code == 1
+        assert "Do not store raw API keys in Strata config" in output
+        assert "api_key_env" in output
+        assert not config_path(root).exists()
+
+
 def test_config_set_http_timeout_seconds_value():
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
@@ -647,6 +665,7 @@ TESTS = [
     test_config_set_command_timeout_value,
     test_config_set_base_url_value,
     test_config_set_api_key_env_value,
+    test_config_set_rejects_embedded_secret_values,
     test_config_set_http_timeout_seconds_value,
     test_config_set_http_timeout_alias_value,
     test_config_set_timeout_alias_value,

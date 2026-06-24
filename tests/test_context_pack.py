@@ -301,6 +301,14 @@ def test_build_context_pack_includes_alias_resolved_dependency_neighbors():
     assert "@/components/Button" in content
 
 
+def test_build_context_pack_redacts_secret_like_task_text():
+    secret = "sk-testsecret-123456"
+    content = build_context_pack(fake_graph([make_file("src/App.tsx")]), f"fix {secret} leak")
+
+    assert secret not in content
+    assert "<redacted>" in content
+
+
 TESTS = [
     test_rank_relevant_files_does_not_fill_with_hint_only_noise,
     test_rank_relevant_files_prefers_source_over_test_with_direct_fixture_terms,
@@ -313,4 +321,5 @@ TESTS = [
     test_build_context_pack_reports_no_files_when_everything_is_filtered_out,
     test_build_context_pack_compacts_dependency_neighbors,
     test_build_context_pack_includes_alias_resolved_dependency_neighbors,
+    test_build_context_pack_redacts_secret_like_task_text,
 ]

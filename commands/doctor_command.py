@@ -7,6 +7,7 @@ import sysconfig
 from adapter_doctor import check_adapter
 from cli_help import print_usage
 from pathlib import Path
+from secret_redaction import safe_env_status
 from ui import (
     build_kv_table,
     build_section,
@@ -68,6 +69,7 @@ def _print_adapter_result(result: dict[str, object]) -> None:
         ("Base URL", _format_value(result.get("base_url"))),
         ("Model", _format_value(result.get("model"))),
         ("API key env", _format_value(result.get("api_key_env"))),
+        ("API key", _format_value(safe_env_status(result.get("api_key_env")))),
         ("HTTP timeout seconds", _format_value(result.get("http_timeout_seconds"))),
         ("Message", _format_value(result.get("message"))),
     ]

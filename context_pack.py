@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import os
 
+from secret_redaction import redact_text
+
 try:
     from test_mapper import suggest_tests_for_file
 except Exception:  # pragma: no cover - optional helper fallback
@@ -155,6 +157,7 @@ def find_dependency_neighbors(graph: dict, relevant_paths: list[str]) -> dict:
 def build_context_pack(graph: dict, task: str, routes_data: dict | None = None) -> str:
     """Build a compact deterministic Markdown context pack."""
 
+    task = redact_text(task)
     relevant_files = rank_relevant_files(graph, task, limit=MAX_RELEVANT_FILES)
     relevant_paths = [
         item["file"].get("path", "")
@@ -342,7 +345,7 @@ def build_context_pack(graph: dict, task: str, routes_data: dict | None = None) 
     lines.append("- After editing, run suggested verification.")
     lines.append("- Treat this pack as deterministic repo context, not an LLM plan.")
 
-    return "\n".join(lines).rstrip() + "\n"
+    return redact_text("\n".join(lines).rstrip() + "\n")
 
 
 def _collect_all_routes(graph: dict, routes_data: dict | None) -> list[dict]:

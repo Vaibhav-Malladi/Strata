@@ -102,7 +102,7 @@ def _connect_ai_overview_lines(include_help_hint: bool) -> list[str]:
         "`strata setup --command`",
         "  Use any custom CLI command that reads `.aidc/agent_prompt.md` and returns a patch.",
         "`strata setup --http`",
-        "  Use an OpenAI-compatible HTTP API.",
+        "  Use an OpenAI-compatible HTTP API. Strata stores only the environment variable name for the key.",
         'Then run `strata ask "fix bug"`, `strata review`, `strata apply --dry-run`, and `strata apply`.',
         *(
             [

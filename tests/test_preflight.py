@@ -165,6 +165,21 @@ def test_write_preflight_report_creates_file():
     assert "## Verification Plan" in content
 
 
+def test_write_preflight_report_redacts_secret_like_task_text():
+    graph = preflight_test_graph()
+    secret = "sk-testsecret-123456"
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        output_path = Path(temp_dir) / ".aidc" / "test_preflight.md"
+
+        write_preflight_report(graph, f"fix {secret} credential leak", str(output_path))
+
+        content = output_path.read_text(encoding="utf-8")
+
+    assert secret not in content
+    assert "<redacted>" in content
+
+
 def test_cli_write_preflight_creates_preflight_file():
     with temporary_repo(
         {
@@ -278,6 +293,7 @@ TESTS = [
     test_generate_preflight_report_includes_relevant_files,
     test_generate_preflight_report_includes_verification_plan,
     test_write_preflight_report_creates_file,
+    test_write_preflight_report_redacts_secret_like_task_text,
     test_cli_write_preflight_creates_preflight_file,
     test_preflight_includes_backend_routes_section,
 ]

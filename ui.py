@@ -8,6 +8,8 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
+from secret_redaction import redact_text
+
 APP_NAME = "Strata"
 TAGLINE = "Local-first repository intelligence for AI-assisted coding"
 
@@ -105,6 +107,8 @@ def strip_ansi(text: str) -> str:
 def color(text: str, style: str, enabled: bool | None = None) -> str:
     if enabled is None:
         enabled = use_color()
+
+    text = redact_text(text)
 
     if not enabled:
         return text
@@ -235,10 +239,10 @@ def render_next_steps(steps: list[str] | Sequence[str]) -> str:
 
 
 def render_step(name: str, status: str, detail: str | None = None) -> str:
-    text = f"{symbol(status)} {name}"
+    text = f"{symbol(status)} {redact_text(name)}"
 
     if detail:
-        text = f"{text} - {detail}"
+        text = f"{text} - {redact_text(detail)}"
 
     return text
 
@@ -495,15 +499,15 @@ def format_status(status: str) -> str:
 
 
 def format_success(message: str) -> str:
-    return f"{symbol('success')} {message}"
+    return f"{symbol('success')} {redact_text(message)}"
 
 
 def format_warning(message: str) -> str:
-    return f"{symbol('warning')} {message}"
+    return f"{symbol('warning')} {redact_text(message)}"
 
 
 def format_error(message: str) -> str:
-    return f"{symbol('error')} {message}"
+    return f"{symbol('error')} {redact_text(message)}"
 
 
 def format_path(path: str | Path) -> str:
@@ -554,7 +558,7 @@ def _stringify(value: object) -> str:
     if value is None:
         return "-"
 
-    text = str(value).replace("\r\n", "\n").replace("\r", "\n").strip()
+    text = redact_text(value).replace("\r\n", "\n").replace("\r", "\n").strip()
 
     if not text:
         return "-"

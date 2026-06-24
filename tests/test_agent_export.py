@@ -126,6 +126,28 @@ def test_write_agent_prompt_creates_file():
         assert "add agent export tests" in content
 
 
+def test_write_agent_prompt_redacts_secret_like_task_text():
+    import tempfile
+    from pathlib import Path
+
+    secret = "sk-testsecret-123456"
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        output_path = Path(temp_dir) / ".aidc" / "agent_prompt.md"
+
+        write_agent_prompt(
+            fake_graph(),
+            f"fix {secret} credential leak",
+            "generic",
+            output_path,
+        )
+
+        content = output_path.read_text(encoding="utf-8")
+
+        assert secret not in content
+        assert "<redacted>" in content
+
+
 TESTS = [
     test_normalize_agent_accepts_supported_agent,
     test_normalize_agent_rejects_unsupported_agent,
@@ -134,4 +156,5 @@ TESTS = [
     test_generate_aider_prompt_contains_file_guidance,
     test_generate_chatgpt_prompt_contains_project_context,
     test_write_agent_prompt_creates_file,
+    test_write_agent_prompt_redacts_secret_like_task_text,
 ]

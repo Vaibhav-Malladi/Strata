@@ -179,9 +179,18 @@ def test_cli_write_brief_creates_task_brief_file():
         assert "Suggested Prompt for AI Agent" in content
 
 
+def test_generate_task_brief_redacts_secret_like_task_text():
+    secret = "sk-testsecret-123456"
+    content = generate_task_brief(brief_test_graph(), f"fix {secret} credential leak")
+
+    assert secret not in content
+    assert "<redacted>" in content
+
+
 TESTS = [
     test_task_brief_generation_includes_main_sections,
     test_task_brief_relevance_for_map_command_tests_is_focused,
     test_task_brief_generation_includes_prompt_and_tests,
     test_cli_write_brief_creates_task_brief_file,
+    test_generate_task_brief_redacts_secret_like_task_text,
 ]

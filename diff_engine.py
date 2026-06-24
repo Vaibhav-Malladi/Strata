@@ -4,6 +4,8 @@ import json
 import os
 from pathlib import Path
 
+from secret_redaction import redact_text
+
 
 _SYMBOL_CATEGORIES = (
     "classes",
@@ -295,7 +297,7 @@ def build_diff_markdown(diff: dict) -> str:
         ),
     ]
 
-    return "\n".join(lines)
+    return redact_text("\n".join(lines))
 
 
 def write_diff_report(root: str | Path, diff: dict) -> dict:
@@ -309,10 +311,10 @@ def write_diff_report(root: str | Path, diff: dict) -> dict:
     markdown_path = output_dir / "diff_report.md"
 
     json_path.write_text(
-        json.dumps(diff, indent=2, sort_keys=True),
+        redact_text(json.dumps(diff, indent=2, sort_keys=True)),
         encoding="utf-8",
     )
-    markdown_path.write_text(build_diff_markdown(diff), encoding="utf-8")
+    markdown_path.write_text(redact_text(build_diff_markdown(diff)), encoding="utf-8")
 
     return {
         "root": str(root_path),

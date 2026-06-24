@@ -177,6 +177,14 @@ def test_validate_config_accepts_valid_api_key_env():
     assert normalized["api_key_env"] == "OPENAI_API_KEY"
 
 
+def test_validate_config_rejects_secret_like_api_key_env():
+    _expect_value_error(
+        validate_config,
+        {"api_key_env": "sk-testsecret-123456"},
+        contains="api_key_env",
+    )
+
+
 def test_validate_config_accepts_valid_http_timeout_seconds():
     normalized = validate_config({"http_timeout_seconds": 120})
 
@@ -415,6 +423,7 @@ TESTS = [
     test_validate_config_rejects_overly_large_command_timeout,
     test_validate_config_accepts_valid_base_url,
     test_validate_config_accepts_valid_api_key_env,
+    test_validate_config_rejects_secret_like_api_key_env,
     test_validate_config_accepts_valid_http_timeout_seconds,
     test_validate_config_accepts_null_base_url_and_api_key_env,
     test_validate_config_rejects_empty_base_url,

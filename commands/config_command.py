@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from secret_redaction import looks_like_secret
 from ui import (
     build_banner,
     build_kv_table,
@@ -132,6 +133,16 @@ def write_config_set_command(key: str, value: str, root: str = ".") -> int:
         print()
         print(build_section("Workflow config error"))
         print(format_error(str(error)))
+        return 1
+
+    secret_error = _maybe_reject_secret_config_value(key, value)
+    if secret_error is not None:
+        print(build_banner())
+        print()
+        print(build_section("Workflow config error"))
+        print(format_error(secret_error))
+        print()
+        print(_usage_text())
         return 1
 
     try:
@@ -315,3 +326,22 @@ def _usage_text() -> str:
             "  strata config set api_key_env OPENAI_API_KEY",
         ]
     )
+
+
+def _maybe_reject_secret_config_value(raw_key: str, raw_value: str) -> str | None:
+    candidate_key = raw_key.strip().lower()
+    candidate_value = raw_value.strip()
+
+    if looks_like_secret(candidate_value):
+        return (
+            "Do not store raw API keys in Strata config. Store the secret in your user environment, "
+            "then set api_key_env to the environment variable name."
+        )
+
+    if any(token in candidate_key for token in ("api_key", "token", "secret", "password", "authorization")) and looks_like_secret(candidate_value):
+        return (
+            "Do not store raw API keys in Strata config. Store the secret in your user environment, "
+            "then set api_key_env to the environment variable name."
+        )
+
+    return None

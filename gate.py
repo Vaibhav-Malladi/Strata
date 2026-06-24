@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from secret_redaction import redact_text
 from graph import validate_graph
 
 
@@ -134,7 +135,7 @@ def build_gate_markdown(report: dict) -> str:
         ]
     )
 
-    return "\n".join(lines)
+    return redact_text("\n".join(lines))
 
 
 def write_gate_report(root: str | Path, report: dict) -> dict:
@@ -150,10 +151,10 @@ def write_gate_report(root: str | Path, report: dict) -> dict:
     payload = report if isinstance(report, dict) else {}
 
     json_path.write_text(
-        json.dumps(payload, indent=2, sort_keys=True),
+        redact_text(json.dumps(payload, indent=2, sort_keys=True)),
         encoding="utf-8",
     )
-    markdown_path.write_text(build_gate_markdown(payload), encoding="utf-8")
+    markdown_path.write_text(redact_text(build_gate_markdown(payload)), encoding="utf-8")
 
     return {
         "root": str(root_path),

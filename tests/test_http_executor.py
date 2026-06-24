@@ -10,7 +10,7 @@ import time
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 
-from http_executor import execute_openai_compatible_http_adapter
+from http_executor import build_http_headers, execute_openai_compatible_http_adapter
 from workflow_config import default_config, save_config
 
 
@@ -179,6 +179,17 @@ def test_missing_api_key_env_returns_missing_api_key_before_network_call():
         assert result["status"] == "missing_api_key"
         assert result["executed"] is False
         assert server.request_count == 0
+
+
+def test_build_http_headers_redacts_secret_like_env_name_in_errors():
+    try:
+        build_http_headers({"api_key_env": "sk-testsecret-123456"})
+    except ValueError as error:
+        message = str(error)
+        assert "sk-testsecret-123456" not in message
+        assert "<redacted>" in message
+    else:
+        raise AssertionError("Expected ValueError")
 
 
 def test_successful_local_http_response_writes_patch_file():
@@ -602,6 +613,7 @@ TESTS = [
     test_missing_base_url_returns_missing_base_url,
     test_missing_prompt_returns_missing_prompt,
     test_missing_api_key_env_returns_missing_api_key_before_network_call,
+    test_build_http_headers_redacts_secret_like_env_name_in_errors,
     test_successful_local_http_response_writes_patch_file,
     test_successful_local_http_response_returns_patch_ready_when_patch_valid,
     test_response_with_no_patch_returns_missing_patch_and_does_not_write_patch,

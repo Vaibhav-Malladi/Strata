@@ -161,6 +161,7 @@ def test_adapter_doctor_http_planned_adapters_return_not_ready_with_family():
                 "fail",
                 "pass",
                 "info",
+                "info",
             ]
     finally:
         subprocess.run = original_run
@@ -246,6 +247,7 @@ def test_adapter_doctor_openai_http_reports_configured_base_url_and_api_key_env(
             "info",
             "pass",
             "pass",
+            "info",
             "info",
         ]
 

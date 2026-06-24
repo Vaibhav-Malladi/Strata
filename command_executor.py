@@ -5,6 +5,7 @@ import shlex
 import subprocess
 from pathlib import Path
 
+from secret_redaction import redact_text
 from patch_contract import inspect_patch
 from patch_validator import validate_patch_file
 
@@ -34,7 +35,7 @@ def execute_command_adapter(root=".", command=None, timeout_seconds=DEFAULT_TIME
             patch_status="missing",
             patch_valid=False,
             targets=[],
-            errors=["Command is not configured."],
+            errors=[redact_text("Command is not configured.")],
             warnings=[],
             message="Command adapter is not ready.",
         )
@@ -52,7 +53,7 @@ def execute_command_adapter(root=".", command=None, timeout_seconds=DEFAULT_TIME
             patch_status="missing",
             patch_valid=False,
             targets=[],
-            errors=[f"Command parsing failed: {error}"],
+            errors=[redact_text(f"Command parsing failed: {error}")],
             warnings=[],
             message="Command parsing failed.",
         )
@@ -68,7 +69,7 @@ def execute_command_adapter(root=".", command=None, timeout_seconds=DEFAULT_TIME
             patch_status="missing",
             patch_valid=False,
             targets=[],
-            errors=["Command is not configured."],
+            errors=[redact_text("Command is not configured.")],
             warnings=[],
             message="Command adapter is not ready.",
         )
@@ -114,7 +115,7 @@ def execute_command_adapter(root=".", command=None, timeout_seconds=DEFAULT_TIME
             patch_status=patch_status,
             patch_valid=False,
             targets=[],
-            errors=[f"Command timed out after {effective_timeout} seconds."],
+            errors=[redact_text(f"Command timed out after {effective_timeout} seconds.")],
             warnings=[],
             message="Command execution timed out.",
         )
@@ -130,7 +131,7 @@ def execute_command_adapter(root=".", command=None, timeout_seconds=DEFAULT_TIME
             patch_status=patch_status,
             patch_valid=False,
             targets=[],
-            errors=[f"Command exited with code {returncode}."],
+            errors=[redact_text(f"Command exited with code {returncode}.")],
             warnings=[],
             message="Command execution failed.",
         )
@@ -146,7 +147,7 @@ def execute_command_adapter(root=".", command=None, timeout_seconds=DEFAULT_TIME
             patch_status=patch_status,
             patch_valid=False,
             targets=[],
-            errors=["Command did not produce a patch file."],
+            errors=[redact_text("Command did not produce a patch file.")],
             warnings=[],
             message="Command executed but no patch was produced.",
         )
@@ -162,7 +163,7 @@ def execute_command_adapter(root=".", command=None, timeout_seconds=DEFAULT_TIME
             patch_status=patch_status,
             patch_valid=False,
             targets=[],
-            errors=["Command produced an empty patch file."],
+            errors=[redact_text("Command produced an empty patch file.")],
             warnings=[],
             message="Command executed but produced an empty patch.",
         )
@@ -193,7 +194,7 @@ def execute_command_adapter(root=".", command=None, timeout_seconds=DEFAULT_TIME
         patch_status=patch_status,
         patch_valid=False,
         targets=[],
-        errors=["Patch failed validation."],
+        errors=[redact_text("Patch failed validation.")],
         warnings=[],
         message="Command executed but produced an invalid patch.",
     )
@@ -210,7 +211,7 @@ def _coerce_output(value: object) -> str:
     if value is None:
         return ""
 
-    return str(value)
+    return redact_text(value)
 
 
 def _build_result(

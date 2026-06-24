@@ -18,6 +18,7 @@ from http_adapter_contract import (
 )
 from patch_contract import inspect_patch, resolve_patch_path
 from patch_validator import validate_patch_file
+from secret_redaction import redact_text
 from workflow_config import load_config
 
 _DEFAULT_HTTP_TIMEOUT_SECONDS = 120
@@ -32,7 +33,7 @@ def build_http_headers(config: dict[str, Any]) -> dict[str, str]:
     if isinstance(api_key_env, str) and api_key_env:
         api_key = os.environ.get(api_key_env)
         if api_key is None or not str(api_key):
-            raise ValueError(f"Environment variable '{api_key_env}' is not set.")
+            raise ValueError(redact_text(f"Environment variable '{api_key_env}' is not set."))
 
         headers["Authorization"] = f"Bearer {api_key}"
 
@@ -69,8 +70,8 @@ def post_json(url: str, payload: dict, headers: dict[str, str], timeout_seconds:
             "http_status": _coerce_http_status(exc.code),
             "body_text": body_text,
             "timed_out": False,
-            "errors": [f"HTTP request failed with status {exc.code}."],
-            "message": f"HTTP request failed with status {exc.code}.",
+            "errors": [redact_text(f"HTTP request failed with status {exc.code}.")],
+            "message": redact_text(f"HTTP request failed with status {exc.code}."),
         }
     except (socket.timeout, TimeoutError):
         return {
@@ -78,12 +79,12 @@ def post_json(url: str, payload: dict, headers: dict[str, str], timeout_seconds:
             "http_status": None,
             "body_text": "",
             "timed_out": True,
-            "errors": [f"HTTP request timed out after {timeout_seconds} seconds."],
-            "message": "HTTP request timed out.",
+            "errors": [redact_text(f"HTTP request timed out after {timeout_seconds} seconds.")],
+            "message": redact_text("HTTP request timed out."),
         }
     except error.URLError as exc:
         reason = exc.reason
-        message = f"HTTP request failed: {reason}"
+        message = redact_text(f"HTTP request failed: {reason}")
         return {
             "status": "http_error",
             "http_status": None,
@@ -101,7 +102,7 @@ def execute_openai_compatible_http_adapter(root: str | Path = ".", config: Mappi
         try:
             loaded_config = load_config(root_path)
         except ValueError as error:
-            message = str(error)
+            message = redact_text(str(error))
             return _build_result(
                 status="not_ready",
                 executed=False,
@@ -151,7 +152,7 @@ def execute_openai_compatible_http_adapter(root: str | Path = ".", config: Mappi
             patch_status="missing",
             patch_valid=False,
             targets=[],
-            errors=[f"Prompt file not found: {prompt_display}"],
+            errors=[redact_text(f"Prompt file not found: {prompt_display}")],
             warnings=[],
             message="HTTP adapter is not ready.",
         )
@@ -175,7 +176,7 @@ def execute_openai_compatible_http_adapter(root: str | Path = ".", config: Mappi
             patch_status="missing",
             patch_valid=False,
             targets=[],
-            errors=["base_url is required for HTTP adapters."],
+            errors=[redact_text("base_url is required for HTTP adapters.")],
             warnings=[],
             message="HTTP adapter is not ready.",
         )
@@ -184,7 +185,7 @@ def execute_openai_compatible_http_adapter(root: str | Path = ".", config: Mappi
         base_url = normalize_base_url(base_url_value)
         url = build_openai_compatible_url(base_url)
     except ValueError as error:
-        message = str(error)
+        message = redact_text(str(error))
         return _build_result(
             status="missing_base_url",
             executed=False,
@@ -231,7 +232,7 @@ def execute_openai_compatible_http_adapter(root: str | Path = ".", config: Mappi
             patch_status="missing",
             patch_valid=False,
             targets=[],
-            errors=[str(error)],
+            errors=[redact_text(str(error))],
             warnings=[],
             message="HTTP adapter is not ready.",
         )
@@ -339,7 +340,7 @@ def execute_openai_compatible_http_adapter(root: str | Path = ".", config: Mappi
     try:
         write_patch_text(root_path, patch_result["patch"])
     except OSError as error:
-        message = f"Failed to write patch file: {error}"
+        message = redact_text(f"Failed to write patch file: {error}")
         return _build_result(
             status="invalid_patch",
             executed=True,
@@ -418,16 +419,16 @@ def _parse_json_response(body_text: str) -> dict[str, Any]:
         return {
             "status": "invalid_json",
             "json": None,
-            "errors": [f"HTTP response body was not valid JSON: {error}"],
-            "message": "HTTP response body was not valid JSON.",
+            "errors": [redact_text(f"HTTP response body was not valid JSON: {error}")],
+            "message": redact_text("HTTP response body was not valid JSON."),
         }
 
     if not isinstance(parsed, Mapping):
         return {
             "status": "invalid_json",
             "json": None,
-            "errors": ["HTTP response body was not a JSON object."],
-            "message": "HTTP response body was not valid JSON.",
+            "errors": [redact_text("HTTP response body was not a JSON object.")],
+            "message": redact_text("HTTP response body was not valid JSON."),
         }
 
     return {

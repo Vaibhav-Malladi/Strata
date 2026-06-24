@@ -1,5 +1,6 @@
 import os
 
+from secret_redaction import redact_text
 from brief import explain_relevance, score_relevant_files
 from brief_impact import generate_impact_notes
 from health import analyze_health
@@ -9,6 +10,7 @@ from test_mapper import suggest_tests_for_file
 def generate_preflight_report(graph: dict, task: str, max_files: int = 5) -> str:
     """Generate a consolidated pre-edit report for a task."""
 
+    task = redact_text(task)
     scored_files = score_relevant_files(graph, task)
     relevant_files = scored_files[:max_files]
     grouped_files = _group_relevant_files(relevant_files)
@@ -125,7 +127,7 @@ def generate_preflight_report(graph: dict, task: str, max_files: int = 5) -> str
 
     lines.append("```")
 
-    return "\n".join(lines).rstrip() + "\n"
+    return redact_text("\n".join(lines).rstrip() + "\n")
 
 
 def write_preflight_report(graph: dict, task: str, output_path: str) -> None:
@@ -139,7 +141,7 @@ def write_preflight_report(graph: dict, task: str, output_path: str) -> None:
     content = generate_preflight_report(graph, task)
 
     with open(output_path, "w", encoding="utf-8") as file:
-        file.write(content)
+        file.write(redact_text(content))
 
 
 def _format_grouped_relevant_files(

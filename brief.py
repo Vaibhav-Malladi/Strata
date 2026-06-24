@@ -1,6 +1,7 @@
 import os
 import re
 
+from secret_redaction import redact_text
 from brief_impact import generate_impact_notes
 
 
@@ -19,6 +20,7 @@ SYMBOL_MATCH_STOP_WORDS = {
 def generate_task_brief(graph: dict, task: str, max_files: int = 5) -> str:
     """Generate a task-specific Markdown brief from a Strata graph."""
 
+    task = redact_text(task)
     scored_files = score_relevant_files(graph, task)
     relevant_files = scored_files[:max_files]
 
@@ -117,7 +119,7 @@ def generate_task_brief(graph: dict, task: str, max_files: int = 5) -> str:
     lines.append("- Run the suggested tests before finishing.")
     lines.append("```")
 
-    return "\n".join(lines).rstrip() + "\n"
+    return redact_text("\n".join(lines).rstrip() + "\n")
 
 
 def write_task_brief(graph: dict, task: str, output_path: str) -> None:
@@ -131,7 +133,7 @@ def write_task_brief(graph: dict, task: str, output_path: str) -> None:
     content = generate_task_brief(graph, task)
 
     with open(output_path, "w", encoding="utf-8") as file:
-        file.write(content)
+        file.write(redact_text(content))
 
 
 def score_relevant_files(graph: dict, task: str) -> list[dict]:

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import builtins
 import contextlib
+import os
 import tempfile
 from pathlib import Path
 from unittest import mock
@@ -110,14 +111,22 @@ def test_setup_command_without_command_returns_warning_and_keeps_configurable_st
 def test_setup_http_writes_adapter_and_saves_connection_values():
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
+        original = os.environ.get("OPENAI_API_KEY")
+        os.environ["OPENAI_API_KEY"] = "sk-testsecret-123456"
+        try:
+            result, output = capture_output(
+                setup_http,
+                str(root),
+                "http://localhost:1234/v1",
+                "gpt-test",
+                "OPENAI_API_KEY",
+            )
+        finally:
+            if original is None:
+                os.environ.pop("OPENAI_API_KEY", None)
+            else:
+                os.environ["OPENAI_API_KEY"] = original
 
-        result, _ = capture_output(
-            setup_http,
-            str(root),
-            "http://localhost:1234/v1",
-            "gpt-test",
-            "OPENAI_API_KEY",
-        )
         config = load_config(root)
 
         assert result["status"] == "configured"
@@ -125,6 +134,7 @@ def test_setup_http_writes_adapter_and_saves_connection_values():
         assert config["base_url"] == "http://localhost:1234/v1"
         assert config["model"] == "gpt-test"
         assert config["api_key_env"] == "OPENAI_API_KEY"
+        _assert_terms(output, "api key", "found", "stores only the variable name")
 
 
 def test_setup_http_without_base_url_returns_warning():
@@ -341,6 +351,35 @@ def test_setup_no_secret_value_is_required():
         assert config["api_key_env"] is None
 
 
+def test_interactive_http_setup_explains_key_storage_and_reports_status():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        original = os.environ.get("OPENAI_API_KEY")
+        os.environ["OPENAI_API_KEY"] = "sk-testsecret-123456"
+        try:
+            with patched_input(["3", "http://localhost:1234/v1", "gpt-test", "OPENAI_API_KEY"]):
+                with change_directory(root):
+                    result, output = capture_output(write_setup_command, str(root))
+        finally:
+            if original is None:
+                os.environ.pop("OPENAI_API_KEY", None)
+            else:
+                os.environ["OPENAI_API_KEY"] = original
+
+        config = load_config(root)
+
+        assert result == 0
+        assert config["adapter"] == "openai_compatible_http"
+        assert config["api_key_env"] == "OPENAI_API_KEY"
+        _assert_terms(
+            output,
+            "strata will not store your key in the repo",
+            "stores only the variable name",
+            "api key",
+            "found",
+        )
+
+
 def test_setup_command_output_includes_summary():
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
@@ -451,6 +490,7 @@ TESTS = [
     test_setup_returns_fresh_lists_each_call,
     test_setup_functions_do_not_make_network_calls,
     test_setup_no_secret_value_is_required,
+    test_interactive_http_setup_explains_key_storage_and_reports_status,
     test_setup_command_output_includes_summary,
     test_cli_routes_setup_manual,
     test_cli_routes_setup_ollama,
