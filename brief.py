@@ -321,7 +321,7 @@ def suggest_tests(relevant_files: list[dict]) -> list[str]:
     }
 
     if "cli.py" in basenames:
-        tests.append("py cli.py help")
+        tests.append("py -m strata help")
 
     if "scanner.py" in basenames:
         tests.append("py cli.py scan tmp_repo")

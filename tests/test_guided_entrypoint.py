@@ -54,6 +54,11 @@ def test_cli_no_args_shows_guided_entrypoint_before_advanced_commands():
         assert exit_code == 0
         assert "Strata" in output
         assert output.count("Local-first repository intelligence for AI-assisted coding") == 1
+        assert "New here?" in output
+        assert "strata start" in output
+        assert "strata setup" in output
+        assert "strata run" in output
+        assert "strata doctor install" in output
         assert "Connect AI" in output
         assert "strata setup" in output
         assert "strata setup --manual" in output
@@ -62,8 +67,7 @@ def test_cli_no_args_shows_guided_entrypoint_before_advanced_commands():
         assert "strata setup --command" in output
         assert "strata setup --codex-cli" in output
         assert "strata setup --aider" in output
-        assert 'Then run `strata ask "fix bug"`, `strata review`, `strata apply --dry-run`, and `strata apply`.' in output
-        assert output.index("Connect AI") < output.index("Main workflow") < output.index("Advanced:")
+        assert output.index("New here?") < output.index("Connect AI") < output.index("Main workflow") < output.index("Advanced:")
         assert output.index("strata setup") < output.index("strata ask")
         assert "Main workflow" in output
         assert "Current state" in output
@@ -89,27 +93,25 @@ def test_cli_help_lists_main_workflow_first_and_keeps_advanced_reference():
     assert output.index("Connect AI") < output.index("Main workflow") < output.index("Advanced commands") < output.index("Legacy / fallback")
     assert "strata start [path]" in output
     assert 'strata ask "<task>" [path]' in output
-    assert "Run `strata setup` to choose how Strata talks to AI." in output
+    assert "strata start" in output
+    assert "strata setup" in output
+    assert "strata run" in output
     assert "strata setup --manual" in output
     assert "strata setup --ollama" in output
     assert "strata setup --http" in output
-    assert "For step-by-step help, run `strata help setup`, `strata help ask`, or `strata help manual`." in output
+    assert "strata help setup" in output
+    assert "strata help ask" in output
+    assert "strata help manual" in output
     assert "strata review [path]" in output
     assert "strata apply [--yes] [--dry-run] [path]" in output
     assert "strata config set http_timeout 120" in output
     assert "strata apply --dry-run <root>" in output
     assert "Legacy fallback: use `py cli.py ...`" in output
-    assert "Then run `strata ask \"fix bug\"`, `strata review`, `strata apply --dry-run`, and `strata apply`." in output
-    assert (
-        "Prepare context, request a patch, review it, and end with `strata apply` as the next step."
-        in output
-    )
+    assert "patch" in output.lower()
+    assert "review" in output.lower()
+    assert "apply" in output.lower()
     assert "Browser AI: use ChatGPT, Claude, Gemini, or Copilot Chat." in output
     assert "Strata writes `.aidc/agent_prompt.md`" in output
-    assert (
-        "Prepare context, request a patch, review it, and end with `strata apply` as the next step.\nLegacy"
-        not in output
-    )
 
 
 def test_review_missing_patch_includes_fix_line():

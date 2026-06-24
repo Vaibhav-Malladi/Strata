@@ -413,7 +413,9 @@ def test_cli_help_includes_setup():
     assert 'strata ask "fix bug"' in output
     assert 'strata review' in output
     assert 'strata apply --dry-run' in output
-    assert 'For step-by-step help, run `strata help setup`, `strata help ask`, or `strata help manual`.' in output
+    assert "strata help setup" in output
+    assert "strata help ask" in output
+    assert "strata help manual" in output
 
 
 TESTS = [

@@ -87,25 +87,46 @@ prepare context → ask AI → collect patch → review patch → dry-run apply 
 
 ## Install
 
-Clone the repository and install it locally:
+### 1. Easiest Windows bootstrap
+
+Download and run the bootstrap installer from anywhere:
 
 ```powershell
-git clone https://github.com/Vaibhav-Malladi/Strata.git
-cd Strata
+iwr <raw-install-strata-url> -OutFile install-strata.ps1
+powershell -ExecutionPolicy Bypass -File .\install-strata.ps1
+```
+
+That script clones or updates Strata into your profile folder, runs the repo-local installer, and verifies the result.
+
+### 2. Repo tester or developer
+
+Clone the repo and run the repo-local installer:
+
+```powershell
+git clone <repo-url> strata
+.\strata\install.ps1
+```
+
+No need to `cd` into `strata` if you call `.\strata\install.ps1` from the parent folder.
+
+### 3. Manual fallback
+
+If you already have the repo checked out, you can install it manually:
+
+```powershell
+cd <repo>
 py -m pip install -e .
 ```
 
-Check that the CLI works:
+After any install path:
 
 ```powershell
 strata help
+py -m strata help
+strata doctor install
 ```
 
-If the `strata` entry point is not available, use the fallback form:
-
-```powershell
-py cli.py help
-```
+If `strata` works in one terminal but not another, restart VS Code or the affected terminal after PATH changes.
 
 ---
 

@@ -1,8 +1,15 @@
 from __future__ import annotations
 
+import importlib.util
+import shutil
+import sys
+import sysconfig
 from adapter_doctor import check_adapter
 from cli_help import print_usage
+from pathlib import Path
 from ui import (
+    build_kv_table,
+    build_section,
     format_error,
     format_path,
     format_success,
@@ -19,24 +26,33 @@ def write_doctor_command(*args: str) -> int:
 
     target = args[0]
 
+    if target == "adapter":
+        if len(args) > 2:
+            print_usage()
+            return 1
+
+        root = args[1] if len(args) == 2 else "."
+        result = check_adapter(root)
+
+        _print_adapter_result(result)
+        return 0 if result.get("ready") else 1
+
+    if target == "install":
+        if len(args) > 1:
+            print_usage()
+            return 1
+
+        _print_install_result()
+        return 0
+
     if target != "adapter":
         print_usage()
         return 1
 
-    if len(args) > 2:
-        print_usage()
-        return 1
-
-    root = args[1] if len(args) == 2 else "."
-    result = check_adapter(root)
-
-    _print_adapter_result(result)
-    return 0 if result.get("ready") else 1
-
 
 def _print_usage_hint() -> None:
     print_command_header("Doctor", "Adapter checks", mode="compact")
-    print(format_warning("Supported usage is `strata doctor adapter`."))
+    print(format_warning("Supported usage is `strata doctor adapter` or `strata doctor install`."))
 
 
 def _print_adapter_result(result: dict[str, object]) -> None:
@@ -84,6 +100,51 @@ def _print_adapter_result(result: dict[str, object]) -> None:
                 for check in checks
             ],
         )
+
+
+def _print_install_result() -> None:
+    which_strata = shutil.which("strata")
+    strata_module = _module_status("strata")
+    cli_module = _module_status("cli")
+    run_module = _module_status("commands.run_command")
+    scripts_dir = _scripts_dir()
+
+    rows = [
+        ("Current working directory", format_path(Path.cwd())),
+        ("Python executable", sys.executable),
+        ("Python version", sys.version.split()[0]),
+        ("strata on PATH", _format_optional_path(which_strata)),
+        ("Resolved strata path", _format_optional_text(which_strata, "not found")),
+        ("Expected Scripts dir", _format_optional_text(scripts_dir, "unknown")),
+        ("python -m strata", strata_module),
+        ("cli module", cli_module),
+        ("commands.run_command", run_module),
+    ]
+
+    path_ready = which_strata is not None
+    status = format_success("ready") if path_ready and strata_module == "available" else format_warning("check PATH")
+
+    print_command_header("Doctor", "Install diagnostics", mode="compact")
+    print_status_card("Install doctor", rows, status=status)
+    print()
+    print(build_section("Windows tips"))
+    print(
+        build_kv_table(
+            [
+                ("Local dev", "Run `py -m pip install -e .` from the project root."),
+                ("Fallback CLI", "If PATH fails, try `py -m strata` from the repo root."),
+                ("VS Code", "Restart the VS Code terminal after PATH changes."),
+                (
+                    "PowerShell vs VS Code",
+                    "If it works in PowerShell but not VS Code, close and reopen VS Code.",
+                ),
+                (
+                    "Fallback",
+                    "If PATH still fails, run from the project environment or reinstall Strata.",
+                ),
+            ]
+        )
+    )
 
 
 def _format_status(status: str) -> str:
@@ -136,3 +197,33 @@ def _format_check(check: dict[str, object]) -> str:
         return f"info {message}"
 
     return message
+
+
+def _module_status(name: str) -> str:
+    return "available" if importlib.util.find_spec(name) is not None else "missing"
+
+
+def _format_optional_path(value: str | None) -> str:
+    if value is None or value == "":
+        return "not on PATH"
+
+    return format_path(value)
+
+
+def _format_optional_text(value: str | None, missing_text: str) -> str:
+    if value is None or value == "":
+        return missing_text
+
+    return format_path(value)
+
+
+def _scripts_dir() -> str | None:
+    try:
+        scripts_dir = sysconfig.get_path("scripts")
+    except Exception:
+        return None
+
+    if not scripts_dir:
+        return None
+
+    return scripts_dir

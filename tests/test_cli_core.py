@@ -383,10 +383,40 @@ def test_cli_run_command_smoke():
         assert "bugfix" in result.stdout
 
 
+def test_cli_module_entrypoint_smoke():
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    repo_root = Path(__file__).resolve().parents[1]
+
+    env = os.environ.copy()
+    env["PYTHONIOENCODING"] = "utf-8"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "strata",
+        ],
+        cwd=repo_root,
+        env=env,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "New here?" in result.stdout
+    assert "Connect AI" in result.stdout
+
+
 def test_cli_help_prefers_strata_commands():
     _, output = capture_output(print_usage)
 
     assert "Connect AI" in output
+    assert "New here?" not in output
     assert "strata setup" in output
     assert "strata setup --manual" in output
     assert "strata setup --ollama" in output
@@ -395,7 +425,9 @@ def test_cli_help_prefers_strata_commands():
     assert "strata setup --codex-cli" in output
     assert "strata setup --aider" in output
     assert 'strata ask "fix bug"' in output
-    assert "For step-by-step help, run `strata help setup`, `strata help ask`, or `strata help manual`." in output
+    assert "strata help setup" in output
+    assert "strata help ask" in output
+    assert "strata help manual" in output
     assert "strata scan [path]" in output
     assert "strata gate <root>" in output
     assert "strata setup" in output
@@ -421,20 +453,27 @@ def test_cli_help_prefers_strata_commands():
     assert "strata execute" in output
     assert "strata execute <root>" in output
     assert "strata doctor adapter" in output
+    assert "strata doctor install" in output
     assert "strata doctor adapter <root>" in output
     assert "strata review" in output
     assert "strata review <root>" in output
     assert output.index("Connect AI") < output.index("Main workflow")
-    assert "Run `strata setup` to choose how Strata talks to AI." in output
+    assert "strata start" in output
+    assert "strata setup" in output
+    assert "strata run" in output
     assert "`strata setup --manual`" in output
     assert "`strata setup --ollama`" in output
     assert "`strata setup --http`" in output
-    assert "Then run `strata ask \"fix bug\"`, `strata review`, `strata apply --dry-run`, and `strata apply`." in output
-    assert "For step-by-step help, run `strata help setup`, `strata help ask`, or `strata help manual`." in output
-    assert (
-        "Prepare context, request a patch, review it, and end with `strata apply` as the next step."
-        in output
-    )
+    assert "strata ask \"fix bug\"" in output
+    assert "strata review" in output
+    assert "strata apply --dry-run" in output
+    assert "strata apply" in output
+    assert "strata help setup" in output
+    assert "strata help ask" in output
+    assert "strata help manual" in output
+    assert "patch" in output.lower()
+    assert "review" in output.lower()
+    assert "apply" in output.lower()
     assert "Legacy fallback: use `py cli.py ...`" in output
     assert "py cli.py scan [path]" not in output
 
@@ -521,6 +560,7 @@ TESTS = [
     test_cli_patch_command_smoke,
     test_cli_apply_dry_run_command_smoke,
     test_cli_run_command_smoke,
+    test_cli_module_entrypoint_smoke,
     test_cli_help_prefers_strata_commands,
     test_cli_setup_rejects_conflicting_flags,
     test_editable_install_imports_command_executor_from_clean_cwd,

@@ -167,7 +167,7 @@ def test_doctor_without_target_returns_nonzero_and_shows_usage():
                 exit_code, output = capture_output(cli_main)
 
         assert exit_code == 1
-        assert "Supported usage is `strata doctor adapter`" in output
+        assert "Supported usage is `strata doctor adapter` or `strata doctor install`." in output
 
 
 def test_doctor_unknown_target_returns_nonzero_and_shows_usage():
@@ -182,6 +182,7 @@ def test_doctor_unknown_target_returns_nonzero_and_shows_usage():
         assert exit_code == 1
         assert "Usage:" in output
         assert "strata doctor adapter" in output
+        assert "strata doctor install" in output
 
 
 def test_doctor_output_includes_status_adapter_prompt_patch_message():
@@ -249,6 +250,85 @@ def test_doctor_command_does_not_create_aidc():
         assert "Adapter doctor" in output
 
 
+def test_doctor_install_reports_python_and_path_diagnostics():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _create_repo(root)
+
+        with change_directory(root):
+            with change_argv(["cli.py", "doctor", "install"]):
+                exit_code, output = capture_output(cli_main)
+
+        assert exit_code == 0
+        assert "Install diagnostics" in output
+        assert "Current working directory" in output
+        assert "Python executable" in output
+        assert "Python version" in output
+        assert "strata on PATH" in output
+        assert "Resolved strata path" in output
+        assert "Expected Scripts dir" in output
+        assert "python -m strata" in output
+        assert "cli module" in output
+        assert "commands.run_command" in output
+        assert "Windows tips" in output
+        assert "py -m pip install -e ." in output
+        assert "py -m strata" in output
+        assert "Restart the VS Code terminal" in output
+        assert "close and reopen VS Code" in output
+        assert "project environment or reinstall Strata" in output
+
+
+def test_install_ps1_contains_bootstrap_prompts():
+    script_path = Path(__file__).resolve().parents[1] / "install.ps1"
+    text = script_path.read_text(encoding="utf-8")
+
+    assert "Strata Installer" in text
+    assert text.index("function Get-RequiredPythonVersion") < text.index(
+        "$script:RequiredPythonVersion = Get-RequiredPythonVersion"
+    )
+    assert text.index("function Test-PyLauncher") < text.index("if (-not (Test-PyLauncher))")
+    assert "if ($null -eq $response)" in text
+    assert "Install Python using winget now? [y/N]" in text
+    assert "Add the Python Scripts folder to your user PATH? [y/N]" in text
+    assert "py -m pip install -e" in text
+    assert "Get-Command strata" in text
+    assert "py -m strata doctor install" in text
+    assert "Try: strata start" in text
+
+
+def test_install_strata_ps1_contains_bootstrap_flow():
+    script_path = Path(__file__).resolve().parents[1] / "install-strata.ps1"
+    text = script_path.read_text(encoding="utf-8")
+
+    assert "Strata Bootstrap Installer" in text
+    assert "Install Git using winget now? [y/N]" in text
+    assert "Update existing Strata checkout? [Y/n]" in text
+    assert "if ($null -eq $response)" in text
+    assert "git clone --branch" in text
+    assert "git -C" in text
+    assert "powershell -NoProfile -ExecutionPolicy Bypass -File" in text
+    assert "strata doctor install" in text
+    assert "py -m strata help" in text
+    assert "Try:" in text
+    assert "strata start" in text
+    assert text.index("function Test-CommandAvailable") < text.index(
+        "Write-Host \"========================================\""
+    )
+
+
+def test_readme_install_section_mentions_bootstrap_and_fallback():
+    readme_path = Path(__file__).resolve().parents[1] / "README.md"
+    text = readme_path.read_text(encoding="utf-8")
+
+    assert "install-strata.ps1" in text
+    assert "install.ps1" in text
+    assert "py -m pip install -e" in text
+    assert "py -m strata help" in text
+    assert "strata doctor install" in text
+    assert "No need to `cd` into `strata`" in text
+    assert "restart VS Code" in text or "restart VS Code or the affected terminal" in text
+
+
 TESTS = [
     test_doctor_adapter_ready_returns_zero,
     test_doctor_adapter_optional_root_argument_works,
@@ -260,4 +340,8 @@ TESTS = [
     test_doctor_http_adapter_shows_ollama_defaults_and_ready,
     test_doctor_http_adapter_shows_base_url_api_key_env_and_http_timeout,
     test_doctor_command_does_not_create_aidc,
+    test_doctor_install_reports_python_and_path_diagnostics,
+    test_install_ps1_contains_bootstrap_prompts,
+    test_install_strata_ps1_contains_bootstrap_flow,
+    test_readme_install_section_mentions_bootstrap_and_fallback,
 ]

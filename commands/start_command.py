@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from adapter_doctor import check_adapter
-from cli_core import build_graph, save_graph
+from cli_core import OUTPUT_FILE, build_graph, save_graph
 from repo_summary import build_repo_intelligence_rows, summarize_graph
 from ui import (
     build_kv_table,
@@ -15,6 +15,8 @@ from ui import (
     print_banner,
     print_command_header,
     print_status_card,
+    render_step,
+    status_spinner,
 )
 from workflow_config import config_path, load_config
 
@@ -30,7 +32,24 @@ def write_start_command(root_path: str = ".") -> int:
         _print_error("Start failed", f"path is not a directory: {root_path}")
         return 1
 
-    graph = build_graph(root_path)
+    print_banner(compact=False)
+    print()
+    print_command_header("Start", "Prepare Strata for this repository", mode="compact")
+    print_status_card(
+        "Reading repository",
+        [
+            ("Root", format_path(root)),
+            ("Graph", format_path(OUTPUT_FILE)),
+            ("Status", "scanning"),
+        ],
+        status=format_warning("working"),
+    )
+
+    with status_spinner(render_step("Building repo map", "running")) as spinner:
+        graph = build_graph(root_path)
+        if graph is not None:
+            spinner.update(render_step("Repo map ready", "ready"))
+
     if graph is None:
         return 1
 
@@ -58,13 +77,12 @@ def write_start_command(root_path: str = ".") -> int:
         else format_warning("not ready")
     )
 
-    print_banner(compact=False)
-    print()
-    print_command_header("Start", "Prepare Strata for this repository", mode="compact")
+    print(format_success("Repo map ready"))
     print_status_card(
         "Start summary",
         [
             ("Root", format_path(graph["root"])),
+            ("Graph", format_path(OUTPUT_FILE)),
             ("Files", len(graph.get("files", []))),
             ("Edges", len(graph.get("edges", []))),
             ("Config", "present" if config_exists else "missing"),

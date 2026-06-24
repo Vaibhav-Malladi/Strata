@@ -26,6 +26,8 @@ _HELP_TOPIC_ALIASES = {
     "review": "review",
     "apply": "apply",
     "run": "run",
+    "doctor": "doctor",
+    "install": "doctor",
     "gate": "gate",
     "start": "start",
 }
@@ -211,7 +213,7 @@ def _render_run_help() -> None:
     _print_lines(
         "Default",
         [
-            "Run `strata run \"fix bug\"` to prepare context, ask the adapter for a patch, and review it without applying automatically.",
+            "Run `strata run \"fix bug\"` to prepare context, ask the adapter for a patch, and review it before applying anything.",
             "The final next step is `strata apply`.",
         ],
     )
@@ -220,6 +222,34 @@ def _render_run_help() -> None:
         [
             "Run `strata run --fast \"fix bug\"` to ask for one final confirmation before applying a validated patch.",
             "Strata never commits or pushes automatically.",
+        ],
+    )
+
+
+def _render_doctor_help() -> None:
+    _print_intro("Doctor helps diagnose install, PATH, and adapter setup problems.")
+    _print_lines(
+        "Install diagnostics",
+        [
+            "`strata doctor install`",
+            "Checks the Python executable and version.",
+            "Checks whether `strata` is on PATH with `shutil.which(\"strata\")`.",
+            "Shows the current working directory and import status.",
+        ],
+    )
+    _print_lines(
+        "Windows tips",
+        [
+            "Run `py -m pip install -e .` for local development.",
+            "If `strata` is not on PATH yet, try `py -m strata` from the repo root.",
+            "Restart the VS Code terminal after PATH changes.",
+            "If PowerShell works but VS Code does not, close and reopen VS Code.",
+        ],
+    )
+    _print_lines(
+        "Adapter checks",
+        [
+            "`strata doctor adapter`",
         ],
     )
 
@@ -250,6 +280,13 @@ def _render_start_help() -> None:
             "Scan the repository.",
             "Check whether setup is ready.",
             "Move toward setup, ask, review, apply, and gate.",
+        ],
+    )
+    _print_lines(
+        "If Strata is not on PATH",
+        [
+            "Run `strata doctor install`.",
+            "Then rerun `strata start` from the project directory.",
         ],
     )
 
@@ -283,6 +320,7 @@ _HELP_TOPIC_RENDERERS = {
     "review": _render_review_help,
     "apply": _render_apply_help,
     "run": _render_run_help,
+    "doctor": _render_doctor_help,
     "gate": _render_gate_help,
     "start": _render_start_help,
 }

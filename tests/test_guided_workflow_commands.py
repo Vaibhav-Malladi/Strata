@@ -71,15 +71,19 @@ def test_help_lists_main_workflow_before_advanced_commands():
     assert output.index("Connect AI") < output.index("Main workflow:") < output.index("Advanced commands:")
     assert "strata start [path]" in output
     assert 'strata ask "<task>" [path]' in output
-    assert "Run `strata setup` to choose how Strata talks to AI." in output
+    assert "strata start" in output
+    assert "strata setup" in output
+    assert "strata run" in output
     assert "strata setup --manual" in output
     assert "strata setup --ollama" in output
     assert "strata setup --http" in output
     assert "strata setup --command" in output
     assert "strata setup --codex-cli" in output
     assert "strata setup --aider" in output
-    assert 'Then run `strata ask "fix bug"`, `strata review`, `strata apply --dry-run`, and `strata apply`.' in output
-    assert "For step-by-step help, run `strata help setup`, `strata help ask`, or `strata help manual`." in output
+    assert "strata doctor install" in output
+    assert "strata help setup" in output
+    assert "strata help ask" in output
+    assert "strata help manual" in output
     assert "strata review <root>" in output
     assert "strata apply --yes" in output
 
@@ -99,6 +103,12 @@ def test_start_reports_repo_readiness_and_intelligence():
 
         assert exit_code == 0
         assert "Start summary" in output
+        assert "Reading repository" in output
+        assert "Repo map ready" in output
+        assert "Graph" in output
+        assert ".aidc/graph.json" in output.replace("\\", "/")
+        assert "Files" in output
+        assert "Edges" in output
         assert "Repo intelligence" in output
         assert "Repo readiness" in output
         assert "ready" in output

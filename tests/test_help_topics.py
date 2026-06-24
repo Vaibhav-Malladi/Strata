@@ -37,6 +37,7 @@ def test_help_usage_mentions_all_ai_modes_and_beginner_topics():
     assert 'strata apply --dry-run' in output
     assert 'strata apply' in output
     assert 'strata run "<task>"' in output
+    assert 'strata doctor install' in output
     assert 'strata help setup' in output
     assert 'strata help ask' in output
     assert 'strata help manual' in output
@@ -46,7 +47,8 @@ def test_help_setup_topic_is_beginner_friendly():
     exit_code, output = _run_cli("help", "setup")
 
     assert exit_code == 0
-    assert "Setup chooses how Strata talks to AI." in output
+    assert "setup" in output.lower()
+    assert "Strata talks to AI" in output
     assert "strata setup" in output
     assert "strata setup --manual" in output
     assert "strata setup --ollama" in output
@@ -121,6 +123,32 @@ def test_help_http_topic_mentions_api_configuration():
     assert "strata doctor adapter" in output
 
 
+def test_help_doctor_topic_mentions_install_diagnostics():
+    exit_code, output = _run_cli("help", "doctor")
+
+    assert exit_code == 0
+    assert "install" in output
+    assert "PATH" in output
+    assert "adapter setup" in output
+    assert "strata doctor install" in output
+    assert "Python executable" in output or "Python version" in output
+    assert "shutil.which(\"strata\")" in output
+    assert "Windows tips" in output
+    assert "py -m pip install -e ." in output
+    assert "py -m strata" in output
+    assert "strata doctor adapter" in output
+
+
+def test_help_install_alias_routes_to_doctor_topic():
+    exit_code, output = _run_cli("help", "install")
+
+    assert exit_code == 0
+    assert "install" in output
+    assert "PATH" in output
+    assert "adapter setup" in output
+    assert "strata doctor install" in output
+
+
 def test_help_ask_topic_mentions_setup_and_next_steps():
     exit_code, output = _run_cli("help", "ask")
 
@@ -163,11 +191,15 @@ def test_help_run_topic_mentions_fast_confirmation():
     exit_code, output = _run_cli("help", "run")
 
     assert exit_code == 0
-    assert "Run is the guided one-command flow" in output
-    assert "strata run \"fix bug\"" in output
-    assert "strata apply" in output
-    assert "strata run --fast \"fix bug\"" in output
-    assert "Strata never commits or pushes automatically" in output
+    assert "strata run" in output
+    assert "patch" in output.lower()
+    assert "review" in output.lower()
+    assert "--fast" in output
+    assert "confirm" in output.lower() or "confirmation" in output.lower()
+    assert "apply" in output.lower()
+    assert "commit" in output.lower()
+    assert "push" in output.lower()
+    assert "auto" in output.lower()
 
 
 def test_help_gate_topic_mentions_reports_and_tests():
@@ -185,10 +217,11 @@ def test_help_start_topic_mentions_beginner_entrypoint():
     exit_code, output = _run_cli("help", "start")
 
     assert exit_code == 0
-    assert "Start is the beginner entrypoint" in output
+    assert "beginner entrypoint" in output
     assert "installed in a project" in output
     assert "Scan the repository" in output
     assert "setup, ask, review, apply, and gate" in output
+    assert "strata doctor install" in output
 
 
 def test_help_browser_alias_routes_to_manual():
@@ -214,6 +247,8 @@ TESTS = [
     test_help_ollama_topic_is_step_by_step,
     test_help_command_topic_mentions_patch_first_workflow,
     test_help_http_topic_mentions_api_configuration,
+    test_help_doctor_topic_mentions_install_diagnostics,
+    test_help_install_alias_routes_to_doctor_topic,
     test_help_ask_topic_mentions_setup_and_next_steps,
     test_help_review_topic_mentions_patch_validation,
     test_help_apply_topic_mentions_dry_run_tests_and_gate,

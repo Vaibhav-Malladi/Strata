@@ -8,6 +8,16 @@ def print_guided_entrypoint(root: str = ".") -> None:
     print_banner(compact=False)
     print()
 
+    print(bold("New here?"))
+    for line in [
+        "1. Run `strata start`",
+        "2. Run `strata setup`",
+        '3. Run `strata run "your task"`',
+        "If `strata` does not work in another terminal, run `strata doctor install`.",
+    ]:
+        print(f"  {line}")
+    print()
+
     print(bold("Connect AI:"))
     for line in _connect_ai_overview_lines(include_help_hint=False):
         print(f"  {line}")
@@ -116,6 +126,7 @@ def _advanced_command_entries() -> list[tuple[str, str | None]]:
         ("strata execute <root>", None),
         ("strata doctor adapter", None),
         ("strata doctor adapter <root>", None),
+        ("strata doctor install", "Check PATH, Python, and local install wiring."),
         ("strata snapshot [path]", None),
         ("strata verify", None),
         ("strata verify <root>", None),

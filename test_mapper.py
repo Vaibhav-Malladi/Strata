@@ -6,7 +6,7 @@ DEFAULT_TEST_COMMAND = "py tests.py"
 
 COMMAND_RULES = {
     "cli.py": [
-        "py cli.py help",
+        "py -m strata help",
     ],
     "scanner.py": [
         "py cli.py scan tmp_repo",
@@ -15,10 +15,10 @@ COMMAND_RULES = {
         "py cli.py map tmp_repo",
     ],
     "brief.py": [
-        'py cli.py brief "add map command tests"',
+        'py -m strata brief "add map command tests"',
     ],
     "brief_impact.py": [
-        'py cli.py brief "change helper behavior"',
+        'py -m strata brief "change helper behavior"',
     ],
     "cycles.py": [
         "py cli.py cycles tmp_repo",
