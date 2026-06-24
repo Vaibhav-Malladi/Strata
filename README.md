@@ -1,8 +1,17 @@
 # Strata
 
-Strata is a local-first repository intelligence CLI for AI-assisted coding workflows. It scans the repo, creates deterministic context, prepares AI-coder prompts, snapshots structure, diffs after edits, verifies structural changes, and gates readiness before commit.
+Strata V6 is a guided, patch-first AI coding workflow. It helps you prepare focused context, ask an AI for a patch, review the patch, and apply it only after you confirm it looks right.
 
-Strata does **not** edit source files by itself. Strata does **not** call cloud AI services automatically. It helps humans and AI coding tools understand repository structure and risk before and after edits.
+The beginner workflow is:
+
+```powershell
+strata start
+strata ask "fix the login bug"
+strata review
+strata apply
+```
+
+Strata does **not** commit or push automatically. It also does **not** edit source files by itself. Instead, it helps humans and AI coding tools understand repository structure and risk before and after edits.
 
 **Core message:** Preflight before editing. Verify after editing.
 
@@ -11,7 +20,7 @@ Strata does **not** edit source files by itself. Strata does **not** call cloud 
 ## Status
 
 ```text
-v0.5.2 / Ollama adapter support
+V6 / guided patch-first workflow
 ```
 
 ## Terminal UI
@@ -38,7 +47,7 @@ Useful env vars:
 Requirements:
 
 - Python 3.10+
-- No runtime dependencies
+- `rich>=13`
 
 Recommended install:
 
@@ -65,25 +74,19 @@ Use the fallback if the `strata` console script is not available yet in your she
 
 ## Beginner Workflow
 
-```powershell
-strata start
-strata ask "fix the login bug"
-strata review
-strata apply
-```
-
-This is the recommended beginner path:
+This is the recommended path:
 
 - `start` prepares Strata for the repository.
-- `ask` asks AI for a patch.
+- `ask` prepares focused context and asks AI for a patch.
 - `review` checks the patch before applying it.
-- `apply` applies the approved patch.
+- `apply` applies only after confirmation.
 - Strata does not commit or push automatically.
 
-Run `strata` at any time to see the recommended next step.
-After `strata ask` receives a patch, Strata shows a compact inline review so you can quickly see what changed before running a full review or applying.
+After `strata ask`, Strata shows a compact inline patch review so you can quickly see what changed before running a full review or applying.
 Strata also shows an estimated context reduction after it builds focused context, so you can see how much repo content was intentionally left out. The numbers are estimates only, not exact token counts or cost savings.
-Run `strata help` for advanced commands.
+Some AI tools may edit files directly. Strata detects this and writes `.aidc/direct_edit.diff` so the change is still reviewable.
+
+Run `strata` at any time to see the recommended next step. Advanced commands still exist for power users.
 
 Manual mode note:
 
@@ -136,8 +139,6 @@ Interactive setup also accepts the aliases `aider`, `codex`, `codex_cli`, and
 These presets are still conservative command-family entries. Many AI coding CLIs
 can edit files directly depending on their configuration, so always verify the
 command before running `strata execute`.
-Some AI tools may edit files directly. Strata detects this and writes
-`.aidc/direct_edit.diff` so the change is still reviewable.
 
 Recommended flow:
 
@@ -226,8 +227,9 @@ variable or making any network call. The HTTP request/response contract helpers 
 already in place, including the OpenAI-compatible URL, payload, and response-text
 extraction shapes. `strata execute` can now POST to OpenAI-compatible chat
 completion endpoints, extract a unified diff, write `.aidc/agent_patch.diff`, and
-validate the patch. It still does not apply patches automatically. `ollama` remains
-not implemented for execution in this batch.
+validate the patch. It still does not apply patches automatically. Ollama
+execution is implemented through the native `/api/generate` endpoint and still
+keeps patch application explicit.
 
 Strata groups adapters into three families: `prompt_file`, `command`, and `http`.
 Named adapters are presets or aliases that map onto one of those families.
@@ -406,7 +408,6 @@ Important notes:
   explain whether a configured adapter is manual, command-driven, or HTTP-shaped.
 - `api_key_env` stores only the environment variable name. Do not put the secret
   value in config.
-- `ollama` remains planned for execution in this batch.
 - `openai_compatible_http` can execute against OpenAI-compatible chat completion
   endpoints and still keeps patch application separate.
 - `strata doctor adapter` validates HTTP config only and does not make network calls.
@@ -601,19 +602,21 @@ All tests passed.
 - `strata apply` is separate and explicit, and `--dry-run` validates patch safety without applying.
 - Other direct integrations such as future agent backends remain planned; the `aider` and `codex_cli` presets are supported now, but the external CLI still owns patch creation.
 - Strata never commits changes automatically; gate remains the safety boundary.
-- Interactive setup prompts are not implemented yet.
-- Richer language support is still growing.
-- Optional spinners and animations are future polish work.
-- Package structure cleanup may happen later.
+- Undo and history support are planned.
+- Balanced and fast workflow modes are planned.
+- Machine-readable JSON/plain output is planned.
+- Deeper language and monorepo support is still growing.
+- Watch, hooks, and CI integrations are planned.
+- Model-specific token and cost reporting is planned.
 
 Planned future improvements include:
 
-- interactive setup
-- agent adapters
-- `strata run` adapter backends beyond `prompt_file`
-- richer language support
-- optional spinners and animations
-- package structure cleanup
+- undo/history support
+- balanced and fast workflow modes
+- machine-readable JSON/plain output
+- deeper language and monorepo support
+- watch/hooks/CI integrations
+- model-specific token/cost reporting
 
 ---
 
