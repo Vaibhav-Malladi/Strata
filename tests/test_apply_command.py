@@ -180,16 +180,18 @@ def test_apply_returns_zero_and_prints_changed_files_for_valid_patch():
             ),
         )
 
-        exit_code, output = _run_apply_cli(root)
+        exit_code, output = _run_apply_cli(root, "--yes")
 
         assert exit_code == 0
         assert "Apply patch" in output
+        assert "Apply complete" in output
         assert re.search(r"Status\s+.*applied", output)
         assert re.search(r"Validation\s+.*valid", output)
         assert re.search(r"Targets\s+main.py", output)
         assert re.search(r"Changed files\s+main.py", output)
         assert re.search(r"Applies patch\s+yes", output)
         assert "Patch applied successfully." in output
+        assert "Strata did not commit or push anything." in output
         assert "diff --git" not in output
         assert 'print("old")' not in output
         assert 'print("new")' not in output

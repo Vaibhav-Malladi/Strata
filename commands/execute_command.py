@@ -22,6 +22,7 @@ from ui import (
 )
 
 _PLANNED_COMMAND_ADAPTERS = {"aider", "codex_cli"}
+_DIRECT_EDIT_WARNING = "This adapter may edit files directly. V6 direct-edit safety is not enabled yet. Review carefully."
 
 
 def write_execute_command(root_path: str = ".", dry_run: bool = False) -> int:
@@ -60,6 +61,9 @@ def write_execute_command(root_path: str = ".", dry_run: bool = False) -> int:
     targets = "-"
     warnings = list(result.get("warnings", []) or [])
     next_step = None
+
+    if adapter_family == "command" and adapter != "prompt_file":
+        warnings = _merge_warnings(warnings, {"warnings": [_DIRECT_EDIT_WARNING]})
 
     if dry_run and ready:
         display_status = format_warning("dry-run") if adapter in _PLANNED_COMMAND_ADAPTERS else format_success("dry-run")

@@ -18,13 +18,15 @@ from ui import (
 from workflow_config import config_path, load_config, save_config, validate_config
 
 _NEXT_STEPS = [
-    'strata run "fix bug"',
+    "strata start",
+    'strata ask "fix bug"',
+    "strata review",
+    "strata apply",
     "strata doctor adapter",
     "strata execute --dry-run",
     "strata execute",
     "strata patch",
     "strata apply --dry-run",
-    "strata apply",
 ]
 
 _CANCEL_CHOICES = {"q", "quit", "cancel"}

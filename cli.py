@@ -8,6 +8,7 @@ from commands.config_command import (
     write_config_init_command,
     write_config_set_command,
 )
+from commands.ask_command import write_ask_command
 from commands.context_command import write_context
 from commands.cycles_command import show_cycles
 from commands.diff_command import write_diff_command
@@ -23,6 +24,7 @@ from commands.prepare_command import write_prepare_command
 from commands.review_command import write_review_command
 from commands.preflight_command import write_preflight
 from commands.run_command import write_run_command
+from commands.start_command import write_start_command
 from commands.setup_command import (
     setup_aider,
     setup_codex_cli,
@@ -62,6 +64,17 @@ def main() -> int:
             return _exit_code(write_graph(args[1]))
         print_usage()
         return 1
+
+    if command == "start":
+        if len(args) == 1:
+            return _exit_code(write_start_command("."))
+        if len(args) == 2:
+            return _exit_code(write_start_command(args[1]))
+        print_usage()
+        return 1
+
+    if command == "ask":
+        return _exit_code(_handle_ask_command(args[1:]))
 
     if command == "show":
         if len(args) == 1:
@@ -268,11 +281,16 @@ def _exit_code(result) -> int:
 
 def _handle_apply_command(args: list[str]) -> int:
     dry_run = False
+    yes = False
     positionals: list[str] = []
 
     for arg in args:
         if arg == "--dry-run":
             dry_run = True
+            continue
+
+        if arg == "--yes":
+            yes = True
             continue
 
         if arg.startswith("-"):
@@ -290,7 +308,31 @@ def _handle_apply_command(args: list[str]) -> int:
     if dry_run:
         return write_apply_dry_run_command(root)
 
-    return write_apply_command(root)
+    return write_apply_command(root, yes=yes)
+
+
+def _handle_ask_command(args: list[str]) -> int:
+    positionals: list[str] = []
+
+    for arg in args:
+        if arg.startswith("-"):
+            print_usage()
+            return 1
+
+        positionals.append(arg)
+
+    if not positionals:
+        print_usage()
+        return 1
+
+    if len(positionals) > 2:
+        print_usage()
+        return 1
+
+    if len(positionals) == 1:
+        return _exit_code(write_ask_command(".", positionals[0]))
+
+    return _exit_code(write_ask_command(positionals[1], positionals[0]))
 
 
 def _handle_execute_command(args: list[str]) -> int:

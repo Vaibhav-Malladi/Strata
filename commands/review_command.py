@@ -3,9 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from cli_core import (
-    DIFF_REPORT_MD_FILE,
-)
+from cli_core import DIFF_REPORT_MD_FILE
+from commands.apply_command import inspect_apply_state
 from diff_engine import compare_graphs, write_diff_report
 from gate import evaluate_gate, write_gate_report
 from graph import validate_graph
@@ -20,6 +19,8 @@ from ui import (
     format_status,
     format_success,
     format_warning,
+    print_command_header,
+    print_status_card,
 )
 from verify import verify_diff, write_verification_report
 from workflow_config import load_config
@@ -42,62 +43,92 @@ def write_review_command(root_path: str) -> int:
         _print_error("Workflow config error", str(error))
         return 1
 
+    patch_state = inspect_apply_state(root_path)
+    patch_summary = patch_state["patch_summary"]
+    validation = patch_state["validation"]
+    patch_ready = bool(validation and validation.get("valid"))
     latest_snapshot = _load_latest_snapshot(root_path)
-
-    if latest_snapshot is None:
-        _print_error(
-            "Review failed",
-            "No snapshot found. Run `strata snapshot` first.",
-        )
-        return 1
-
-    snapshot_timestamp, old_graph, old_routes_data = latest_snapshot
-
-    current_graph, graph_error = _load_current_graph(root_path)
-
-    if graph_error is not None:
-        _print_error("Review failed", graph_error)
-        return 1
-
-    current_routes_data = _load_current_routes_data(current_graph)
-
-    try:
-        diff = compare_graphs(
-            old_graph,
-            current_graph,
-            old_routes_data,
-            current_routes_data,
-        )
-        write_diff_report(root_path, diff)
-    except (OSError, ValueError) as error:
-        _print_error("Review failed", f"Diff failed: {error}")
-        return 1
-
-    verify_status = None
+    snapshot_timestamp = "-"
+    diff_display = "skipped"
     verify_display = format_warning("skipped")
+    gate_status = "FAIL"
+    review_status = "FAIL"
+    next_action = ""
 
-    if config["auto_verify"]:
-        try:
-            verification_report = verify_diff(diff)
-            write_verification_report(root_path, verification_report)
-            verify_status = str(verification_report.get("status", "FAIL")).upper()
-            verify_display = format_status(verify_status)
-        except (OSError, ValueError) as error:
-            _print_error("Review failed", f"Verification failed: {error}")
+    _print_patch_review(patch_summary, validation)
+
+    if latest_snapshot is not None:
+        snapshot_timestamp, old_graph, old_routes_data = latest_snapshot
+
+        current_graph, graph_error = _load_current_graph(root_path)
+
+        if graph_error is not None:
+            _print_error("Review failed", graph_error)
             return 1
 
-    try:
-        gate_report = evaluate_gate(current_graph, current_routes_data)
-        write_gate_report(root_path, gate_report)
-        gate_status = str(gate_report.get("status", "FAIL")).upper()
-    except (OSError, ValueError) as error:
-        _print_error("Review failed", f"Gate failed: {error}")
+        current_routes_data = _load_current_routes_data(current_graph)
+
+        try:
+            diff = compare_graphs(
+                old_graph,
+                current_graph,
+                old_routes_data,
+                current_routes_data,
+            )
+            write_diff_report(root_path, diff)
+        except (OSError, ValueError) as error:
+            _print_error("Review failed", f"Diff failed: {error}")
+            return 1
+
+        verify_status = None
+
+        if config["auto_verify"]:
+            try:
+                verification_report = verify_diff(diff)
+                write_verification_report(root_path, verification_report)
+                verify_status = str(verification_report.get("status", "FAIL")).upper()
+                verify_display = format_status(verify_status)
+            except (OSError, ValueError) as error:
+                _print_error("Review failed", f"Verification failed: {error}")
+                return 1
+
+        try:
+            gate_report = evaluate_gate(current_graph, current_routes_data)
+            write_gate_report(root_path, gate_report)
+            gate_status = str(gate_report.get("status", "FAIL")).upper()
+        except (OSError, ValueError) as error:
+            _print_error("Review failed", f"Gate failed: {error}")
+            return 1
+
+        review_status = _review_status(verify_status, gate_status)
+        next_action = _next_action(review_status, config["auto_verify"])
+        diff_display = format_path(DIFF_REPORT_MD_FILE)
+    elif patch_ready:
+        current_graph, graph_error = _load_current_graph(root_path)
+
+        if graph_error is not None:
+            _print_error("Review failed", graph_error)
+            return 1
+
+        current_routes_data = _load_current_routes_data(current_graph)
+
+        try:
+            gate_report = evaluate_gate(current_graph, current_routes_data)
+            write_gate_report(root_path, gate_report)
+            gate_status = str(gate_report.get("status", "FAIL")).upper()
+        except (OSError, ValueError) as error:
+            _print_error("Review failed", f"Gate failed: {error}")
+            return 1
+
+        review_status = gate_status
+        next_action = _patch_only_next_action(review_status)
+    else:
+        _print_error(
+            "Review failed",
+            'No AI patch found. Run `strata ask "your task"` first. No snapshot found. Run `strata snapshot` first.',
+        )
         return 1
 
-    review_status = _review_status(verify_status, gate_status)
-    next_action = _next_action(review_status, config["auto_verify"])
-
-    print(build_banner())
     print()
     print(build_section("Review complete" if review_status != "FAIL" else "Review failed"))
     print(
@@ -107,13 +138,19 @@ def write_review_command(root_path: str) -> int:
                 ("Mode", config["mode"]),
                 ("Root", format_path(root_path)),
                 ("Snapshot", snapshot_timestamp),
-                ("Diff", format_path(DIFF_REPORT_MD_FILE)),
+                ("Diff", diff_display),
                 ("Verify", verify_display),
                 ("Gate", format_status(gate_status)),
+                ("Patch", _display_validation_status(_patch_status(patch_summary, validation))),
+                ("Dry-run", _display_validation_status(_dry_run_status(validation, patch_summary))),
+                ("Safe to proceed", _safe_to_proceed(review_status, patch_ready)),
                 ("Next", next_action),
             ]
         )
     )
+
+    if latest_snapshot is None and not patch_ready:
+        return 1
 
     return 1 if review_status == "FAIL" else 0
 
@@ -209,6 +246,115 @@ def _next_action(review_status: str, auto_verify: bool) -> str:
         return format_warning("Verify was skipped by config. Run `strata verify` if needed.")
 
     return format_success("Safe to review generated reports and commit if expected.")
+
+
+def _patch_only_next_action(review_status: str) -> str:
+    if review_status == "FAIL":
+        return format_error("Fix the reported issues and rerun `strata ask`.")
+
+    if review_status == "WARN":
+        return format_warning("Review warnings before applying the patch.")
+
+    return format_success("Run `strata apply` when you are ready.")
+
+
+def _patch_status(patch_summary: dict, validation: dict | None) -> str:
+    if validation is not None:
+        return _dry_run_status(validation, patch_summary)
+
+    return str(patch_summary.get("status", "missing")).lower()
+
+
+def _dry_run_status(validation: dict | None, patch_summary: dict) -> str:
+    if validation is not None:
+        return str(validation.get("status", "invalid")).lower()
+
+    return str(patch_summary.get("status", "missing")).lower()
+
+
+def _safe_to_proceed(review_status: str, patch_ready: bool) -> str:
+    if not patch_ready:
+        return "no"
+
+    if review_status == "FAIL":
+        return "no"
+
+    if review_status == "WARN":
+        return "caution"
+
+    return "yes"
+
+
+def _build_patch_rows(patch_summary: dict, validation: dict | None, patch_ready: bool) -> list[tuple[str, object]]:
+    patch_status = str(patch_summary.get("status", "missing")).lower()
+    validation_status = str(validation.get("status", patch_status)).lower() if validation is not None else patch_status
+    targets = validation.get("targets", []) if validation is not None else []
+    rows = [
+        ("Patch", format_path(patch_summary.get("patch_path", ".aidc/agent_patch.diff"))),
+        ("Exists", "yes" if patch_summary.get("exists") else "no"),
+        ("Size", f"{int(patch_summary.get('size', 0) or 0)} bytes"),
+        ("Validation", _display_validation_status(validation_status)),
+        ("Targets", ", ".join(str(target) for target in targets) if targets else "-"),
+        ("Dry-run", _display_validation_status(validation_status)),
+        ("Safe", "yes" if patch_ready else "no"),
+    ]
+
+    if validation is not None and validation.get("errors"):
+        rows.append(("Errors", "; ".join(str(error) for error in validation.get("errors", []))))
+
+    if validation is not None and validation.get("warnings"):
+        rows.append(("Warnings", "; ".join(str(warning) for warning in validation.get("warnings", []))))
+
+    return rows
+
+
+def _display_validation_status(status: str) -> str:
+    normalized = str(status).lower()
+
+    if normalized == "valid":
+        return format_success("valid")
+
+    if normalized == "invalid":
+        return format_error("invalid")
+
+    if normalized == "empty":
+        return format_warning("empty")
+
+    if normalized == "missing":
+        return format_warning("missing")
+
+    return format_warning(normalized or "-")
+
+
+def _print_patch_review(patch_summary: dict, validation: dict | None) -> None:
+    patch_status = str(patch_summary.get("status", "missing")).lower()
+    validation_status = str(validation.get("status", patch_status)).lower() if validation is not None else patch_status
+    targets = validation.get("targets", []) if validation is not None else []
+    next_step = (
+        'Run `strata apply`.'
+        if validation is not None and validation.get("valid")
+        else 'Run `strata ask "your task"` first.'
+    )
+
+    print(build_banner())
+    print()
+    print_command_header("Review", "Patch-first review before apply", mode="compact")
+    print_status_card(
+        "Patch review",
+        [
+            ("Patch", format_path(patch_summary.get("patch_path", ".aidc/agent_patch.diff"))),
+            ("Exists", "yes" if patch_summary.get("exists") else "no"),
+            ("Size", f"{int(patch_summary.get('size', 0) or 0)} bytes"),
+            ("Validation", _display_validation_status(validation_status)),
+            ("Targets", ", ".join(str(target) for target in targets) if targets else "-"),
+            ("Dry-run", _display_validation_status(validation_status)),
+            ("Next", next_step),
+        ],
+        status=_patch_status(patch_summary, validation),
+    )
+    if patch_status == "missing":
+        print()
+        print(format_warning('No AI patch found. Run `strata ask "your task"` first.'))
 
 
 def _print_error(title: str, message: str) -> None:

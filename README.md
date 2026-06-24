@@ -63,6 +63,30 @@ py cli.py help
 
 Use the fallback if the `strata` console script is not available yet in your shell.
 
+## Beginner Workflow
+
+```powershell
+strata start
+strata ask "fix the login bug"
+strata review
+strata apply
+```
+
+This is the recommended beginner path:
+
+- `start` prepares Strata for the repository.
+- `ask` asks AI for a patch.
+- `review` checks the patch before applying it.
+- `apply` applies the approved patch.
+- Strata does not commit or push automatically.
+
+Manual mode note:
+
+- If your adapter is `prompt_file`, `strata ask` writes `.aidc/agent_prompt.md`.
+- Open that file in your AI tool, ask for a unified diff, save it to `.aidc/agent_patch.diff`, and then run `strata review`.
+
+Advanced commands still exist for power users, including `setup`, `config`, `run`, `doctor`, `execute`, `patch`, `gate`, `scan`, `status`, and `context`.
+
 ## First-Time Setup
 
 Use the setup wizard to configure Strata without editing config keys by hand:
@@ -124,7 +148,7 @@ The same flow works for Codex CLI after `strata setup --codex-cli`.
 
 ---
 
-## Recommended V4 Workflow
+## Advanced / Legacy Workflow
 
 ```powershell
 cd D:\AI-PROJECT\strata
@@ -146,7 +170,7 @@ strata gate
 
 ## Model-agnostic Run Workflow
 
-`strata run` is the recommended high-level workflow command for AI-assisted changes.
+`strata run` remains the model-agnostic workflow shell for advanced users.
 It does not lock Strata to one AI model or tool. Instead, it reads the local workflow
 config, builds a deterministic task plan, runs prepare, and routes through the configured
 adapter.
@@ -462,6 +486,10 @@ If review passes, inspect the reports, run tests and gate, and then commit manua
 
 | Command | Purpose |
 |---|---|
+| `strata start [root]` | Prepare Strata for the repository and show readiness. |
+| `strata ask "<task>" [root]` | Prepare context, ask AI for a patch, and collect the result safely. |
+| `strata review [root]` | Inspect and validate the patch before applying it. |
+| `strata apply [--yes] [--dry-run] [root]` | Validate or apply the generated patch. |
 | `strata config [root]` | Show workflow config for the repository. |
 | `strata config init [root]` | Create `.aidc/config.json` if missing; validate and preserve an existing valid config. |
 | `strata config set <key> <value> [root]` | Set a workflow config value. |
@@ -470,8 +498,7 @@ If review passes, inspect the reports, run tests and gate, and then commit manua
 | `strata doctor adapter` | Validate the configured adapter and contract before execution. |
 | `strata execute [--dry-run] [root]` | Run the configured command adapter or experimental OpenAI-compatible HTTP adapter and produce `.aidc/agent_patch.diff` without applying it. |
 | `strata patch [root]` | Inspect the generated patch. |
-| `strata apply [--dry-run] [root]` | Validate or apply the generated patch. |
-| `strata review [root]` | Run diff, verify, and gate after editing. |
+| `strata apply --dry-run [root]` | Validate patch safety without applying it. |
 | `strata scan` | Build `.aidc/graph.json`. |
 | `strata context "task"` | Generate a compact deterministic context pack. |
 | `strata preflight "task"` | Generate `.aidc/preflight.md` for a task. |

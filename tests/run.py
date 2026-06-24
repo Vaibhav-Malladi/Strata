@@ -66,6 +66,7 @@ import test_verify
 import test_verify_command
 import test_diff_command
 import test_review_command
+import test_guided_workflow_commands
 import test_scan_command
 import test_repo_summary
 import test_setup_command
@@ -130,6 +131,7 @@ TEST_MODULES = [
     test_verify_command,
     test_diff_command,
     test_review_command,
+    test_guided_workflow_commands,
     test_scan_command,
     test_repo_summary,
     test_setup_command,

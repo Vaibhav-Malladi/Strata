@@ -1,0 +1,248 @@
+import builtins
+import contextlib
+import sys
+import tempfile
+from pathlib import Path
+
+from cli import main as cli_main
+from cli_help import print_usage
+from tests.helpers import capture_output, change_directory
+from workflow_config import default_config, save_config
+
+
+@contextlib.contextmanager
+def change_argv(args: list[str]):
+    original = sys.argv[:]
+    sys.argv = args
+    try:
+        yield
+    finally:
+        sys.argv = original
+
+
+@contextlib.contextmanager
+def patched_input(value: str):
+    original = builtins.input
+    builtins.input = lambda prompt="": value
+    try:
+        yield
+    finally:
+        builtins.input = original
+
+
+def _create_repo(root: Path) -> None:
+    root.mkdir(parents=True, exist_ok=True)
+    (root / "main.py").write_text("print('hello')\n", encoding="utf-8")
+    (root / "helper.py").write_text("def helper():\n    return True\n", encoding="utf-8")
+
+
+def _create_patch_file(root: Path, content: str) -> Path:
+    patch_path = root / ".aidc" / "agent_patch.diff"
+    patch_path.parent.mkdir(parents=True, exist_ok=True)
+    patch_path.write_text(content, encoding="utf-8")
+    return patch_path
+
+
+def _write_prompt(root: Path) -> Path:
+    prompt_path = root / ".aidc" / "agent_prompt.md"
+    prompt_path.parent.mkdir(parents=True, exist_ok=True)
+    prompt_path.write_text("prompt", encoding="utf-8")
+    return prompt_path
+
+
+def _save_config(root: Path, **overrides) -> None:
+    config = default_config()
+    config.update(overrides)
+    save_config(config, root)
+
+
+def _run_cli(root: Path, *args: str):
+    with change_directory(root):
+        with change_argv(["cli.py", *args]):
+            return capture_output(cli_main)
+
+
+def test_help_lists_main_workflow_before_advanced_commands():
+    _, output = capture_output(print_usage)
+
+    assert "Main workflow:" in output
+    assert "Advanced commands:" in output
+    assert output.index("Main workflow:") < output.index("Advanced commands:")
+    assert "strata start [path]" in output
+    assert 'strata ask "<task>" [path]' in output
+    assert "strata review <root>" in output
+    assert "strata apply --yes" in output
+
+
+def test_start_reports_repo_readiness_and_intelligence():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _create_repo(root)
+        _save_config(
+            root,
+            adapter="prompt_file",
+            prompt_path=".aidc/agent_prompt.md",
+        )
+        _write_prompt(root)
+
+        exit_code, output = _run_cli(root, "start")
+
+        assert exit_code == 0
+        assert "Start summary" in output
+        assert "Repo intelligence" in output
+        assert "Repo readiness" in output
+        assert "ready" in output
+        assert "strata ask \"your task\"" in output
+        assert (root / ".aidc" / "graph.json").exists()
+
+
+def test_ask_prompt_file_manual_mode_writes_prompt_and_recommends_review():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _create_repo(root)
+        _save_config(
+            root,
+            adapter="prompt_file",
+            prompt_path=".aidc/agent_prompt.md",
+        )
+
+        exit_code, output = _run_cli(root, "ask", "fix the login bug")
+
+        assert exit_code == 0
+        assert (root / ".aidc" / "agent_prompt.md").exists()
+        assert not (root / ".aidc" / "agent_patch.diff").exists()
+        assert "Ask prepared" in output
+        assert "Open `.aidc/agent_prompt.md`" in output
+        assert "Run `strata review`" in output
+        assert "strata apply" not in output
+
+
+def test_ask_recommends_review_not_apply():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _create_repo(root)
+
+        exit_code, output = _run_cli(root, "ask", "fix the login bug")
+
+        assert exit_code == 0
+        assert "strata review" in output
+        assert "strata apply" not in output
+
+
+def test_review_without_patch_gives_clear_next_step():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _create_repo(root)
+
+        exit_code, output = _run_cli(root, "review")
+
+        assert exit_code == 1
+        assert "No AI patch found." in output
+        assert 'Run `strata ask "your task"` first.' in output
+        assert "snapshot" in output.lower()
+
+
+def test_apply_dry_run_still_works():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _create_repo(root)
+        _create_patch_file(
+            root,
+            (
+                "diff --git a/main.py b/main.py\n"
+                "--- a/main.py\n"
+                "+++ b/main.py\n"
+                "@@ -1 +1 @@\n"
+                "-print('hello')\n"
+                "+print('goodbye')\n"
+            ),
+        )
+
+        exit_code, output = _run_cli(root, "apply", "--dry-run")
+
+        assert exit_code == 0
+        assert "Apply dry-run" in output
+        assert "Applies patch" in output
+        assert "no" in output
+
+
+def test_existing_advanced_commands_still_route():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _create_repo(root)
+        _save_config(
+            root,
+            adapter="prompt_file",
+            prompt_path=".aidc/agent_prompt.md",
+        )
+        _write_prompt(root)
+
+        exit_code, output = _run_cli(root, "doctor", "adapter")
+
+        assert exit_code == 0
+        assert "Adapter doctor" in output
+        assert "Prompt" in output
+        assert "Patch" in output
+
+
+def test_apply_success_mentions_no_commit_or_push():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _create_repo(root)
+        _create_patch_file(
+            root,
+            (
+                "diff --git a/main.py b/main.py\n"
+                "--- a/main.py\n"
+                "+++ b/main.py\n"
+                "@@ -1 +1 @@\n"
+                "-print('hello')\n"
+                "+print('goodbye')\n"
+            ),
+        )
+
+        exit_code, output = _run_cli(root, "apply", "--yes")
+
+        assert exit_code == 0
+        assert "Apply complete" in output
+        assert "Patch applied successfully." in output
+        assert "Strata did not commit or push anything." in output
+
+
+def test_apply_defaults_to_no_without_yes_flag():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _create_repo(root)
+        _write_prompt(root)
+        (root / "main.py").write_text("print('hello')\n", encoding="utf-8")
+        _create_patch_file(
+            root,
+            (
+                "diff --git a/main.py b/main.py\n"
+                "--- a/main.py\n"
+                "+++ b/main.py\n"
+                "@@ -1 +1 @@\n"
+                "-print('hello')\n"
+                "+print('goodbye')\n"
+            ),
+        )
+
+        with patched_input(""):
+            exit_code, output = _run_cli(root, "apply")
+
+        assert exit_code == 1
+        assert "Patch not applied." in output
+        assert (root / "main.py").read_text(encoding="utf-8") == "print('hello')\n"
+
+
+TESTS = [
+    test_help_lists_main_workflow_before_advanced_commands,
+    test_start_reports_repo_readiness_and_intelligence,
+    test_ask_prompt_file_manual_mode_writes_prompt_and_recommends_review,
+    test_ask_recommends_review_not_apply,
+    test_review_without_patch_gives_clear_next_step,
+    test_apply_dry_run_still_works,
+    test_existing_advanced_commands_still_route,
+    test_apply_success_mentions_no_commit_or_push,
+    test_apply_defaults_to_no_without_yes_flag,
+]
