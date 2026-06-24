@@ -9,6 +9,7 @@ from cli_core import CONTEXT_PACK_FILE
 from commands.prepare_command import prepare_workflow
 from context_efficiency import compute_context_efficiency, estimate_graph_source_chars
 from context_pack import rank_relevant_files
+from direct_edit import DIRECT_EDIT_REPORT_PATH, detect_direct_edits, snapshot_working_files, write_direct_edit_diff
 from http_executor import execute_openai_compatible_http_adapter
 from ollama_adapter import execute_ollama_adapter
 from patch_contract import inspect_patch
@@ -30,9 +31,8 @@ from workflow_config import load_config
 _DIRECT_EDIT_WARNING_LINES = [
     "Warning:",
     "  This adapter may edit files directly.",
-    "  Strata V6 direct-edit safety is not enabled yet.",
-    "  If this command changes files without creating `.aidc/agent_patch.diff`,",
-    "  run `strata review` and inspect `git diff` carefully.",
+    "  Strata will write `.aidc/direct_edit.diff` if no patch is produced.",
+    "  Run `strata review` and inspect `git diff` carefully.",
 ]
 
 
@@ -112,7 +112,18 @@ def write_ask_command(root_path: str = ".", *args: str) -> int:
         _print_direct_edit_warning()
 
     print_status_card("Context Efficiency", context_efficiency_rows)
-    _execute_adapter(root, adapter, prepare_result["config"])
+    before_snapshot = snapshot_working_files(root) if adapter_family == "command" else None
+    if before_snapshot is not None:
+        (Path(root) / DIRECT_EDIT_REPORT_PATH).unlink(missing_ok=True)
+
+    execution_result = _execute_adapter(root, adapter, prepare_result["config"])
+    direct_edit_report = _maybe_write_direct_edit_report(root, before_snapshot, execution_result)
+    if direct_edit_report is not None:
+        print_banner()
+        print_command_header("Ask", "Prepare context and request a patch", mode="compact")
+        _print_direct_edit_detected(direct_edit_report)
+        return 1
+
     review_result = _build_inline_review_result(root)
 
     print_banner()
@@ -520,6 +531,36 @@ def _print_error(title: str, message: str) -> None:
 def _print_direct_edit_warning() -> None:
     for line in _DIRECT_EDIT_WARNING_LINES:
         print(line)
+
+
+def _maybe_write_direct_edit_report(
+    root: str,
+    before_snapshot: dict[str, str] | None,
+    execution_result: dict,
+) -> Path | None:
+    if before_snapshot is None:
+        return None
+
+    if str(execution_result.get("patch_status", "missing")).lower() != "missing":
+        return None
+
+    changed_paths = detect_direct_edits(before_snapshot, root)
+    if not changed_paths:
+        return None
+
+    return write_direct_edit_diff(root, changed_paths)
+
+
+def _print_direct_edit_detected(report_path: Path) -> None:
+    print_status_card(
+        "Direct edit detected",
+        [
+            ("Message", "The AI adapter changed files directly instead of creating `.aidc/agent_patch.diff`."),
+            ("Diff report", format_path(report_path)),
+            ("Next", "Run `strata review` and inspect `git diff` carefully."),
+        ],
+        status=format_warning("warn"),
+    )
 
 
 def _manual_next_steps() -> list[str]:

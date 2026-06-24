@@ -136,6 +136,8 @@ Interactive setup also accepts the aliases `aider`, `codex`, `codex_cli`, and
 These presets are still conservative command-family entries. Many AI coding CLIs
 can edit files directly depending on their configuration, so always verify the
 command before running `strata execute`.
+Some AI tools may edit files directly. Strata detects this and writes
+`.aidc/direct_edit.diff` so the change is still reviewable.
 
 Recommended flow:
 

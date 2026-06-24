@@ -158,8 +158,9 @@ def test_ask_command_warning_mentions_direct_edits_and_safety():
         assert exit_code in {0, 1}
         assert "Warning:" in output
         assert "This adapter may edit files directly." in output
-        assert "Strata V6 direct-edit safety is not enabled yet." in output
+        assert "Strata will write `.aidc/direct_edit.diff` if no patch is produced." in output
         assert ".aidc/agent_patch.diff" in output
+        assert ".aidc/direct_edit.diff" in output
         assert "git diff" in output
         assert "Next" in output or "Fix" in output
 

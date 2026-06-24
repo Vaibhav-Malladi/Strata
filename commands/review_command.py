@@ -6,6 +6,7 @@ from pathlib import Path
 from cli_core import DIFF_REPORT_MD_FILE
 from commands.apply_command import inspect_apply_state
 from diff_engine import compare_graphs, write_diff_report
+from direct_edit import DIRECT_EDIT_REPORT_PATH
 from gate import evaluate_gate, write_gate_report
 from graph import validate_graph
 from routes import collect_routes
@@ -56,6 +57,7 @@ def write_review_command(root_path: str) -> int:
     next_action = ""
 
     _print_patch_review(patch_summary, validation)
+    _print_direct_edit_report(root_path)
 
     if latest_snapshot is not None:
         snapshot_timestamp, old_graph, old_routes_data = latest_snapshot
@@ -352,6 +354,23 @@ def _print_patch_review(patch_summary: dict, validation: dict | None) -> None:
     if patch_status == "missing":
         print()
         print(format_warning('No AI patch found. Run `strata ask "your task"` first.'))
+
+
+def _print_direct_edit_report(root_path: str) -> None:
+    report_path = Path(root_path) / DIRECT_EDIT_REPORT_PATH
+    if not report_path.exists():
+        return
+
+    print()
+    print(build_section("Direct edit report found"))
+    print(
+        build_kv_table(
+            [
+                ("Report", format_path(report_path)),
+                ("Next", "Inspect `git diff`, then run your project tests."),
+            ]
+        )
+    )
 
 
 def _print_error(title: str, message: str) -> None:

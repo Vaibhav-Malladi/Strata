@@ -4,6 +4,7 @@ from pathlib import Path
 
 from adapter_doctor import check_adapter
 from command_executor import DEFAULT_TIMEOUT_SECONDS, execute_command_adapter
+from direct_edit import DIRECT_EDIT_REPORT_PATH, detect_direct_edits, snapshot_working_files, write_direct_edit_diff
 from http_adapter_contract import build_http_contract_summary
 from http_executor import execute_openai_compatible_http_adapter
 from ollama_adapter import execute_ollama_adapter
@@ -22,7 +23,7 @@ from ui import (
 )
 
 _PLANNED_COMMAND_ADAPTERS = {"aider", "codex_cli"}
-_DIRECT_EDIT_WARNING = "This adapter may edit files directly. V6 direct-edit safety is not enabled yet. Review carefully."
+_DIRECT_EDIT_WARNING = "This adapter may edit files directly. Strata will write `.aidc/direct_edit.diff` if no patch is produced."
 
 
 def write_execute_command(root_path: str = ".", dry_run: bool = False) -> int:
@@ -71,6 +72,8 @@ def write_execute_command(root_path: str = ".", dry_run: bool = False) -> int:
 
     if not dry_run:
         if ready and adapter_family == "command":
+            before_snapshot = snapshot_working_files(root_path)
+            (Path(root_path) / DIRECT_EDIT_REPORT_PATH).unlink(missing_ok=True)
             timeout_seconds = config.get("command_timeout_seconds") if config is not None else None
             if type(timeout_seconds) is not int or timeout_seconds <= 0:
                 timeout_seconds = DEFAULT_TIMEOUT_SECONDS
@@ -89,7 +92,15 @@ def write_execute_command(root_path: str = ".", dry_run: bool = False) -> int:
             patch_valid = _format_yes_no(bool(execution_result.get("patch_valid")))
             targets = _format_targets(execution_result.get("targets", []))
             warnings = _merge_warnings(warnings, execution_result)
-            if execution_result.get("status") == "patch_ready":
+            direct_edit_report = _maybe_write_direct_edit_report(root_path, before_snapshot, execution_result)
+            if direct_edit_report is not None:
+                display_status = format_warning("direct edit")
+                message = "Direct edit detected. The AI adapter changed files directly instead of creating `.aidc/agent_patch.diff`."
+                next_step = "Run `strata review` and inspect `git diff` carefully."
+                patch_status = _format_patch_status("missing")
+                patch_valid = _format_yes_no(False)
+                targets = "-"
+            elif execution_result.get("status") == "patch_ready":
                 next_step = "Run `strata patch`, then `strata apply --dry-run`, then `strata apply`."
 
         if ready and adapter == "ollama":
@@ -162,6 +173,12 @@ def write_execute_command(root_path: str = ".", dry_run: bool = False) -> int:
             ("Targets", targets),
             ("Message", message),
         ]
+
+    if execution_result is not None and execution_result.get("status") == "missing_patch":
+        direct_edit_report = Path(root_path) / DIRECT_EDIT_REPORT_PATH
+        if direct_edit_report.exists():
+            rows.insert(-1, ("Direct edit", "detected"))
+            rows.insert(-1, ("Diff report", format_path(direct_edit_report)))
 
     if next_step is not None:
         rows.append(("Next", next_step))
@@ -328,6 +345,24 @@ def _format_notes(notes: object) -> str:
         return "-"
 
     return "; ".join(str(note) for note in notes)
+
+
+def _maybe_write_direct_edit_report(
+    root_path: str,
+    before_snapshot: dict[str, str] | None,
+    execution_result: dict[str, object],
+) -> Path | None:
+    if before_snapshot is None:
+        return None
+
+    if str(execution_result.get("patch_status", "missing")).lower() != "missing":
+        return None
+
+    changed_paths = detect_direct_edits(before_snapshot, root_path)
+    if not changed_paths:
+        return None
+
+    return write_direct_edit_diff(root_path, changed_paths)
 
 
 def _collect_warnings(result: dict[str, object] | None) -> list[str]:
