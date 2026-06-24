@@ -50,6 +50,7 @@ import test_workflow_config
 import test_workflow_planner
 import test_config_command
 import test_context_command
+import test_context_efficiency
 import test_agent_export
 import test_agent_adapters
 import test_status
@@ -117,6 +118,7 @@ TEST_MODULES = [
     test_workflow_planner,
     test_config_command,
     test_context_command,
+    test_context_efficiency,
     test_agent_export,
     test_agent_adapters,
     test_status,

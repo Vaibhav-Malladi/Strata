@@ -1,6 +1,7 @@
 import json
 import os
 
+from context_efficiency import compute_context_efficiency, estimate_graph_source_chars
 from cli_core import (
     CONTEXT_PACK_FILE,
     OUTPUT_FILE,
@@ -11,7 +12,7 @@ from cli_core import (
 from context_pack import build_context_pack, rank_relevant_files
 from repo_summary import build_repo_intelligence_rows, summarize_graph
 from routes import collect_routes
-from ui import build_banner, build_kv_table, build_section, format_path
+from ui import build_banner, build_kv_table, build_section, format_path, print_status_card
 
 
 def write_context(root_path: str, task: str | None = None) -> int:
@@ -60,6 +61,11 @@ def write_context(root_path: str, task: str | None = None) -> int:
     print()
     print(build_section("Repo intelligence"))
     print(build_kv_table(build_repo_intelligence_rows(repo_intelligence)))
+    print()
+    print_status_card(
+        "Context Efficiency",
+        _build_context_efficiency_rows(graph, relevant_files, len(content)),
+    )
 
     return 0
 
@@ -114,3 +120,23 @@ def _count_symbols(graph: dict) -> int:
                 total += len(values)
 
     return total
+
+
+def _build_context_efficiency_rows(
+    graph: dict,
+    relevant_files: list[dict],
+    focused_context_chars: int,
+) -> list[tuple[str, object]]:
+    source_files_scanned = len(graph.get("files", []))
+    files_included = len(relevant_files)
+    full_source_chars = estimate_graph_source_chars(graph)
+    efficiency = compute_context_efficiency(full_source_chars, focused_context_chars)
+
+    return [
+        ("Source files scanned", f"{source_files_scanned:,}"),
+        ("Files included", f"{files_included:,}"),
+        ("Full source estimate", f"~{efficiency['full_source_tokens']:,} tokens"),
+        ("Strata context estimate", f"~{efficiency['focused_context_tokens']:,} tokens"),
+        ("Estimated context reduction", f"~{efficiency['reduction_percent']:,}%"),
+        ("Note", "Actual AI token usage may vary by adapter."),
+    ]

@@ -5,7 +5,10 @@ from typing import Sequence
 
 from adapter_doctor import check_adapter
 from command_executor import DEFAULT_TIMEOUT_SECONDS, execute_command_adapter
+from cli_core import CONTEXT_PACK_FILE
 from commands.prepare_command import prepare_workflow
+from context_efficiency import compute_context_efficiency, estimate_graph_source_chars
+from context_pack import rank_relevant_files
 from http_executor import execute_openai_compatible_http_adapter
 from ollama_adapter import execute_ollama_adapter
 from patch_contract import inspect_patch
@@ -75,6 +78,11 @@ def write_ask_command(root_path: str = ".", *args: str) -> int:
         else "skipped"
     )
     warnings = list(adapter_result.get("warnings", []) or [])
+    context_efficiency_rows = _build_context_efficiency_rows(
+        prepare_result["graph"],
+        task,
+        _read_text_chars(Path(CONTEXT_PACK_FILE)),
+    )
 
     if adapter == "prompt_file" or not ready:
         _print_prepared_summary(
@@ -87,6 +95,7 @@ def write_ask_command(root_path: str = ".", *args: str) -> int:
             warnings=warnings,
             ready=ready,
         )
+        print_status_card("Context Efficiency", context_efficiency_rows)
 
         if adapter == "prompt_file":
             for line in _manual_next_steps():
@@ -102,6 +111,7 @@ def write_ask_command(root_path: str = ".", *args: str) -> int:
     if adapter_family == "command":
         _print_direct_edit_warning()
 
+    print_status_card("Context Efficiency", context_efficiency_rows)
     _execute_adapter(root, adapter, prepare_result["config"])
     review_result = _build_inline_review_result(root)
 
@@ -527,3 +537,40 @@ def _not_ready_next_steps() -> list[str]:
         "Run `strata doctor adapter`.",
         "Fix the adapter setup, then run `strata ask` again.",
     ]
+
+
+def _build_context_efficiency_rows(
+    graph: dict,
+    task: str,
+    focused_context_chars: int | None,
+) -> list[tuple[str, object]]:
+    relevant_files = rank_relevant_files(graph, task)
+    source_files_scanned = len(graph.get("files", []))
+    files_included = len(relevant_files)
+    full_source_chars = estimate_graph_source_chars(graph)
+    rows: list[tuple[str, object]] = [
+        ("Source files scanned", f"{source_files_scanned:,}"),
+        ("Files included", f"{files_included:,}"),
+    ]
+
+    if focused_context_chars is None:
+        rows.append(("Full source estimate", "not available"))
+        rows.append(("Strata context estimate", "not available"))
+        rows.append(("Estimated context reduction", "not available"))
+        rows.append(("Note", "Actual AI token usage may vary by adapter."))
+        return rows
+
+    efficiency = compute_context_efficiency(full_source_chars, focused_context_chars)
+    rows.append(("Full source estimate", f"~{efficiency['full_source_tokens']:,} tokens"))
+    rows.append(("Strata context estimate", f"~{efficiency['focused_context_tokens']:,} tokens"))
+    rows.append(("Estimated context reduction", f"~{efficiency['reduction_percent']:,}%"))
+    rows.append(("Note", "Actual AI token usage may vary by adapter."))
+
+    return rows
+
+
+def _read_text_chars(path: Path) -> int | None:
+    try:
+        return len(path.read_text(encoding="utf-8"))
+    except OSError:
+        return None

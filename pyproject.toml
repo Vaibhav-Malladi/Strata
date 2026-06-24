@@ -54,6 +54,7 @@ py-modules = [
     "http_adapter_contract",
     "context_matching",
     "context_pack",
+    "context_efficiency",
     "cycles",
     "graph",
     "gate",

@@ -82,6 +82,7 @@ This is the recommended beginner path:
 
 Run `strata` at any time to see the recommended next step.
 After `strata ask` receives a patch, Strata shows a compact inline review so you can quickly see what changed before running a full review or applying.
+Strata also shows an estimated context reduction after it builds focused context, so you can see how much repo content was intentionally left out. The numbers are estimates only, not exact token counts or cost savings.
 Run `strata help` for advanced commands.
 
 Manual mode note:
