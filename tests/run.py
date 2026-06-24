@@ -61,6 +61,7 @@ import test_snapshot
 import test_snapshot_command
 import test_patch_contract
 import test_patch_validator
+import test_patch_create_existing_dry_run
 import test_patch_command
 import test_ui
 import test_diff_engine
@@ -130,6 +131,7 @@ TEST_MODULES = [
     test_snapshot_command,
     test_patch_contract,
     test_patch_validator,
+    test_patch_create_existing_dry_run,
     test_patch_command,
     test_ui,
     test_diff_engine,

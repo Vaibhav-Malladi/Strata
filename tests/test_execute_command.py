@@ -63,10 +63,11 @@ def _python_command(script_path: Path) -> str:
 def _valid_patch_text() -> str:
     return (
         "diff --git a/main.py b/main.py\n"
-        "--- /dev/null\n"
+        "--- a/main.py\n"
         "+++ b/main.py\n"
-        "@@ -0,0 +1 @@\n"
-        '+print("hello")\n'
+        "@@ -1 +1 @@\n"
+        '-print("hello")\n'
+        '+print("goodbye")\n'
     )
 
 

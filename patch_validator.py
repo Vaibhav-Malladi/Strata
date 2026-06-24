@@ -117,7 +117,32 @@ def validate_patch_file(root=".", configured_path=None) -> dict:
         )
 
     patch_text = patch_bytes.decode("utf-8", errors="replace")
-    return validate_patch_text(patch_text)
+    validation = validate_patch_text(patch_text)
+
+    if validation.get("status") != "valid":
+        return validation
+
+    create_targets = _extract_create_targets(patch_text)
+    if not create_targets:
+        return validation
+
+    root_path = Path(root)
+    for target in create_targets:
+        target_path = _resolve_target_path(root_path, target)
+        if target_path is None:
+            continue
+
+        if target_path.exists():
+            return _build_result(
+                status="invalid",
+                valid=False,
+                targets=[],
+                errors=[f"Target file already exists for creation: {target}"],
+                warnings=[],
+                message="Patch failed validation.",
+            )
+
+    return validation
 
 
 def extract_patch_targets(patch_text: str) -> list[str]:
@@ -196,6 +221,126 @@ def _validate_target(target: str) -> str | None:
         return f"Patch targets forbidden config file '{target}'."
 
     return None
+
+
+def _extract_create_targets(patch_text: str) -> list[str]:
+    targets: list[str] = []
+    current_file: dict[str, object] | None = None
+
+    for line in patch_text.splitlines():
+        if line.startswith(_UNIFIED_DIFF_PREFIX):
+            if current_file is not None:
+                target = _finalize_patch_file_section(current_file)
+                if target is not None and target not in targets:
+                    targets.append(target)
+            current_file = _new_patch_file_section()
+            parts = line[len(_UNIFIED_DIFF_PREFIX):].split()
+            if len(parts) >= 2:
+                current_file["diff_old_path"] = _normalize_header_path(parts[0])
+                current_file["diff_new_path"] = _normalize_header_path(parts[1])
+            continue
+
+        if current_file is None and (
+            line.startswith(_OLD_FILE_PREFIX)
+            or line.startswith(_NEW_FILE_PREFIX)
+            or line.startswith("new file mode ")
+            or line.startswith("deleted file mode ")
+        ):
+            current_file = _new_patch_file_section()
+
+        if current_file is None:
+            continue
+
+        if line.startswith("new file mode "):
+            current_file["new_file_mode"] = True
+            continue
+
+        if line.startswith(_OLD_FILE_PREFIX):
+            current_file["old_path"] = _normalize_header_path(line[len(_OLD_FILE_PREFIX):])
+            continue
+
+        if line.startswith(_NEW_FILE_PREFIX):
+            current_file["new_path"] = _normalize_header_path(line[len(_NEW_FILE_PREFIX):])
+            continue
+
+    if current_file is not None:
+        target = _finalize_patch_file_section(current_file)
+        if target is not None and target not in targets:
+            targets.append(target)
+
+    return targets
+
+
+def _new_patch_file_section() -> dict[str, object]:
+    return {
+        "diff_old_path": None,
+        "diff_new_path": None,
+        "old_path": None,
+        "new_path": None,
+        "new_file_mode": False,
+    }
+
+
+def _finalize_patch_file_section(current_file: dict[str, object]) -> str | None:
+    diff_new_path = current_file.get("diff_new_path")
+    old_path = current_file.get("old_path")
+    new_path = current_file.get("new_path")
+    new_file_mode = bool(current_file.get("new_file_mode"))
+
+    if old_path == "/dev/null" and new_path not in {None, "/dev/null"}:
+        return str(new_path)
+
+    if new_path == "/dev/null" and old_path not in {None, "/dev/null"}:
+        return None
+
+    if old_path and new_path and old_path == new_path:
+        if new_file_mode:
+            return str(new_path)
+        return None
+
+    if new_file_mode and new_path not in {None, "/dev/null"}:
+        return str(new_path)
+
+    if new_file_mode and diff_new_path not in {None, "/dev/null"}:
+        return str(diff_new_path)
+
+    return None
+
+
+def _normalize_header_path(raw_path: str) -> str | None:
+    path = raw_path.split("\t", 1)[0].strip()
+    if not path:
+        return None
+
+    if path == _DEV_NULL:
+        return _DEV_NULL
+
+    path = path.replace("\\", "/")
+    if path.startswith(_A_PREFIX):
+        path = path[len(_A_PREFIX):]
+    elif path.startswith(_B_PREFIX):
+        path = path[len(_B_PREFIX):]
+
+    path = path.strip()
+    if not path:
+        return None
+
+    while "//" in path:
+        path = path.replace("//", "/")
+
+    return path
+
+
+def _resolve_target_path(root_path: Path, target: str) -> Path | None:
+    resolved_root = root_path.resolve()
+    resolved_target = (resolved_root / Path(target)).resolve()
+
+    try:
+        resolved_target.relative_to(resolved_root)
+    except ValueError:
+        return None
+
+    return resolved_target
 
 
 def _is_aidc_generated_report(target: str) -> bool:
