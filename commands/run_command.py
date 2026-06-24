@@ -8,6 +8,7 @@ from agent_adapters import run_adapter
 from commands.apply_command import write_apply_command
 from commands.ask_command import _build_inline_review_result, _execute_adapter
 from commands.prepare_command import prepare_workflow
+from snapshot_cache import format_snapshot_cache_status
 from ui import (
     format_error,
     format_path,
@@ -98,10 +99,14 @@ def write_run_command(root_path: str, *args: str) -> int:
 
     review_result = _build_inline_review_result(root, mode="run")
     snapshot_result = prepare_result["snapshot_result"]
+    cache_result = prepare_result.get("cache_result")
     snapshot_display = (
         format_path(Path(snapshot_result["latest_path"]))
         if snapshot_result is not None
         else "skipped"
+    )
+    snapshot_cache_display = (
+        format_snapshot_cache_status(cache_result) if cache_result is not None else "skipped"
     )
     prompt_path = str(prepare_result["config"].get("prompt_path") or ".aidc/agent_prompt.md")
 
@@ -110,8 +115,10 @@ def write_run_command(root_path: str, *args: str) -> int:
         config=prepare_result["config"],
         prompt_path=prompt_path,
         snapshot_display=snapshot_display,
+        snapshot_cache_display=snapshot_cache_display,
         review_result=review_result,
     )
+    _print_snapshot_cache_note(cache_result)
 
     if review_result["ready"] and fast:
         if _confirm_apply():
@@ -250,6 +257,7 @@ def _print_guided_summary(
     config: dict,
     prompt_path: str,
     snapshot_display: str,
+    snapshot_cache_display: str,
     review_result: dict,
 ) -> None:
     rows = [
@@ -259,6 +267,7 @@ def _print_guided_summary(
         ("Adapter", config["adapter"]),
         ("Prompt", format_path(Path(prompt_path)) if prompt_path else "skipped"),
         ("Snapshot", snapshot_display),
+        ("Snapshot cache", snapshot_cache_display),
     ]
     rows.extend(review_result["rows"])
 
@@ -289,6 +298,23 @@ def _confirm_apply() -> bool:
 def _print_error(title: str, message: str) -> None:
     print_banner()
     print_status_card(title, [("Message", message)], status=format_error("failed"))
+
+
+def _print_snapshot_cache_note(cache_result: dict | None) -> None:
+    if not cache_result:
+        return
+
+    changed_count = int(cache_result.get("stale_count", 0) or 0)
+    if changed_count <= 0:
+        return
+
+    status = str(cache_result.get("status", "partial")).strip().lower()
+    if status == "stale":
+        message = f"Snapshot cache stale: {changed_count} file(s) need refresh."
+    else:
+        message = f"Snapshot cache partial: {changed_count} file(s) changed while Strata was scanning."
+
+    print(format_warning(message))
 
 
 def _print_usage() -> None:

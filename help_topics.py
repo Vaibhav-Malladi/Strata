@@ -278,6 +278,8 @@ def _render_start_help() -> None:
         "It helps you",
         [
             "Scan the repository.",
+            "Build the repo snapshot cache.",
+            "Detect when files changed while Strata was scanning.",
             "Check whether setup is ready.",
             "Move toward setup, ask, review, apply, and gate.",
         ],

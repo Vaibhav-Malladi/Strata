@@ -14,6 +14,7 @@ from http_executor import execute_openai_compatible_http_adapter
 from ollama_adapter import execute_ollama_adapter
 from patch_contract import inspect_patch
 from patch_validator import validate_patch_file
+from snapshot_cache import format_snapshot_cache_status
 from ui import (
     format_error,
     format_path,
@@ -73,10 +74,14 @@ def write_ask_command(root_path: str = ".", *args: str) -> int:
     ready = bool(adapter_result.get("ready"))
     prompt_path = str(prepare_result["config"].get("prompt_path") or ".aidc/agent_prompt.md")
     snapshot_result = prepare_result.get("snapshot_result")
+    cache_result = prepare_result.get("cache_result")
     snapshot_display = (
         format_path(Path(snapshot_result["latest_path"]))
         if snapshot_result is not None
         else "skipped"
+    )
+    snapshot_cache_display = (
+        format_snapshot_cache_status(cache_result) if cache_result is not None else "skipped"
     )
     warnings = list(adapter_result.get("warnings", []) or [])
     context_efficiency_rows = _build_context_efficiency_rows(
@@ -93,10 +98,13 @@ def write_ask_command(root_path: str = ".", *args: str) -> int:
             adapter_result=adapter_result,
             prompt_path=prompt_path,
             snapshot_display=snapshot_display,
+            snapshot_cache_display=snapshot_cache_display,
             warnings=warnings,
             ready=ready,
+            cache_result=cache_result,
         )
         print_status_card("Context Efficiency", context_efficiency_rows)
+        _print_snapshot_cache_note(cache_result)
         for line in _not_ready_next_steps():
             print(line)
         print_status_card(
@@ -115,10 +123,13 @@ def write_ask_command(root_path: str = ".", *args: str) -> int:
             adapter_result=adapter_result,
             prompt_path=prompt_path,
             snapshot_display=snapshot_display,
+            snapshot_cache_display=snapshot_cache_display,
             warnings=warnings,
             ready=ready,
+            cache_result=cache_result,
         )
         print_status_card("Context Efficiency", context_efficiency_rows)
+        _print_snapshot_cache_note(cache_result)
 
         for line in _manual_next_steps():
             print(line)
@@ -228,8 +239,10 @@ def _print_prepared_summary(
     adapter_result: dict,
     prompt_path: str,
     snapshot_display: str,
+    snapshot_cache_display: str,
     warnings: list[str],
     ready: bool,
+    cache_result: dict | None,
 ) -> None:
     print_banner()
     print_command_header("Ask", "Prepare context and request a patch", mode="compact")
@@ -242,6 +255,7 @@ def _print_prepared_summary(
             ("Adapter", _display_value(adapter)),
             ("Prompt", format_path(prompt_path)),
             ("Snapshot", snapshot_display),
+            ("Snapshot cache", snapshot_cache_display),
             ("Adapter status", _display_adapter_status(adapter_result, ready)),
             ("Message", _display_value(adapter_result.get("message"))),
         ],
@@ -250,6 +264,23 @@ def _print_prepared_summary(
 
     if warnings:
         print_status_card("Ask warnings", [("Warnings", _format_notes(warnings))], status=format_warning("warn"))
+
+
+def _print_snapshot_cache_note(cache_result: dict | None) -> None:
+    if not cache_result:
+        return
+
+    changed_count = int(cache_result.get("stale_count", 0) or 0)
+    if changed_count <= 0:
+        return
+
+    status = str(cache_result.get("status", "partial")).strip().lower()
+    if status == "stale":
+        message = f"Snapshot cache stale: {changed_count} file(s) need refresh."
+    else:
+        message = f"Snapshot cache partial: {changed_count} file(s) changed while Strata was scanning."
+
+    print(format_warning(message))
 
 
 def _inline_patch_status(

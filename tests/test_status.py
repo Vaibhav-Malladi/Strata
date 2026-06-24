@@ -24,6 +24,7 @@ GENERATED_FILE_PATHS = [
     ".aidc/gate_report.md",
     ".aidc/gate_report.json",
     ".aidc/snapshots/latest.txt",
+    ".aidc/cache/repo_snapshot.json",
 ]
 
 
@@ -61,6 +62,7 @@ def test_analyze_status_reports_missing_generated_files():
         assert ".aidc/gate_report.md" in result["missing_files"]
         assert ".aidc/gate_report.json" in result["missing_files"]
         assert ".aidc/snapshots/latest.txt" in result["missing_files"]
+        assert ".aidc/cache/repo_snapshot.json" in result["missing_files"]
 
 
 def test_analyze_status_reports_current_when_outputs_exist():
@@ -91,6 +93,7 @@ def test_analyze_status_reports_current_when_outputs_exist():
         assert ".aidc/gate_report.md" in paths
         assert ".aidc/gate_report.json" in paths
         assert ".aidc/snapshots/latest.txt" in paths
+        assert ".aidc/cache/repo_snapshot.json" in paths
 
 
 def test_analyze_status_reports_stale_outputs():
@@ -117,6 +120,7 @@ def test_analyze_status_reports_stale_outputs():
         assert result["state"] == "stale"
         assert ".aidc/graph.json" in normalized_stale
         assert ".aidc/snapshots/latest.txt" in normalized_stale
+        assert ".aidc/cache/repo_snapshot.json" in normalized_stale
 
 
 def test_analyze_status_tracks_latest_snapshot_indicator_only():
@@ -138,6 +142,7 @@ def test_analyze_status_tracks_latest_snapshot_indicator_only():
         paths = [item["path"] for item in result["generated_files"]]
 
         assert ".aidc/snapshots/latest.txt" in paths
+        assert ".aidc/cache/repo_snapshot.json" in paths
         assert ".aidc/snapshots/20240102_030405/graph.json" not in paths
 
 
@@ -176,6 +181,11 @@ def test_format_status_report_contains_sections():
                 "exists": False,
                 "modified_time": None,
             },
+            {
+                "path": ".aidc/cache/repo_snapshot.json",
+                "exists": False,
+                "modified_time": None,
+            },
         ],
         "missing_files": [
             ".aidc/graph.json",
@@ -184,6 +194,7 @@ def test_format_status_report_contains_sections():
             ".aidc/context_pack.md",
             ".aidc/routes.json",
             ".aidc/snapshots/latest.txt",
+            ".aidc/cache/repo_snapshot.json",
         ],
         "stale_files": [],
         "newest_source_mtime": None,
@@ -200,6 +211,7 @@ def test_format_status_report_contains_sections():
     assert ".aidc/context_pack.md" in report
     assert ".aidc/routes.json" in report
     assert ".aidc/snapshots/latest.txt" in report
+    assert ".aidc/cache/repo_snapshot.json" in report
     assert "strata routes" in report
     assert "strata snapshot" in report
 

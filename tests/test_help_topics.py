@@ -240,7 +240,7 @@ def test_help_start_topic_mentions_beginner_entrypoint():
     exit_code, output = _run_cli("help", "start")
 
     assert exit_code == 0
-    _assert_terms(output, "beginner", "entrypoint", "scan", "setup", "ask", "review", "apply", "gate", "strata doctor install")
+    _assert_terms(output, "beginner", "entrypoint", "scan", "snapshot cache", "setup", "ask", "review", "apply", "gate", "strata doctor install")
 
 
 def test_help_browser_alias_routes_to_manual():

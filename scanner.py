@@ -11,7 +11,18 @@ from languages import detect_language, parse_source_file
 
 IGNORED_DIRS = {
     ".git",
+    ".cache",
+    ".mypy_cache",
+    ".nox",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".tox",
     ".venv",
+    "build",
+    "coverage",
+    "dist",
+    "htmlcov",
+    "node_modules",
     "venv",
     "__pycache__",
     ".aidc",

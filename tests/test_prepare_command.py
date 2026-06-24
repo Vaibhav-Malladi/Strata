@@ -55,11 +55,13 @@ def test_prepare_without_config_uses_defaults_and_creates_expected_files():
         assert "Prepare complete" in output
         assert "fix helper bug" in output
         assert "manual" in output
+        assert "Snapshot cache" in output
         assert (root / ".aidc" / "graph.json").exists()
         assert (root / ".aidc" / "context_pack.md").exists()
         assert (root / ".aidc" / "preflight.md").exists()
         assert (root / ".aidc" / "agent_prompt.md").exists()
         assert (root / ".aidc" / "snapshots" / "latest.txt").exists()
+        assert (root / ".aidc" / "cache" / "repo_snapshot.json").exists()
         assert not config_path(root).exists()
 
 
@@ -76,12 +78,14 @@ def test_prepare_respects_config_agent_and_mode():
         assert "codex" in output
         assert "Snapshot" in output
         assert "skipped" in output
+        assert "Snapshot cache" in output
         assert "Snapshot skipped" in output
         assert (root / ".aidc" / "graph.json").exists()
         assert (root / ".aidc" / "context_pack.md").exists()
         assert (root / ".aidc" / "preflight.md").exists()
         assert (root / ".aidc" / "agent_prompt.md").exists()
         assert not (root / ".aidc" / "snapshots" / "latest.txt").exists()
+        assert (root / ".aidc" / "cache" / "repo_snapshot.json").exists()
 
 
 def test_prepare_with_auto_snapshot_true_creates_snapshot():
@@ -94,7 +98,9 @@ def test_prepare_with_auto_snapshot_true_creates_snapshot():
 
         assert exit_code == 0
         assert "Snapshot" in output
+        assert "Snapshot cache" in output
         assert (root / ".aidc" / "snapshots" / "latest.txt").exists()
+        assert (root / ".aidc" / "cache" / "repo_snapshot.json").exists()
 
 
 def test_prepare_missing_task_returns_nonzero():

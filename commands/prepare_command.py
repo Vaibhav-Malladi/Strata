@@ -6,6 +6,11 @@ from context_pack import build_context_pack
 from preflight import write_preflight_report
 from routes import collect_routes
 from snapshot import write_snapshot
+from snapshot_cache import (
+    capture_repo_snapshot,
+    format_snapshot_cache_status,
+    write_repo_snapshot_cache,
+)
 from ui import (
     build_banner,
     build_kv_table,
@@ -58,6 +63,12 @@ def write_prepare_command(root_path: str, task: str | None = None) -> int:
                 ("Preflight", format_path(PREFLIGHT_FILE)),
                 ("Agent prompt", format_path(AGENT_PROMPT_FILE)),
                 (
+                    "Snapshot cache",
+                    format_snapshot_cache_status(result["cache_result"])
+                    if result.get("cache_result") is not None
+                    else "skipped",
+                ),
+                (
                     "Snapshot",
                     format_path(Path(result["snapshot_result"]["latest_path"]))
                     if result["snapshot_result"] is not None
@@ -79,6 +90,7 @@ def prepare_workflow(root_path: str, task: str, config: dict | None = None) -> d
     if config is None:
         config = load_config(root_path)
 
+    before_snapshot = capture_repo_snapshot(root_path)
     graph = build_graph(root_path)
 
     if graph is None:
@@ -96,6 +108,9 @@ def prepare_workflow(root_path: str, task: str, config: dict | None = None) -> d
 
         if config["auto_snapshot"]:
             snapshot_result = write_snapshot(root_path, graph, routes_data)
+
+        after_snapshot = capture_repo_snapshot(root_path)
+        cache_result = write_repo_snapshot_cache(root_path, before_snapshot, after_snapshot)
     except (OSError, ValueError):
         raise
 
@@ -104,6 +119,7 @@ def prepare_workflow(root_path: str, task: str, config: dict | None = None) -> d
         "graph": graph,
         "routes_data": routes_data,
         "snapshot_result": snapshot_result,
+        "cache_result": cache_result,
     }
 
 

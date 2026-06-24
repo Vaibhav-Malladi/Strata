@@ -1,6 +1,7 @@
 from pathlib import Path
 
 SNAPSHOT_LATEST_FILE = ".aidc/snapshots/latest.txt"
+SNAPSHOT_CACHE_FILE = ".aidc/cache/repo_snapshot.json"
 
 GENERATED_FILES = [
     ".aidc/graph.json",
@@ -18,12 +19,24 @@ GENERATED_FILES = [
     ".aidc/gate_report.md",
     ".aidc/gate_report.json",
     SNAPSHOT_LATEST_FILE,
+    SNAPSHOT_CACHE_FILE,
 ]
 
 
 IGNORED_DIRS = {
     ".git",
+    ".cache",
+    ".mypy_cache",
+    ".nox",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".tox",
     ".venv",
+    "build",
+    "coverage",
+    "dist",
+    "htmlcov",
+    "node_modules",
     "venv",
     "__pycache__",
     ".aidc",

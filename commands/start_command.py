@@ -5,6 +5,11 @@ from pathlib import Path
 from adapter_doctor import check_adapter
 from cli_core import OUTPUT_FILE, build_graph, save_graph
 from repo_summary import build_repo_intelligence_rows, summarize_graph
+from snapshot_cache import (
+    capture_repo_snapshot,
+    format_snapshot_cache_status,
+    write_repo_snapshot_cache,
+)
 from ui import (
     build_kv_table,
     build_section,
@@ -45,6 +50,8 @@ def write_start_command(root_path: str = ".") -> int:
         status=format_warning("working"),
     )
 
+    before_snapshot = capture_repo_snapshot(root)
+
     with status_spinner(render_step("Building repo map", "running")) as spinner:
         graph = build_graph(root_path)
         if graph is not None:
@@ -54,6 +61,9 @@ def write_start_command(root_path: str = ".") -> int:
         return 1
 
     save_graph(graph)
+
+    after_snapshot = capture_repo_snapshot(root)
+    snapshot_cache_result = write_repo_snapshot_cache(root, before_snapshot, after_snapshot)
 
     config_exists = config_path(root).exists()
     adapter_result = None
@@ -78,6 +88,7 @@ def write_start_command(root_path: str = ".") -> int:
     )
 
     print(format_success("Repo map ready"))
+    _print_snapshot_cache_card(snapshot_cache_result)
     print_status_card(
         "Start summary",
         [
@@ -85,6 +96,15 @@ def write_start_command(root_path: str = ".") -> int:
             ("Graph", format_path(OUTPUT_FILE)),
             ("Files", len(graph.get("files", []))),
             ("Edges", len(graph.get("edges", []))),
+            ("Snapshot cache", format_snapshot_cache_status(snapshot_cache_result)),
+            ("Changed since snapshot", snapshot_cache_result["changed_since_snapshot_count"]),
+            ("Changed during scan", snapshot_cache_result["changed_during_scan_count"]),
+            (
+                "Setup",
+                "first-time repo snapshot setup"
+                if not snapshot_cache_result["cache_existed_before"]
+                else "refreshed",
+            ),
             ("Config", "present" if config_exists else "missing"),
             ("Adapter", _display_adapter(adapter_result, config_exists)),
             ("Adapter status", _display_adapter_status(adapter_result, config_exists)),
@@ -178,3 +198,23 @@ def _print_error(title: str, message: str) -> None:
     print()
     print_command_header("Start", title, mode="compact")
     print(format_error(message))
+
+
+def _print_snapshot_cache_card(snapshot_cache_result: dict) -> None:
+    if not snapshot_cache_result.get("cache_existed_before"):
+        status = format_warning("first-time setup")
+    elif snapshot_cache_result.get("status") == "fresh":
+        status = format_success("fresh")
+    else:
+        status = format_warning(str(snapshot_cache_result.get("status", "partial")))
+
+    print_status_card(
+        "Repo snapshot",
+        [
+            ("Cache", format_path(Path(snapshot_cache_result["cache_path"]))),
+            ("Status", format_snapshot_cache_status(snapshot_cache_result)),
+            ("Changed since snapshot", snapshot_cache_result["changed_since_snapshot_count"]),
+            ("Changed during scan", snapshot_cache_result["changed_during_scan_count"]),
+        ],
+        status=status,
+    )

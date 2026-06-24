@@ -69,6 +69,7 @@ def test_help_lists_main_workflow_before_advanced_commands():
     assert "Main workflow:" in output
     assert "Advanced commands:" in output
     assert output.index("Connect AI") < output.index("Main workflow:") < output.index("Advanced commands:")
+    assert "repo snapshot cache" in output.lower()
     assert "strata start [path]" in output
     assert 'strata ask "<task>" [path]' in output
     assert "strata start" in output
@@ -105,6 +106,8 @@ def test_start_reports_repo_readiness_and_intelligence():
         assert "Start summary" in output
         assert "Reading repository" in output
         assert "Repo map ready" in output
+        assert "Snapshot cache" in output
+        assert "first-time setup" in output.lower()
         assert "Graph" in output
         assert ".aidc/graph.json" in output.replace("\\", "/")
         assert "Files" in output
@@ -114,6 +117,14 @@ def test_start_reports_repo_readiness_and_intelligence():
         assert "ready" in output
         assert "strata ask \"your task\"" in output
         assert (root / ".aidc" / "graph.json").exists()
+        assert (root / ".aidc" / "cache" / "repo_snapshot.json").exists()
+
+        exit_code, output = _run_cli(root, "start")
+
+        assert exit_code == 0
+        assert "Snapshot cache" in output
+        assert "fresh" in output.lower()
+        assert "Changed since snapshot" in output
 
 
 def test_start_without_config_shows_connect_ai_guidance():
@@ -125,10 +136,35 @@ def test_start_without_config_shows_connect_ai_guidance():
 
         assert exit_code == 0
         assert "Connect AI" in output
+        assert "Snapshot cache" in output
         assert "strata setup" in output
         assert "strata setup --manual" in output
         assert "browser AI" in output
         assert "strata ask \"your task\"" in output
+
+
+def test_start_reports_stale_snapshot_cache_after_repo_change():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _create_repo(root)
+        _save_config(
+            root,
+            adapter="prompt_file",
+            prompt_path=".aidc/agent_prompt.md",
+        )
+        _write_prompt(root)
+
+        exit_code, _ = _run_cli(root, "start")
+        assert exit_code == 0
+
+        (root / "main.py").write_text("print('updated')\n", encoding="utf-8")
+
+        exit_code, output = _run_cli(root, "start")
+
+        assert exit_code == 0
+        assert "Snapshot cache" in output
+        assert "stale" in output.lower()
+        assert "Changed since snapshot" in output
 
 
 def test_ask_prompt_file_manual_mode_writes_prompt_and_recommends_review():
