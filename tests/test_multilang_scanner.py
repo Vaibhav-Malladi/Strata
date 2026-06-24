@@ -178,6 +178,59 @@ export class UserService {
         graph = scan_repo(temp_dir)
 
         assert has_edge(graph, "app.ts", "user.service.ts", "./user.service")
+        app = get_file_by_name(graph, "app.ts")
+        assert "user.service" in "".join(app["imports"])
+        assert "user.service" not in app["unresolved_imports"]
+
+
+def test_scanner_resolves_typescript_index_and_tsx_edges():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        write_file(
+            temp_dir,
+            "app.ts",
+            '''
+import { Button } from "./components/Button";
+import { shared } from "./shared";
+            '''.strip(),
+        )
+        write_file(
+            temp_dir,
+            "components/Button.tsx",
+            '''
+export const Button = () => {
+}
+            '''.strip(),
+        )
+        write_file(
+            temp_dir,
+            "shared/index.ts",
+            '''
+export const shared = 1;
+            '''.strip(),
+        )
+
+        graph = scan_repo(temp_dir)
+
+        assert has_edge(graph, "app.ts", "components/Button.tsx", "./components/Button")
+        assert has_edge(graph, "app.ts", "shared/index.ts", "./shared")
+
+
+def test_scanner_records_external_react_import_without_local_edge():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        write_file(
+            temp_dir,
+            "app.tsx",
+            '''
+import React from "react";
+export const App = () => <div />;
+            '''.strip(),
+        )
+
+        graph = scan_repo(temp_dir)
+        app = get_file_by_name(graph, "app.tsx")
+
+        assert "react" in app["external_imports"]
+        assert not any(edge["import"] == "react" for edge in graph["edges"])
 
 
 def test_scanner_marks_javascript_package_imports_external():

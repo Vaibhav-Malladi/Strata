@@ -1,5 +1,9 @@
+from __future__ import annotations
+
 import os
+import importlib.util
 import sys
+import sysconfig
 
 from languages import detect_language, parse_source_file
 
@@ -13,25 +17,24 @@ IGNORED_DIRS = {
 }
 
 
-SOURCE_EXTENSIONS = [
-    ".py",
+JS_TS_RESOLUTION_EXTENSIONS = [
+    ".ts",
+    ".tsx",
     ".js",
     ".jsx",
     ".mjs",
     ".cjs",
-    ".ts",
-    ".tsx",
 ]
 
 
-JAVASCRIPT_TYPESCRIPT_EXTENSIONS = [
-    ".js",
-    ".jsx",
-    ".mjs",
-    ".cjs",
-    ".ts",
-    ".tsx",
-]
+_STDLIB_PATHS = {
+    os.path.normcase(path)
+    for path in (
+        sysconfig.get_paths().get("stdlib"),
+        sysconfig.get_paths().get("platstdlib"),
+    )
+    if path
+}
 
 
 def module_name_from_path(root_path: str, file_path: str) -> str:
@@ -48,7 +51,29 @@ def same_folder_module_path(file_path: str, import_name: str) -> str:
 
 def is_stdlib_import(import_name: str) -> bool:
     top_level_name = import_name.split(".")[0]
-    return top_level_name in sys.stdlib_module_names
+
+    stdlib_module_names = getattr(sys, "stdlib_module_names", None)
+    if stdlib_module_names is not None:
+        return top_level_name in stdlib_module_names
+
+    return _is_stdlib_module_39(top_level_name)
+
+
+def _is_stdlib_module_39(module_name: str) -> bool:
+    spec = importlib.util.find_spec(module_name)
+
+    if spec is None:
+        return False
+
+    if spec.origin in {"built-in", "frozen"}:
+        return True
+
+    origin = getattr(spec, "origin", None)
+    if not origin:
+        return False
+
+    normalized_origin = os.path.normcase(os.path.abspath(origin))
+    return any(normalized_origin.startswith(root) for root in _STDLIB_PATHS)
 
 
 def is_relative_import(import_name: str) -> bool:
@@ -76,21 +101,23 @@ def find_import_line(file_info: dict, import_name: str) -> int | None:
 def relative_import_candidates(file_path: str, import_name: str) -> list[str]:
     folder = os.path.dirname(file_path)
     base_path = os.path.normpath(os.path.join(folder, import_name))
-
-    root, extension = os.path.splitext(base_path)
+    extension = os.path.splitext(base_path)[1].lower()
 
     candidates = []
 
-    if extension in SOURCE_EXTENSIONS:
+    if extension in JS_TS_RESOLUTION_EXTENSIONS:
         candidates.append(base_path)
     else:
-        for source_extension in SOURCE_EXTENSIONS:
+        for source_extension in JS_TS_RESOLUTION_EXTENSIONS:
             candidates.append(base_path + source_extension)
 
-        for source_extension in JAVASCRIPT_TYPESCRIPT_EXTENSIONS:
+        for source_extension in JS_TS_RESOLUTION_EXTENSIONS:
             candidates.append(
                 os.path.join(base_path, "index" + source_extension)
             )
+
+        if extension:
+            candidates.append(base_path)
 
     return [os.path.normpath(candidate) for candidate in candidates]
 

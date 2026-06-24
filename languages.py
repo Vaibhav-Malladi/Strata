@@ -1,6 +1,7 @@
-from parsers.javascript_parser import parse_file as parse_javascript_file
+from __future__ import annotations
+
+from js_parser import parse_js_file
 from parsers.python_parser import parse_file as parse_python_file
-from parsers.typescript_parser import parse_file as parse_typescript_file
 
 
 LANGUAGE_BY_EXTENSION = {
@@ -18,8 +19,8 @@ LANGUAGE_BY_EXTENSION = {
 
 PARSER_BY_LANGUAGE = {
     "python": parse_python_file,
-    "javascript": parse_javascript_file,
-    "typescript": parse_typescript_file,
+    "javascript": parse_js_file,
+    "typescript": parse_js_file,
 }
 
 
