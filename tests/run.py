@@ -69,6 +69,7 @@ import test_review_command
 import test_scan_command
 import test_setup_command
 from tests import test_languages
+from tests import test_js_resolution
 from tests import test_js_parser
 from tests import test_javascript_parser
 from tests import test_typescript_parser
@@ -131,6 +132,7 @@ TEST_MODULES = [
     test_scan_command,
     test_setup_command,
     test_languages,
+    test_js_resolution,
     test_js_parser,
     test_javascript_parser,
     test_typescript_parser,

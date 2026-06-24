@@ -5,6 +5,7 @@ import importlib.util
 import sys
 import sysconfig
 
+from js_resolution import build_js_resolution_context, resolve_js_import
 from languages import detect_language, parse_source_file
 
 
@@ -15,16 +16,6 @@ IGNORED_DIRS = {
     "__pycache__",
     ".aidc",
 }
-
-
-JS_TS_RESOLUTION_EXTENSIONS = [
-    ".ts",
-    ".tsx",
-    ".js",
-    ".jsx",
-    ".mjs",
-    ".cjs",
-]
 
 
 _STDLIB_PATHS = {
@@ -98,30 +89,6 @@ def find_import_line(file_info: dict, import_name: str) -> int | None:
     return None
 
 
-def relative_import_candidates(file_path: str, import_name: str) -> list[str]:
-    folder = os.path.dirname(file_path)
-    base_path = os.path.normpath(os.path.join(folder, import_name))
-    extension = os.path.splitext(base_path)[1].lower()
-
-    candidates = []
-
-    if extension in JS_TS_RESOLUTION_EXTENSIONS:
-        candidates.append(base_path)
-    else:
-        for source_extension in JS_TS_RESOLUTION_EXTENSIONS:
-            candidates.append(base_path + source_extension)
-
-        for source_extension in JS_TS_RESOLUTION_EXTENSIONS:
-            candidates.append(
-                os.path.join(base_path, "index" + source_extension)
-            )
-
-        if extension:
-            candidates.append(base_path)
-
-    return [os.path.normpath(candidate) for candidate in candidates]
-
-
 def resolve_python_import(
     from_path: str,
     import_name: str,
@@ -139,44 +106,61 @@ def resolve_python_import(
     return None
 
 
-def resolve_javascript_typescript_import(
-    from_path: str,
-    import_name: str,
-    path_index: dict,
-) -> str | None:
-    if not is_relative_import(import_name):
-        return None
-
-    for candidate in relative_import_candidates(from_path, import_name):
-        if candidate in path_index:
-            return candidate
-
-    return None
-
-
 def resolve_import(
     file_info: dict,
     import_name: str,
     module_index: dict,
     path_index: dict,
 ) -> str | None:
-    language = file_info.get("language")
-    from_path = file_info["path"]
+    if file_info.get("language") != "python":
+        return None
 
-    if language == "python":
-        return resolve_python_import(
-            from_path,
-            import_name,
-            module_index,
-            path_index,
-        )
+    return resolve_python_import(
+        file_info["path"],
+        import_name,
+        module_index,
+        path_index,
+    )
 
-    if language in {"javascript", "typescript"}:
-        return resolve_javascript_typescript_import(
-            from_path,
-            import_name,
-            path_index,
-        )
+
+def _js_resolved_path(root_path: str, resolved_path: str) -> str:
+    if os.path.isabs(resolved_path):
+        return os.path.normpath(resolved_path)
+
+    return os.path.normpath(os.path.join(root_path, resolved_path))
+
+
+def _record_js_resolution(
+    file_info: dict,
+    import_name: str,
+    resolution: dict,
+) -> str | None:
+    status = resolution.get("status")
+
+    if status == "resolved":
+        return resolution.get("resolved_path")
+
+    detail = {
+        "name": import_name,
+        "line": find_import_line(file_info, import_name),
+        "reason": resolution.get("reason", ""),
+    }
+
+    candidates = list(resolution.get("candidates", []))
+
+    if candidates:
+        detail["candidates"] = candidates
+
+    if status == "external":
+        file_info["external_imports"].append(import_name)
+    elif status == "path_alias":
+        file_info["path_alias_imports"].append(import_name)
+        detail["kind"] = "path_alias"
+        file_info["path_alias_import_details"].append(detail)
+    else:
+        file_info["unresolved_imports"].append(import_name)
+        detail["kind"] = "unresolved"
+        file_info["unresolved_import_details"].append(detail)
 
     return None
 
@@ -195,6 +179,7 @@ def scan_repo(root_path: str) -> dict:
 
     module_index = {}
     path_index = {}
+    js_resolution_context = build_js_resolution_context(root_path)
 
     for current_dir, dir_names, file_names in os.walk(root_path):
         dir_names[:] = [
@@ -213,6 +198,8 @@ def scan_repo(root_path: str) -> dict:
                 parsed["external_imports"] = []
                 parsed["unresolved_imports"] = []
                 parsed["unresolved_import_details"] = []
+                parsed["path_alias_imports"] = []
+                parsed["path_alias_import_details"] = []
 
                 graph["files"].append(parsed)
 
@@ -223,6 +210,57 @@ def scan_repo(root_path: str) -> dict:
     for file_info in graph["files"]:
         from_path = file_info["path"]
         language = detect_language(from_path)
+
+        if language in {"javascript", "typescript"}:
+            for import_name in file_info["imports"]:
+                resolution = resolve_js_import(
+                    root_path,
+                    from_path,
+                    import_name,
+                    js_resolution_context,
+                )
+                resolved_path = _record_js_resolution(
+                    file_info,
+                    import_name,
+                    resolution,
+                )
+
+                if resolved_path is not None:
+                    graph["edges"].append(
+                        {
+                            "from": from_path,
+                            "to": _js_resolved_path(root_path, resolved_path),
+                            "type": "imports",
+                            "import": import_name,
+                        }
+                    )
+
+            for export_info in file_info.get("exports", []):
+                source = str(export_info.get("source", "")).strip()
+
+                if not source:
+                    continue
+
+                resolution = resolve_js_import(
+                    root_path,
+                    from_path,
+                    source,
+                    js_resolution_context,
+                )
+
+                resolved_path = resolution.get("resolved_path")
+
+                if resolution.get("status") == "resolved" and resolved_path:
+                    graph["edges"].append(
+                        {
+                            "from": from_path,
+                            "to": _js_resolved_path(root_path, str(resolved_path)),
+                            "type": "imports",
+                            "import": source,
+                        }
+                    )
+
+            continue
 
         for import_name in file_info["imports"]:
             target_path = resolve_import(

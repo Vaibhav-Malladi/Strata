@@ -75,6 +75,7 @@ py-modules = [
     "verify",
     "snapshot",
     "python_parser",
+    "js_resolution",
     "routes",
     "scanner",
     "status",

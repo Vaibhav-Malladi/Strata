@@ -252,6 +252,29 @@ def test_build_context_pack_compacts_dependency_neighbors():
     assert "Dependency Neighbors" in content
 
 
+def test_build_context_pack_includes_alias_resolved_dependency_neighbors():
+    graph = fake_graph(
+        [
+            make_file("src/App.tsx", imports=["@/components/Button"]),
+            make_file("src/components/Button.tsx"),
+        ],
+        edges=[
+            {
+                "from": "src/App.tsx",
+                "to": "src/components/Button.tsx",
+                "type": "imports",
+                "import": "@/components/Button",
+            }
+        ],
+    )
+
+    content = build_context_pack(graph, "app layout issue")
+
+    assert "src/App.tsx" in content
+    assert "src/components/Button.tsx" in content
+    assert "@/components/Button" in content
+
+
 TESTS = [
     test_rank_relevant_files_does_not_fill_with_hint_only_noise,
     test_rank_relevant_files_prefers_source_over_test_with_direct_fixture_terms,
@@ -263,4 +286,5 @@ TESTS = [
     test_build_context_pack_shows_best_effort_note_when_matches_are_weak,
     test_build_context_pack_reports_no_files_when_everything_is_filtered_out,
     test_build_context_pack_compacts_dependency_neighbors,
+    test_build_context_pack_includes_alias_resolved_dependency_neighbors,
 ]

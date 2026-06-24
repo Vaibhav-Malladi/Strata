@@ -1,3 +1,4 @@
+import json
 import tempfile
 from pathlib import Path
 
@@ -29,6 +30,22 @@ def has_edge(graph: dict, from_name: str, to_name: str, import_name: str) -> boo
             return True
 
     return False
+
+
+def has_edge_any_separator(graph: dict, from_name: str, to_name: str, import_name: str) -> bool:
+    return has_edge(graph, from_name, to_name, import_name) or has_edge(
+        graph,
+        from_name,
+        to_name.replace("/", "\\"),
+        import_name,
+    )
+
+
+def write_json_file(folder: str, relative_path: str, data: dict) -> Path:
+    path = Path(folder) / relative_path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data), encoding="utf-8")
+    return path
 
 
 def test_scanner_includes_javascript_files():
@@ -231,6 +248,246 @@ export const App = () => <div />;
 
         assert "react" in app["external_imports"]
         assert not any(edge["import"] == "react" for edge in graph["edges"])
+
+
+def test_scanner_resolves_tsconfig_alias_edges():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        write_json_file(
+            temp_dir,
+            "tsconfig.json",
+            {
+                "compilerOptions": {
+                    "baseUrl": ".",
+                    "paths": {
+                        "@/*": ["src/*"],
+                    },
+                }
+            },
+        )
+        write_file(
+            temp_dir,
+            "src/App.tsx",
+            '''
+import { Button } from "@/components/Button";
+export const App = () => <div />;
+            '''.strip(),
+        )
+        write_file(
+            temp_dir,
+            "src/components/Button.tsx",
+            '''
+export const Button = () => <button />;
+            '''.strip(),
+        )
+
+        graph = scan_repo(temp_dir)
+
+        assert has_edge_any_separator(graph, "App.tsx", "src/components/Button.tsx", "@/components/Button")
+
+
+def test_scanner_resolves_angular_alias_edges():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        write_json_file(
+            temp_dir,
+            "tsconfig.json",
+            {
+                "compilerOptions": {
+                    "baseUrl": ".",
+                    "paths": {
+                        "@app/*": ["src/app/*"],
+                    },
+                }
+            },
+        )
+        write_file(
+            temp_dir,
+            "src/app/app.component.ts",
+            '''
+import { Component } from "@angular/core";
+import { UserService } from "@app/services/user.service";
+@Component({ selector: "app-root" })
+export class AppComponent {}
+            '''.strip(),
+        )
+        write_file(
+            temp_dir,
+            "src/app/services/user.service.ts",
+            '''
+export class UserService {}
+            '''.strip(),
+        )
+
+        graph = scan_repo(temp_dir)
+
+        assert has_edge_any_separator(
+            graph,
+            "app.component.ts",
+            "src/app/services/user.service.ts",
+            "@app/services/user.service",
+        )
+
+
+def test_scanner_resolves_shared_alias_index_edges():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        write_json_file(
+            temp_dir,
+            "tsconfig.json",
+            {
+                "compilerOptions": {
+                    "baseUrl": ".",
+                    "paths": {
+                        "@shared/*": ["src/shared/*"],
+                    },
+                }
+            },
+        )
+        write_file(
+            temp_dir,
+            "src/app.ts",
+            '''
+import { api } from "@shared/api";
+            '''.strip(),
+        )
+        write_file(
+            temp_dir,
+            "src/shared/api/index.ts",
+            '''
+export const api = 1;
+            '''.strip(),
+        )
+
+        graph = scan_repo(temp_dir)
+
+        assert has_edge_any_separator(graph, "app.ts", "src/shared/api/index.ts", "@shared/api")
+
+
+def test_scanner_resolves_package_self_reference_edges():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        write_json_file(
+            temp_dir,
+            "package.json",
+            {"name": "@my/app"},
+        )
+        write_file(
+            temp_dir,
+            "src/app.ts",
+            '''
+import { foo } from "@my/app/src/foo";
+            '''.strip(),
+        )
+        write_file(
+            temp_dir,
+            "src/foo.ts",
+            '''
+export const foo = 1;
+            '''.strip(),
+        )
+
+        graph = scan_repo(temp_dir)
+
+        assert has_edge_any_separator(graph, "app.ts", "src/foo.ts", "@my/app/src/foo")
+
+
+def test_scanner_resolves_workspace_package_root_edges():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        write_json_file(
+            temp_dir,
+            "package.json",
+            {
+                "name": "@my/app",
+                "workspaces": ["packages/*"],
+            },
+        )
+        write_json_file(
+            temp_dir,
+            "packages/shared/package.json",
+            {"name": "@my/shared"},
+        )
+        write_file(
+            temp_dir,
+            "src/app.ts",
+            '''
+import { shared } from "@my/shared";
+            '''.strip(),
+        )
+        write_file(
+            temp_dir,
+            "packages/shared/src/index.ts",
+            '''
+export const shared = 1;
+            '''.strip(),
+        )
+
+        graph = scan_repo(temp_dir)
+
+        assert has_edge_any_separator(
+            graph,
+            "app.ts",
+            "packages/shared/src/index.ts",
+            "@my/shared",
+        )
+
+
+def test_scanner_resolves_workspace_package_subpath_edges():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        write_json_file(
+            temp_dir,
+            "package.json",
+            {
+                "name": "@my/app",
+                "workspaces": ["packages/*"],
+            },
+        )
+        write_json_file(
+            temp_dir,
+            "packages/shared/package.json",
+            {"name": "@my/shared"},
+        )
+        write_file(
+            temp_dir,
+            "src/app.ts",
+            '''
+import { utils } from "@my/shared/utils";
+            '''.strip(),
+        )
+        write_file(
+            temp_dir,
+            "packages/shared/src/utils.ts",
+            '''
+export const utils = 1;
+            '''.strip(),
+        )
+
+        graph = scan_repo(temp_dir)
+
+        assert has_edge_any_separator(
+            graph,
+            "app.ts",
+            "packages/shared/src/utils.ts",
+            "@my/shared/utils",
+        )
+
+
+def test_scanner_resolves_barrel_reexport_edges():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        write_file(
+            temp_dir,
+            "src/index.ts",
+            '''
+export { Button } from "./Button";
+            '''.strip(),
+        )
+        write_file(
+            temp_dir,
+            "src/Button.tsx",
+            '''
+export const Button = () => <button />;
+            '''.strip(),
+        )
+
+        graph = scan_repo(temp_dir)
+
+        assert has_edge_any_separator(graph, "index.ts", "src/Button.tsx", "./Button")
 
 
 def test_scanner_marks_javascript_package_imports_external():

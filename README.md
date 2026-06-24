@@ -526,6 +526,11 @@ Except for `.aidc/config.json`, these files are generated reports and should gen
 
 - Python support is strongest.
 - JavaScript and TypeScript parsing exists in lightweight form.
+- JS/TS resolution now covers relative imports, extensionless imports, index files,
+  tsconfig/jsconfig path aliases, simple package and workspace references, and
+  barrel re-export edges.
+- The JS/TS resolver is heuristic and uses standard-library file inspection only;
+  it does not implement full TypeScript compiler resolution.
 - React and Angular hints may be detected where recognizable.
 
 Rust, Java, and full framework support are planned, not complete.
