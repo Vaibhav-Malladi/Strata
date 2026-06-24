@@ -1,6 +1,15 @@
-$ErrorActionPreference = "Stop"
+param(
+    [switch]$VerboseInstall
+)
 
+$ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
+
+$script:RepoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+$script:InstallLogPath = Join-Path $script:RepoRoot ".aidc\install.log"
+$script:RequiredPythonVersion = $null
+$script:VerboseInstall = [bool]$VerboseInstall
+$script:CheckMark = [char]0x2713
 
 function Test-PyLauncher {
     return [bool](Get-Command py -ErrorAction SilentlyContinue)
@@ -19,6 +28,7 @@ function Confirm-Yes {
     if ($null -eq $response) {
         $response = ""
     }
+
     $normalized = $response.Trim().ToLowerInvariant()
     return $normalized -eq "y" -or $normalized -eq "yes"
 }
@@ -87,7 +97,7 @@ function Test-PythonMeetsRequirement {
 function Install-PythonWithWinget {
     $packageId = "Python.Python.3.13"
     Write-Host ("Installing Python with winget: {0}" -f $packageId)
-    & winget install --id $packageId -e
+    Invoke-LoggedNativeCommand -Label "winget install" -FilePath "winget" -ArgumentList @("install", "--id", $packageId, "-e") -WorkingDirectory $script:RepoRoot | Out-Null
 }
 
 function Get-PythonScriptsDir {
@@ -127,8 +137,115 @@ function Add-UserPathEntry {
     [Environment]::SetEnvironmentVariable("Path", $updated, "User")
 }
 
-$script:RepoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+function Initialize-InstallLog {
+    New-Item -ItemType Directory -Force -Path (Split-Path $script:InstallLogPath) | Out-Null
+    if (-not (Test-Path $script:InstallLogPath)) {
+        Set-Content -Path $script:InstallLogPath -Encoding utf8 -Value @(
+            "Strata install log"
+            ("Repository: {0}" -f $script:RepoRoot)
+            ("Timestamp: {0}" -f (Get-Date))
+            ""
+        )
+        return
+    }
+
+    Add-Content -Path $script:InstallLogPath -Encoding utf8 -Value @(
+        ""
+        ("=== New run: {0} ===" -f (Get-Date))
+        ""
+    )
+}
+
+function Format-CommandLine {
+    param(
+        [string]$FilePath,
+        [string[]]$ArgumentList
+    )
+
+    $parts = @($FilePath)
+    foreach ($argument in $ArgumentList) {
+        if ($argument -match '\s') {
+            $parts += ('"{0}"' -f $argument)
+        } else {
+            $parts += $argument
+        }
+    }
+
+    return $parts -join " "
+}
+
+function Invoke-LoggedNativeCommand {
+    param(
+        [string]$Label,
+        [string]$FilePath,
+        [string[]]$ArgumentList,
+        [string]$WorkingDirectory = $script:RepoRoot
+    )
+
+    $stdout = [System.IO.Path]::GetTempFileName()
+    $stderr = [System.IO.Path]::GetTempFileName()
+
+    try {
+        Add-Content -Path $script:InstallLogPath -Encoding utf8 -Value @(
+            ("=== {0} ===" -f $Label)
+            ("Command: {0}" -f (Format-CommandLine -FilePath $FilePath -ArgumentList $ArgumentList))
+            ("Working directory: {0}" -f $WorkingDirectory)
+            ""
+        )
+
+        $process = Start-Process `
+            -FilePath $FilePath `
+            -ArgumentList $ArgumentList `
+            -WorkingDirectory $WorkingDirectory `
+            -NoNewWindow `
+            -Wait `
+            -PassThru `
+            -RedirectStandardOutput $stdout `
+            -RedirectStandardError $stderr
+
+        $stdoutText = if (Test-Path $stdout) { Get-Content $stdout -Raw } else { "" }
+        $stderrText = if (Test-Path $stderr) { Get-Content $stderr -Raw } else { "" }
+
+        if ($stdoutText) {
+            Add-Content -Path $script:InstallLogPath -Encoding utf8 -Value $stdoutText
+        }
+
+        if ($stderrText) {
+            Add-Content -Path $script:InstallLogPath -Encoding utf8 -Value $stderrText
+        }
+
+        if ($script:VerboseInstall) {
+            if ($stdoutText) {
+                Write-Host $stdoutText -NoNewline
+            }
+
+            if ($stderrText) {
+                Write-Host $stderrText -NoNewline
+            }
+        }
+
+        return [pscustomobject]@{
+            ExitCode = $process.ExitCode
+            Stdout = $stdoutText
+            Stderr = $stderrText
+        }
+    } finally {
+        Remove-Item -Force $stdout, $stderr -ErrorAction SilentlyContinue
+    }
+}
+
+function Show-Failure {
+    param(
+        [string]$Message
+    )
+
+    Write-Host $Message
+    Write-Host "Detailed logs:"
+    Write-Host ("  {0}" -f $script:InstallLogPath)
+}
+
 $script:RequiredPythonVersion = Get-RequiredPythonVersion
+Initialize-InstallLog
 
 Write-Host "========================================"
 Write-Host " Strata Installer"
@@ -139,30 +256,35 @@ Write-Host ("Required Python: {0}.{1}+" -f $script:RequiredPythonVersion.Major, 
 Write-Host ""
 
 if (-not (Test-PyLauncher)) {
-    Write-Host "Python launcher `py` was not found."
+    Show-Failure "Python launcher `py` was not found."
     Write-Host "Install Python manually, then reopen this terminal and run install.ps1 again."
     exit 1
 }
 
 $pythonVersion = Get-PythonVersion
 if (-not $pythonVersion) {
-    Write-Host "Python could not be detected through `py`."
     if (Test-Winget) {
         if (Confirm-Yes "Install Python using winget now? [y/N]") {
-            Install-PythonWithWinget
+            $wingetResult = Invoke-LoggedNativeCommand -Label "winget install Python" -FilePath "winget" -ArgumentList @("install", "--id", "Python.Python.3.13", "-e")
+            if ($wingetResult.ExitCode -ne 0) {
+                Show-Failure "Python installation failed."
+                Write-Host "Run `install.ps1 -VerboseInstall` to see the full output."
+                exit 1
+            }
+
             $pythonVersion = Get-PythonVersion
             if (-not $pythonVersion) {
-                Write-Host "Python still was not detected after winget finished."
+                Show-Failure "Python still was not detected after winget finished."
                 Write-Host "Restart your terminal, then run install.ps1 again."
                 exit 1
             }
         } else {
-            Write-Host "Python is required before Strata can be installed."
+            Show-Failure "Python is required before Strata can be installed."
             exit 1
         }
     } else {
-        Write-Host "winget is not available, so Strata cannot bootstrap Python automatically."
-        Write-Host "Install Python manually, then rerun install.ps1."
+        Show-Failure "winget is not available, so Strata cannot bootstrap Python automatically."
+        Write-Host ("Install Python {0}.{1}+ manually, then rerun install.ps1." -f $script:RequiredPythonVersion.Major, $script:RequiredPythonVersion.Minor)
         exit 1
     }
 }
@@ -171,68 +293,82 @@ if (-not (Test-PythonMeetsRequirement -Version $pythonVersion -Required $script:
     Write-Host ("Detected Python {0}.{1}, but Strata requires {2}.{3}+." -f $pythonVersion.Major, $pythonVersion.Minor, $script:RequiredPythonVersion.Major, $script:RequiredPythonVersion.Minor)
     if (Test-Winget) {
         if (Confirm-Yes "Install Python using winget now? [y/N]") {
-            Install-PythonWithWinget
+            $wingetResult = Invoke-LoggedNativeCommand -Label "winget install Python" -FilePath "winget" -ArgumentList @("install", "--id", "Python.Python.3.13", "-e")
+            if ($wingetResult.ExitCode -ne 0) {
+                Show-Failure "Python installation failed."
+                Write-Host "Run `install.ps1 -VerboseInstall` to see the full output."
+                exit 1
+            }
+
             $pythonVersion = Get-PythonVersion
             if (-not $pythonVersion) {
-                Write-Host "Python still was not detected after winget finished."
+                Show-Failure "Python still was not detected after winget finished."
                 Write-Host "Restart your terminal, then run install.ps1 again."
                 exit 1
             }
+
             if (-not (Test-PythonMeetsRequirement -Version $pythonVersion -Required $script:RequiredPythonVersion)) {
-                Write-Host "The installed Python version is still too old."
+                Show-Failure "The installed Python version is still too old."
                 Write-Host "Restart your terminal after updating Python, then rerun install.ps1."
                 exit 1
             }
         } else {
-            Write-Host ("Strata needs Python {0}.{1}+." -f $script:RequiredPythonVersion.Major, $script:RequiredPythonVersion.Minor)
+            Show-Failure ("Strata needs Python {0}.{1}+." -f $script:RequiredPythonVersion.Major, $script:RequiredPythonVersion.Minor)
             exit 1
         }
     } else {
-        Write-Host "winget is not available, so Strata cannot bootstrap Python automatically."
+        Show-Failure "winget is not available, so Strata cannot bootstrap Python automatically."
         Write-Host ("Install Python {0}.{1}+ manually, then rerun install.ps1." -f $script:RequiredPythonVersion.Major, $script:RequiredPythonVersion.Minor)
         exit 1
     }
 }
 
 Write-Host ""
-Write-Host "Installing Strata in editable mode..."
-& py -m pip install -e $script:RepoRoot
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "Editable install failed."
-    Write-Host "Run `py -m pip install -e .` manually from the repo root for details."
+Write-Host ("{0} Python found: {1}.{2}" -f $script:CheckMark, $pythonVersion.Major, $pythonVersion.Minor)
+Write-Host "Running editable install quietly..."
+
+$pipResult = Invoke-LoggedNativeCommand -Label "pip install -e" -FilePath "py" -ArgumentList @("-m", "pip", "install", "-e", $script:RepoRoot)
+if ($pipResult.ExitCode -ne 0) {
+    Show-Failure "Editable install failed."
+    Write-Host "Run `install.ps1 -VerboseInstall` to see the full output."
     exit 1
 }
 
-Write-Host ""
-Write-Host "Checking whether `strata` is on PATH..."
+Write-Host ("{0} Strata installed" -f $script:CheckMark)
+
 $strataCommand = Get-Command strata -ErrorAction SilentlyContinue
+if ($strataCommand) {
+    Write-Host ("{0} strata command found" -f $script:CheckMark)
+}
+
+$helpResult = Invoke-LoggedNativeCommand -Label "py -m strata help" -FilePath "py" -ArgumentList @("-m", "strata", "help")
+if ($helpResult.ExitCode -ne 0) {
+    Show-Failure "py -m strata help failed."
+    Write-Host "Run `install.ps1 -VerboseInstall` to see the full output."
+    exit 1
+}
+
+Write-Host ("{0} py -m strata available" -f $script:CheckMark)
 if (-not $strataCommand) {
-    $scriptsDir = Get-PythonScriptsDir
-    Write-Host "The install succeeded, but `strata` is not currently on PATH."
-    if ($scriptsDir) {
-        Write-Host ("Likely Scripts folder: {0}" -f $scriptsDir)
-        if (Confirm-Yes "Add the Python Scripts folder to your user PATH? [y/N]") {
-            Add-UserPathEntry -Entry $scriptsDir
-            Write-Host "User PATH updated."
-            Write-Host "Restart VS Code and any open terminals so PATH changes take effect."
-        } else {
-            Write-Host "PATH was left unchanged."
-            Write-Host "Restart VS Code or your terminal after fixing PATH manually."
-        }
-    } else {
-        Write-Host "Could not detect a Python Scripts folder automatically."
-        Write-Host "Restart VS Code or your terminal after fixing PATH manually."
-    }
+    Write-Host "  `strata` is not on PATH yet. Restart VS Code or your terminal after PATH changes."
+}
+
+if ($strataCommand) {
+    $diagnosticResult = Invoke-LoggedNativeCommand -Label "strata doctor install" -FilePath "strata" -ArgumentList @("doctor", "install")
 } else {
-    Write-Host ("Resolved strata command: {0}" -f $strataCommand.Source)
+    $diagnosticResult = Invoke-LoggedNativeCommand -Label "py -m strata doctor install" -FilePath "py" -ArgumentList @("-m", "strata", "doctor", "install")
 }
 
-Write-Host ""
-Write-Host "Running install diagnostics..."
-& py -m strata doctor install
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "Install diagnostics reported a problem, but the install completed."
+if ($diagnosticResult.ExitCode -ne 0) {
+    Show-Failure "Install diagnostics failed."
+    Write-Host "Run `install.ps1 -VerboseInstall` to see the full output."
+    exit 1
 }
 
+Write-Host ("{0} install diagnostics passed" -f $script:CheckMark)
 Write-Host ""
-Write-Host "Try: strata start"
+Write-Host "Next:"
+Write-Host "  strata start"
+Write-Host ""
+Write-Host "Detailed logs:"
+Write-Host ("  {0}" -f $script:InstallLogPath)

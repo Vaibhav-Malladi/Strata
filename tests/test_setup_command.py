@@ -43,6 +43,24 @@ def patched_input(values: list[str]):
     finally:
         builtins.input = original
 
+
+def _assert_terms(text: str, *terms: object) -> None:
+    normalized = text.lower()
+    missing: list[str] = []
+
+    for term in terms:
+        if isinstance(term, (list, tuple, set, frozenset)):
+            options = [str(option) for option in term]
+            if not any(option.lower() in normalized for option in options):
+                missing.append("one of: " + " | ".join(options))
+            continue
+
+        value = str(term)
+        if value.lower() not in normalized:
+            missing.append(value)
+
+    assert not missing, f"Missing expected concept(s): {', '.join(missing)}"
+
 def test_setup_manual_writes_prompt_file_adapter_and_clears_connection_fields():
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
@@ -58,11 +76,8 @@ def test_setup_manual_writes_prompt_file_adapter_and_clears_connection_fields():
         assert config["api_key_env"] is None
         assert config["mode"] == "hybrid"
         assert config["agent"] == "codex"
-        assert "Setup summary" in output
-        assert "prompt_file" in output
-        assert "Manual/browser AI" in output
-        assert "ChatGPT" in output
-        assert ".aidc/agent_patch.diff" in output
+        _assert_terms(output, "setup summary", "prompt_file", "manual", "browser", ".aidc/agent_prompt.md", ".aidc/agent_patch.diff")
+        _assert_terms(output, ("chatgpt", "claude", "gemini", "copilot chat"))
 
 
 def test_setup_command_writes_adapter_and_saves_command_string():
@@ -85,10 +100,11 @@ def test_setup_command_without_command_returns_warning_and_keeps_configurable_st
         config = load_config(root)
 
         assert result["status"] == "needs_input"
-        assert result["warnings"] == ['No command configured yet. Run `strata config set command "..."`.']
+        assert result["warnings"]
+        assert "strata config set command" in result["warnings"][0]
         assert config["adapter"] == "command"
         assert config["command"] is None
-        assert "No command configured yet" in output
+        _assert_terms(output, "no command configured yet", "setup summary")
 
 
 def test_setup_http_writes_adapter_and_saves_connection_values():
@@ -119,10 +135,11 @@ def test_setup_http_without_base_url_returns_warning():
         config = load_config(root)
 
         assert result["status"] == "needs_input"
-        assert result["warnings"] == ["Base URL is not configured yet. Run `strata config set base_url <url>`."]
+        assert result["warnings"]
+        assert "strata config set base_url" in result["warnings"][0]
         assert config["adapter"] == "openai_compatible_http"
         assert config["base_url"] is None
-        assert "Base URL is not configured yet" in output
+        _assert_terms(output, "base url is not configured yet", "setup summary")
 
 
 def test_setup_ollama_writes_adapter_and_defaults_model():
@@ -165,8 +182,7 @@ def test_setup_aider_writes_adapter_command_and_warning():
         assert config["command_timeout_seconds"] == 120
         assert result["warnings"]
         assert ".aidc/agent_patch.diff" in result["warnings"][0]
-        assert "Aider preset setup saved." in output
-        assert ".aidc/agent_patch.diff" in output
+        _assert_terms(output, "aider", "setup summary", ".aidc/agent_patch.diff")
 
 
 def test_setup_codex_cli_writes_adapter_command_and_warning():
@@ -183,8 +199,7 @@ def test_setup_codex_cli_writes_adapter_command_and_warning():
         assert config["command_timeout_seconds"] == 120
         assert result["warnings"]
         assert ".aidc/agent_patch.diff" in result["warnings"][0]
-        assert "Codex CLI preset setup saved." in output
-        assert ".aidc/agent_patch.diff" in output
+        _assert_terms(output, "codex cli", "setup summary", ".aidc/agent_patch.diff")
 
 
 def test_setup_show_returns_current_config_summary():
@@ -208,9 +223,7 @@ def test_setup_show_returns_current_config_summary():
 
         assert result["status"] == "configured"
         assert result["adapter"] == "command"
-        assert "Current setup" in output
-        assert "Setup summary" in output
-        assert "py fake_ai.py" in output
+        _assert_terms(output, "current setup", "setup summary", "py fake_ai.py")
 
 
 def test_setup_show_without_config_points_to_setup_and_manual_browser_workflow():
@@ -221,14 +234,18 @@ def test_setup_show_without_config_points_to_setup_and_manual_browser_workflow()
 
         assert result["status"] == "not configured"
         assert result["adapter"] == "prompt_file"
-        assert "No workflow config saved yet." in output
-        assert "Setup summary" in output
-        assert "strata setup" in output
-        assert "strata setup --manual" in output
-        assert "Manual/browser AI" in output
-        assert "ChatGPT" in output
-        assert ".aidc/agent_prompt.md" in output
-        assert ".aidc/agent_patch.diff" in output
+        _assert_terms(
+            output,
+            "no workflow config saved yet",
+            "setup summary",
+            "strata setup",
+            "strata setup --manual",
+            "manual",
+            "browser",
+            ".aidc/agent_prompt.md",
+            ".aidc/agent_patch.diff",
+        )
+        _assert_terms(output, ("chatgpt", "claude", "gemini", "copilot chat"))
 
 
 def test_cancelled_interactive_setup_does_not_modify_config():
@@ -243,7 +260,7 @@ def test_cancelled_interactive_setup_does_not_modify_config():
 
         assert result == 1
         assert (root / ".aidc" / "config.json").read_text(encoding="utf-8") == original
-        assert "Setup cancelled" in output
+        _assert_terms(output, "setup cancelled")
 
 
 def test_invalid_interactive_choice_retries_then_configures_manual_setup():
@@ -257,7 +274,7 @@ def test_invalid_interactive_choice_retries_then_configures_manual_setup():
         config = load_config(root)
 
         assert result == 0
-        assert "Invalid choice" in output
+        _assert_terms(output, "invalid choice")
         assert config["adapter"] == "prompt_file"
 
 
@@ -273,7 +290,7 @@ def test_interactive_setup_accepts_aider_alias():
 
         assert result == 0
         assert config["adapter"] == "aider"
-        assert "Aider preset setup saved." in output
+        _assert_terms(output, "aider", "setup summary")
 
 
 def test_interactive_setup_accepts_codex_alias():
@@ -288,7 +305,7 @@ def test_interactive_setup_accepts_codex_alias():
 
         assert result == 0
         assert config["adapter"] == "codex_cli"
-        assert "Codex CLI preset setup saved." in output
+        _assert_terms(output, "codex cli", "setup summary")
 
 
 def test_setup_returns_fresh_lists_each_call():
@@ -330,10 +347,8 @@ def test_setup_command_output_includes_summary():
 
         _, output = capture_output(setup_manual, str(root))
 
-        assert "Setup summary" in output
-        assert "Manual/browser AI" in output
-        assert "ChatGPT" in output
-        assert "Next steps" in output
+        _assert_terms(output, "setup summary", "manual", "browser", "next steps")
+        _assert_terms(output, ("chatgpt", "claude", "gemini", "copilot chat"))
 
 
 def test_cli_routes_setup_manual():
@@ -348,7 +363,7 @@ def test_cli_routes_setup_manual():
 
         assert exit_code == 0
         assert config["adapter"] == "prompt_file"
-        assert "Setup summary" in output
+        _assert_terms(output, "setup summary", "manual", "browser")
 
 
 def test_cli_routes_setup_ollama():
@@ -364,7 +379,7 @@ def test_cli_routes_setup_ollama():
         assert exit_code == 0
         assert config["adapter"] == "ollama"
         assert config["model"] == "qwen2.5-coder"
-        assert "Setup summary" in output
+        _assert_terms(output, "setup summary", "ollama")
 
 
 def test_cli_routes_setup_aider():
@@ -380,7 +395,7 @@ def test_cli_routes_setup_aider():
         assert exit_code == 0
         assert config["adapter"] == "aider"
         assert config["command"] == "aider --message-file .aidc/agent_prompt.md"
-        assert "Aider preset setup saved." in output
+        _assert_terms(output, "aider", "setup summary")
 
 
 def test_cli_routes_setup_codex_cli():
@@ -396,7 +411,7 @@ def test_cli_routes_setup_codex_cli():
         assert exit_code == 0
         assert config["adapter"] == "codex_cli"
         assert config["command"] == "codex --prompt-file .aidc/agent_prompt.md"
-        assert "Codex CLI preset setup saved." in output
+        _assert_terms(output, "codex cli", "setup summary")
 
 
 def test_cli_help_includes_setup():

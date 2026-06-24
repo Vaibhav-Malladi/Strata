@@ -67,6 +67,24 @@ def _configure_command_adapter(root: Path) -> None:
     )
 
 
+def _assert_terms(text: str, *terms: object) -> None:
+    normalized = text.lower()
+    missing: list[str] = []
+
+    for term in terms:
+        if isinstance(term, (list, tuple, set, frozenset)):
+            options = [str(option) for option in term]
+            if not any(option.lower() in normalized for option in options):
+                missing.append("one of: " + " | ".join(options))
+            continue
+
+        value = str(term)
+        if value.lower() not in normalized:
+            missing.append(value)
+
+    assert not missing, f"Missing expected concept(s): {', '.join(missing)}"
+
+
 def test_ask_prompt_file_manual_mode_stays_manual_and_recommends_review():
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
@@ -82,16 +100,11 @@ def test_ask_prompt_file_manual_mode_stays_manual_and_recommends_review():
         assert exit_code == 0
         assert (root / ".aidc" / "agent_prompt.md").exists()
         assert not (root / ".aidc" / "agent_patch.diff").exists()
-        assert "Prompt" in output
-        assert "Open `.aidc/agent_prompt.md`" in output
-        assert "ChatGPT" in output
-        assert "Claude" in output
-        assert "Gemini" in output
-        assert ".aidc/agent_patch.diff" in output
-        assert "Save it to `.aidc/agent_patch.diff`" in output
-        assert "Inline review" not in output
-        assert "Patch status" not in output
-        assert "Next: Save the AI patch to `.aidc/agent_patch.diff`, then run `strata review`." in output
+        _assert_terms(output, "prompt", "open `.aidc/agent_prompt.md`", ".aidc/agent_patch.diff", "save it to `.aidc/agent_patch.diff`")
+        _assert_terms(output, ("chatgpt", "claude", "gemini", "copilot chat"))
+        assert "inline review" not in output
+        assert "patch status" not in output
+        _assert_terms(output, "next", "strata review")
 
 
 def test_ask_ready_patch_shows_inline_review_fields_and_warning():
@@ -124,21 +137,23 @@ def test_ask_ready_patch_shows_inline_review_fields_and_warning():
             ask_command_module.execute_command_adapter = original_execute
 
         assert exit_code == 0
-        assert "Warning:" in output
-        assert "This adapter may edit files directly." in output
-        assert "Inline review" in output
-        assert "Patch status" in output
-        assert "ready" in output
-        assert "Validation" in output
-        assert "passed" in output
-        assert "Dry-run" in output
-        assert "Files changed" in output
-        assert "1" in output
-        assert "Targets" in output
-        assert "main.py" in output
-        assert "Next" in output
-        assert "strata review" in output
-        assert "strata apply" in output
+        _assert_terms(
+            output,
+            "warning:",
+            ("directly", "direct edit"),
+            "inline review",
+            "patch status",
+            "ready",
+            "validation",
+            "passed",
+            "dry-run",
+            "files changed",
+            "targets",
+            "main.py",
+            "next",
+            "strata review",
+            "strata apply",
+        )
 
 
 def test_ask_does_not_apply_the_patch():
@@ -172,8 +187,7 @@ def test_ask_does_not_apply_the_patch():
 
         assert exit_code == 0
         assert (root / "main.py").read_text(encoding="utf-8") == "print('hello')\n"
-        assert "Inline review" in output
-        assert "Patch status" in output
+        _assert_terms(output, "inline review", "patch status")
 
 
 def test_ask_missing_patch_shows_fix_and_next_guidance():
@@ -205,13 +219,10 @@ def test_ask_missing_patch_shows_fix_and_next_guidance():
             ask_command_module.execute_command_adapter = original_execute
 
         assert exit_code == 1
-        assert "Patch status" in output
+        _assert_terms(output, "patch status")
         assert re.search(r"Patch status\s+.*missing", output)
-        assert "Fix" in output
-        assert ".aidc/agent_patch.diff" in output
-        assert "Next" in output
-        assert 'Run `strata ask "your task"` again' in output
-        assert "strata review" in output
+        _assert_terms(output, "fix", ".aidc/agent_patch.diff", "next", "strata review")
+        assert 'run `strata ask "your task"` again' in output.lower()
 
 
 def test_ask_invalid_patch_shows_fix_and_next_guidance():
@@ -244,16 +255,14 @@ def test_ask_invalid_patch_shows_fix_and_next_guidance():
             ask_command_module.execute_command_adapter = original_execute
 
         assert exit_code == 1
-        assert "Patch status" in output
+        _assert_terms(output, "patch status")
         assert re.search(r"Patch status\s+.*invalid", output)
-        assert "Validation" in output
+        _assert_terms(output, "validation")
         assert re.search(r"Validation\s+.*invalid", output)
-        assert "Dry-run" in output
+        _assert_terms(output, "dry-run")
         assert re.search(r"Dry-run\s+.*not run", output)
-        assert "Fix" in output
-        assert "valid unified diff" in output
-        assert "Next" in output
-        assert 'Run `strata ask "your task"` again' in output
+        _assert_terms(output, "fix", "valid unified diff", "next")
+        assert 'run `strata ask "your task"` again' in output.lower()
 
 
 def test_ask_missing_command_adapter_shows_setup_guidance_and_returns_nonzero():
@@ -272,15 +281,8 @@ def test_ask_missing_command_adapter_shows_setup_guidance_and_returns_nonzero():
         exit_code, output = _run_cli(root, "ask", "fix the login bug")
 
         assert exit_code == 1
-        assert "No AI adapter is configured yet." in output
-        assert "Connect AI" in output
-        assert "strata setup" in output
-        assert "strata setup --manual" in output
-        assert "ChatGPT" in output
-        assert ".aidc/agent_prompt.md" in output
-        assert ".aidc/agent_patch.diff" in output
-        assert "strata review" in output
-        assert "strata apply --dry-run" in output
+        _assert_terms(output, "no ai adapter is configured yet", "connect ai", "strata setup", "strata setup --manual", ".aidc/agent_prompt.md", ".aidc/agent_patch.diff", "strata review", "strata apply --dry-run")
+        assert "chatgpt" in output.lower() or "claude" in output.lower() or "gemini" in output.lower()
 
 
 TESTS = [

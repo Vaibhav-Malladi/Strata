@@ -89,25 +89,35 @@ prepare context → ask AI → collect patch → review patch → dry-run apply 
 
 ### 1. Easiest Windows bootstrap
 
-Download and run the bootstrap installer from anywhere:
+Open any terminal and run:
 
 ```powershell
-iwr <raw-install-strata-url> -OutFile install-strata.ps1
+iwr https://raw.githubusercontent.com/Vaibhav-Malladi/Strata/main/install-strata.ps1 -OutFile install-strata.ps1
 powershell -ExecutionPolicy Bypass -File .\install-strata.ps1
 ```
 
-That script clones or updates Strata into your profile folder, runs the repo-local installer, and verifies the result.
+You do not need to clone the repo manually for this path. The bootstrap installer clones or updates Strata for you, asks before installing Git, asks before installing Python, asks before changing PATH, and will not overwrite a non-git folder or destroy local changes.
+
+After install, restart the VS Code terminal if `strata` is not found, then run:
+
+```powershell
+strata start
+```
+
+The default install is quiet and writes logs to `.aidc\install.log`. Add `-VerboseInstall` if you need full troubleshooting output.
 
 ### 2. Repo tester or developer
 
 Clone the repo and run the repo-local installer:
 
 ```powershell
-git clone <repo-url> strata
+git clone https://github.com/Vaibhav-Malladi/Strata.git strata
 .\strata\install.ps1
 ```
 
 No need to `cd` into `strata` if you call `.\strata\install.ps1` from the parent folder.
+If you already have the checkout, `D:\path\to\strata\install.ps1` also works from anywhere.
+Use `-VerboseInstall` on either installer when you want full pip and verification output.
 
 ### 3. Manual fallback
 
@@ -127,6 +137,7 @@ strata doctor install
 ```
 
 If `strata` works in one terminal but not another, restart VS Code or the affected terminal after PATH changes.
+If something goes wrong, check `.aidc\install.log`.
 
 ---
 

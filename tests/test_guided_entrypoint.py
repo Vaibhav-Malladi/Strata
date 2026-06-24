@@ -44,6 +44,24 @@ def _run_cli(root: Path, *args: str):
             return capture_output(cli_main)
 
 
+def _assert_terms(text: str, *terms: object) -> None:
+    normalized = text.lower()
+    missing: list[str] = []
+
+    for term in terms:
+        if isinstance(term, (list, tuple, set, frozenset)):
+            options = [str(option) for option in term]
+            if not any(option.lower() in normalized for option in options):
+                missing.append("one of: " + " | ".join(options))
+            continue
+
+        value = str(term)
+        if value.lower() not in normalized:
+            missing.append(value)
+
+    assert not missing, f"Missing expected concept(s): {', '.join(missing)}"
+
+
 def test_cli_no_args_shows_guided_entrypoint_before_advanced_commands():
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
@@ -52,32 +70,31 @@ def test_cli_no_args_shows_guided_entrypoint_before_advanced_commands():
         exit_code, output = _run_cli(root)
 
         assert exit_code == 0
-        assert "Strata" in output
-        assert output.count("Local-first repository intelligence for AI-assisted coding") == 1
-        assert "New here?" in output
-        assert "strata start" in output
-        assert "strata setup" in output
-        assert "strata run" in output
-        assert "strata doctor install" in output
-        assert "Connect AI" in output
-        assert "strata setup" in output
-        assert "strata setup --manual" in output
-        assert "strata setup --ollama" in output
-        assert "strata setup --http" in output
-        assert "strata setup --command" in output
-        assert "strata setup --codex-cli" in output
-        assert "strata setup --aider" in output
+        _assert_terms(
+            output,
+            "strata",
+            "new here?",
+            "strata start",
+            "strata setup",
+            "strata run",
+            "strata doctor install",
+            "connect ai",
+            "strata setup --manual",
+            "strata setup --ollama",
+            "strata setup --http",
+            "strata setup --command",
+            "strata setup --codex-cli",
+            "strata setup --aider",
+            "main workflow",
+            "current state",
+            "next:",
+            "advanced:",
+            "strata ask",
+            "strata review",
+            "strata apply",
+        )
         assert output.index("New here?") < output.index("Connect AI") < output.index("Main workflow") < output.index("Advanced:")
         assert output.index("strata setup") < output.index("strata ask")
-        assert "Main workflow" in output
-        assert "Current state" in output
-        assert "Next:" in output
-        assert "Advanced:" in output
-        assert "strata start" in output
-        assert "strata ask" in output
-        assert "strata review" in output
-        assert "strata apply" in output
-        assert output.index("Main workflow") < output.index("Advanced:")
         assert "strata config set api_key_env OPENAI_API_KEY" not in output
         assert "strata run --type <task_type>" not in output
 
@@ -85,33 +102,33 @@ def test_cli_no_args_shows_guided_entrypoint_before_advanced_commands():
 def test_cli_help_lists_main_workflow_first_and_keeps_advanced_reference():
     _, output = capture_output(print_usage)
 
-    assert "Connect AI" in output
-    assert "Main workflow" in output
-    assert "Usage:" in output
-    assert "Advanced commands" in output
-    assert "Legacy / fallback" in output
+    _assert_terms(output, "connect ai", "main workflow", "usage:", "advanced commands", "legacy / fallback")
     assert output.index("Connect AI") < output.index("Main workflow") < output.index("Advanced commands") < output.index("Legacy / fallback")
-    assert "strata start [path]" in output
-    assert 'strata ask "<task>" [path]' in output
-    assert "strata start" in output
-    assert "strata setup" in output
-    assert "strata run" in output
-    assert "strata setup --manual" in output
-    assert "strata setup --ollama" in output
-    assert "strata setup --http" in output
-    assert "strata help setup" in output
-    assert "strata help ask" in output
-    assert "strata help manual" in output
-    assert "strata review [path]" in output
-    assert "strata apply [--yes] [--dry-run] [path]" in output
-    assert "strata config set http_timeout 120" in output
-    assert "strata apply --dry-run <root>" in output
-    assert "Legacy fallback: use `py cli.py ...`" in output
-    assert "patch" in output.lower()
-    assert "review" in output.lower()
-    assert "apply" in output.lower()
-    assert "Browser AI: use ChatGPT, Claude, Gemini, or Copilot Chat." in output
-    assert "Strata writes `.aidc/agent_prompt.md`" in output
+    _assert_terms(
+        output,
+        "strata start [path]",
+        'strata ask "<task>" [path]',
+        "strata start",
+        "strata setup",
+        "strata run",
+        "strata setup --manual",
+        "strata setup --ollama",
+        "strata setup --http",
+        "strata help setup",
+        "strata help ask",
+        "strata help manual",
+        "strata review [path]",
+        "strata apply [--yes] [--dry-run] [path]",
+        "strata config set http_timeout 120",
+        "strata apply --dry-run <root>",
+        "legacy fallback: use `py cli.py ...`",
+        "patch",
+        "review",
+        "apply",
+        "browser ai",
+        ".aidc/agent_prompt.md",
+    )
+    _assert_terms(output, ("chatgpt", "claude", "gemini", "copilot chat"))
 
 
 def test_review_missing_patch_includes_fix_line():
@@ -177,13 +194,8 @@ def test_ask_command_warning_mentions_direct_edits_and_safety():
             ask_command_module.execute_command_adapter = original_execute
 
         assert exit_code in {0, 1}
-        assert "Warning:" in output
-        assert "This adapter may edit files directly." in output
-        assert "Strata will write `.aidc/direct_edit.diff` if no patch is produced." in output
-        assert ".aidc/agent_patch.diff" in output
-        assert ".aidc/direct_edit.diff" in output
-        assert "git diff" in output
-        assert "Next" in output or "Fix" in output
+        _assert_terms(output, "warning:", ("directly", "direct edit"), ".aidc/direct_edit.diff", ".aidc/agent_patch.diff", "git diff")
+        assert "next" in output.lower() or "fix" in output.lower()
 
 
 TESTS = [

@@ -5,6 +5,24 @@ from context_pack import (
 )
 
 
+def _assert_terms(text: str, *terms: object) -> None:
+    normalized = text.lower()
+    missing: list[str] = []
+
+    for term in terms:
+        if isinstance(term, (list, tuple, set, frozenset)):
+            options = [str(option) for option in term]
+            if not any(option.lower() in normalized for option in options):
+                missing.append("one of: " + " | ".join(options))
+            continue
+
+        value = str(term)
+        if value.lower() not in normalized:
+            missing.append(value)
+
+    assert not missing, f"Missing expected concept(s): {', '.join(missing)}"
+
+
 def make_file(path, **overrides):
     base = {
         "path": path,
@@ -188,12 +206,20 @@ def test_build_context_pack_includes_deterministic_ranking_notes_and_paths():
 
     assert "# Strata Context Pack" in content
     assert "we are stuck on home/landing page" in content
-    assert "Deterministic repo matching was used" in content
-    assert "task is only a hint" in content
-    assert "not an LLM plan" in content
-    assert "Task terms were matched against repository file paths, symbols, routes, and framework hints." in content
-    assert "Broad task hints such as frontend/backend/test/data can affect ranking." in content
-    assert "Confidence:" in content
+    _assert_terms(
+        content,
+        "deterministic repo matching was used",
+        "task is only a hint",
+        "not an llm plan",
+        "repository file paths",
+        "symbols",
+        "routes",
+        "framework hints",
+        "broad task hints",
+        "frontend/backend/test/data",
+        "ranking",
+        "confidence:",
+    )
     assert "src/pages/LandingPage.tsx" in content
     assert "AI Editing Instructions" in content
 

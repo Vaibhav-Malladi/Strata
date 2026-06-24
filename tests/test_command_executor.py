@@ -69,12 +69,12 @@ def test_command_returning_zero_and_writing_valid_patch_returns_patch_ready():
         script_path = _write_script(
             root,
             "fake_ai.py",
-            f"""
+            """
             from pathlib import Path
 
             Path(".aidc").mkdir(parents=True, exist_ok=True)
-            Path(".aidc/agent_patch.diff").write_text({ _valid_patch_text()!r }, encoding="utf-8")
-            """,
+            Path(".aidc/agent_patch.diff").write_text({0!r}, encoding="utf-8")
+            """.format(_valid_patch_text()),
         )
 
         result = execute_command_adapter(root, command=_python_command(script_path))
@@ -283,15 +283,15 @@ def test_stdout_and_stderr_are_captured():
         script_path = _write_script(
             root,
             "fake_ai.py",
-            f"""
+            """
             import sys
             from pathlib import Path
 
             sys.stdout.write("hello stdout\\n")
             sys.stderr.write("hello stderr\\n")
             Path(".aidc").mkdir(parents=True, exist_ok=True)
-            Path(".aidc/agent_patch.diff").write_text({ _valid_patch_text()!r }, encoding="utf-8")
-            """,
+            Path(".aidc/agent_patch.diff").write_text({0!r}, encoding="utf-8")
+            """.format(_valid_patch_text()),
         )
 
         result = execute_command_adapter(root, command=_python_command(script_path))
@@ -330,12 +330,12 @@ def test_result_dict_uses_fresh_lists():
         script_path = _write_script(
             root,
             "fake_ai.py",
-            f"""
+            """
             from pathlib import Path
 
             Path(".aidc").mkdir(parents=True, exist_ok=True)
-            Path(".aidc/agent_patch.diff").write_text({ _valid_patch_text()!r }, encoding="utf-8")
-            """,
+            Path(".aidc/agent_patch.diff").write_text({0!r}, encoding="utf-8")
+            """.format(_valid_patch_text()),
         )
         command = _python_command(script_path)
 

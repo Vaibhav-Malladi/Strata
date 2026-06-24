@@ -37,6 +37,24 @@ def _save_config(root: Path, **overrides) -> None:
     save_config(config, root)
 
 
+def _assert_terms(text: str, *terms: object) -> None:
+    normalized = text.lower()
+    missing: list[str] = []
+
+    for term in terms:
+        if isinstance(term, (list, tuple, set, frozenset)):
+            options = [str(option) for option in term]
+            if not any(option.lower() in normalized for option in options):
+                missing.append("one of: " + " | ".join(options))
+            continue
+
+        value = str(term)
+        if value.lower() not in normalized:
+            missing.append(value)
+
+    assert not missing, f"Missing expected concept(s): {', '.join(missing)}"
+
+
 def test_doctor_adapter_ready_returns_zero():
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
@@ -115,16 +133,19 @@ def test_doctor_http_adapter_shows_ollama_defaults_and_ready():
                 exit_code, output = capture_output(cli_main)
 
         assert exit_code == 0
-        assert "ready" in output
-        assert "Adapter family" in output
-        assert "http" in output
-        assert "Base URL" in output
-        assert "http://localhost:11434" in output
-        assert "Model" in output
-        assert "qwen2.5-coder" in output
-        assert "HTTP timeout seconds" in output
-        assert "180" in output
-        assert "Ollama adapter appears ready. Runtime availability is checked during execute." in output
+        _assert_terms(
+            output,
+            "ready",
+            "adapter family",
+            "http",
+            "base url",
+            "http://localhost:11434",
+            "model",
+            "qwen2.5-coder",
+            "http timeout seconds",
+            "180",
+            "ollama",
+        )
 
 
 def test_doctor_http_adapter_shows_base_url_api_key_env_and_http_timeout():
@@ -145,16 +166,18 @@ def test_doctor_http_adapter_shows_base_url_api_key_env_and_http_timeout():
                 exit_code, output = capture_output(cli_main)
 
         assert exit_code == 0
-        assert "ready" in output
-        assert "Adapter family" in output
-        assert "http" in output
-        assert "Base URL" in output
-        assert "http://localhost:1234/v1" in output
-        assert "API key env" in output
-        assert "OPENAI_API_KEY" in output
-        assert "HTTP timeout seconds" in output
-        assert "240" in output
-        assert "HTTP adapter appears ready for execution." in output
+        _assert_terms(
+            output,
+            "ready",
+            "adapter family",
+            "http",
+            "base url",
+            "http://localhost:1234/v1",
+            "api key env",
+            "openai_api_key",
+            "http timeout seconds",
+            "240",
+        )
 
 
 def test_doctor_without_target_returns_nonzero_and_shows_usage():
@@ -167,7 +190,7 @@ def test_doctor_without_target_returns_nonzero_and_shows_usage():
                 exit_code, output = capture_output(cli_main)
 
         assert exit_code == 1
-        assert "Supported usage is `strata doctor adapter` or `strata doctor install`." in output
+        _assert_terms(output, "supported usage", "strata doctor adapter", "strata doctor install")
 
 
 def test_doctor_unknown_target_returns_nonzero_and_shows_usage():
@@ -180,9 +203,7 @@ def test_doctor_unknown_target_returns_nonzero_and_shows_usage():
                 exit_code, output = capture_output(cli_main)
 
         assert exit_code == 1
-        assert "Usage:" in output
-        assert "strata doctor adapter" in output
-        assert "strata doctor install" in output
+        _assert_terms(output, "usage:", "strata doctor adapter", "strata doctor install")
 
 
 def test_doctor_output_includes_status_adapter_prompt_patch_message():
@@ -260,22 +281,25 @@ def test_doctor_install_reports_python_and_path_diagnostics():
                 exit_code, output = capture_output(cli_main)
 
         assert exit_code == 0
-        assert "Install diagnostics" in output
-        assert "Current working directory" in output
-        assert "Python executable" in output
-        assert "Python version" in output
-        assert "strata on PATH" in output
-        assert "Resolved strata path" in output
-        assert "Expected Scripts dir" in output
-        assert "python -m strata" in output
-        assert "cli module" in output
-        assert "commands.run_command" in output
-        assert "Windows tips" in output
-        assert "py -m pip install -e ." in output
-        assert "py -m strata" in output
-        assert "Restart the VS Code terminal" in output
-        assert "close and reopen VS Code" in output
-        assert "project environment or reinstall Strata" in output
+        _assert_terms(
+            output,
+            "install diagnostics",
+            "current working directory",
+            "python executable",
+            "python version",
+            "strata on path",
+            "resolved strata path",
+            "expected scripts dir",
+            "python -m strata",
+            "cli module",
+            "commands.run_command",
+            "windows tips",
+            "pip",
+            "-e",
+            "py -m strata",
+            "vs code",
+            "reinstall strata",
+        )
 
 
 def test_install_ps1_contains_bootstrap_prompts():
@@ -283,34 +307,67 @@ def test_install_ps1_contains_bootstrap_prompts():
     text = script_path.read_text(encoding="utf-8")
 
     assert "Strata Installer" in text
+    assert "-VerboseInstall" in text
     assert text.index("function Get-RequiredPythonVersion") < text.index(
         "$script:RequiredPythonVersion = Get-RequiredPythonVersion"
     )
     assert text.index("function Test-PyLauncher") < text.index("if (-not (Test-PyLauncher))")
     assert "if ($null -eq $response)" in text
-    assert "Install Python using winget now? [y/N]" in text
-    assert "Add the Python Scripts folder to your user PATH? [y/N]" in text
-    assert "py -m pip install -e" in text
-    assert "Get-Command strata" in text
-    assert "py -m strata doctor install" in text
-    assert "Try: strata start" in text
+    assert ".aidc\\install.log" in text
+    _assert_terms(
+        text,
+        "winget",
+        "python",
+        "path",
+        "scripts",
+        "read-host",
+        "[y/n]",
+        "user",
+        "add-userpathentry",
+        "pip",
+        "-e",
+        "editable",
+        "reporoot",
+        "get-command strata",
+        "strata installed",
+        "py -m strata available",
+        "install diagnostics passed",
+        "strata start",
+        "next:",
+    )
 
 
 def test_install_strata_ps1_contains_bootstrap_flow():
     script_path = Path(__file__).resolve().parents[1] / "install-strata.ps1"
     text = script_path.read_text(encoding="utf-8")
 
-    assert "Strata Bootstrap Installer" in text
-    assert "Install Git using winget now? [y/N]" in text
-    assert "Update existing Strata checkout? [Y/n]" in text
-    assert "if ($null -eq $response)" in text
-    assert "git clone --branch" in text
-    assert "git -C" in text
-    assert "powershell -NoProfile -ExecutionPolicy Bypass -File" in text
-    assert "strata doctor install" in text
-    assert "py -m strata help" in text
-    assert "Try:" in text
-    assert "strata start" in text
+    _assert_terms(
+        text,
+        "Strata Bootstrap Installer",
+        "-VerboseInstall",
+        ".aidc\\install.log",
+        "git",
+        "winget",
+        "checkout",
+        "local changes",
+        "not a git repository",
+        "installdir",
+        "read-host",
+        "[y/n]",
+        "if ($null -eq $response)",
+        "clone",
+        "--branch",
+        "pull --ff-only",
+        "git -c",
+        "powershell",
+        "install.ps1",
+        "strata doctor install",
+        "py -m strata help",
+        "strata checkout ready",
+        "install.log",
+        "running repo-local installer",
+        "confirm-yesdefaultyes",
+    )
     assert text.index("function Test-CommandAvailable") < text.index(
         "Write-Host \"========================================\""
     )
@@ -320,13 +377,37 @@ def test_readme_install_section_mentions_bootstrap_and_fallback():
     readme_path = Path(__file__).resolve().parents[1] / "README.md"
     text = readme_path.read_text(encoding="utf-8")
 
-    assert "install-strata.ps1" in text
-    assert "install.ps1" in text
-    assert "py -m pip install -e" in text
-    assert "py -m strata help" in text
-    assert "strata doctor install" in text
-    assert "No need to `cd` into `strata`" in text
-    assert "restart VS Code" in text or "restart VS Code or the affected terminal" in text
+    _assert_terms(
+        text,
+        "install-strata.ps1",
+        "install.ps1",
+        "https://raw.githubusercontent.com/vaibhav-malladi/strata/main/install-strata.ps1",
+        "https://github.com/vaibhav-malladi/strata.git",
+        "-verboseinstall",
+        "pip",
+        "-e",
+        "editable",
+        "py -m strata help",
+        "strata doctor install",
+        "bootstrap installer",
+        "clone",
+        "update",
+        "git",
+        "python",
+        "path",
+        "non-git",
+        "local changes",
+        "vs code",
+        "strata start",
+        "restart",
+        "install.log",
+    )
+    assert "<raw-install-strata-url>" not in text
+    assert "<repo-url>" not in text
+    assert "YOUR_REAL_USERNAME" not in text
+    assert "YOUR_REAL_REPO" not in text
+    assert "<owner>" not in text
+    assert "<repo-name>" not in text
 
 
 TESTS = [

@@ -1,11 +1,17 @@
 param(
     [string]$RepoUrl = "https://github.com/Vaibhav-Malladi/Strata.git",
     [string]$InstallDir = (Join-Path $env:USERPROFILE "Strata"),
-    [string]$Branch = "main"
+    [string]$Branch = "main",
+    [switch]$VerboseInstall
 )
 
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
+
+$script:VerboseInstall = [bool]$VerboseInstall
+$script:CheckMark = [char]0x2713
+$script:BootstrapLogPath = [System.IO.Path]::GetTempFileName()
+$script:InstallLogPath = Join-Path $InstallDir ".aidc\install.log"
 
 function Test-CommandAvailable {
     param(
@@ -24,6 +30,7 @@ function Confirm-Yes {
     if ($null -eq $response) {
         $response = ""
     }
+
     $normalized = $response.Trim().ToLowerInvariant()
     return $normalized -eq "y" -or $normalized -eq "yes"
 }
@@ -37,6 +44,7 @@ function Confirm-YesDefaultYes {
     if ($null -eq $response) {
         return $true
     }
+
     if ([string]::IsNullOrWhiteSpace($response)) {
         return $true
     }
@@ -80,9 +88,139 @@ function Get-GitStatusShort {
     return $status
 }
 
-function Install-GitWithWinget {
-    Write-Host "Installing Git with winget..."
-    & winget install --id Git.Git -e
+function Format-CommandLine {
+    param(
+        [string]$FilePath,
+        [string[]]$ArgumentList
+    )
+
+    $parts = @($FilePath)
+    foreach ($argument in $ArgumentList) {
+        if ($argument -match '\s') {
+            $parts += ('"{0}"' -f $argument)
+        } else {
+            $parts += $argument
+        }
+    }
+
+    return $parts -join " "
+}
+
+function Initialize-BootstrapLog {
+    New-Item -ItemType Directory -Force -Path (Split-Path $script:BootstrapLogPath) | Out-Null
+    Set-Content -Path $script:BootstrapLogPath -Encoding utf8 -Value @(
+        "Strata bootstrap install log"
+        ("Repository URL: {0}" -f $RepoUrl)
+        ("Install directory: {0}" -f $InstallDir)
+        ("Branch: {0}" -f $Branch)
+        ("Timestamp: {0}" -f (Get-Date))
+        ""
+    )
+}
+
+function Add-BootstrapLog {
+    param(
+        [string]$Text
+    )
+
+    if (-not $Text) {
+        return
+    }
+
+    Add-Content -Path $script:BootstrapLogPath -Encoding utf8 -Value $Text
+}
+
+function Invoke-LoggedNativeCommand {
+    param(
+        [string]$Label,
+        [string]$FilePath,
+        [string[]]$ArgumentList,
+        [string]$WorkingDirectory = $env:TEMP
+    )
+
+    $stdout = [System.IO.Path]::GetTempFileName()
+    $stderr = [System.IO.Path]::GetTempFileName()
+
+    try {
+        Add-BootstrapLog ("=== {0} ===" -f $Label)
+        Add-BootstrapLog ("Command: {0}" -f (Format-CommandLine -FilePath $FilePath -ArgumentList $ArgumentList))
+        Add-BootstrapLog ("Working directory: {0}" -f $WorkingDirectory)
+        Add-BootstrapLog ""
+
+        $process = Start-Process `
+            -FilePath $FilePath `
+            -ArgumentList $ArgumentList `
+            -WorkingDirectory $WorkingDirectory `
+            -NoNewWindow `
+            -Wait `
+            -PassThru `
+            -RedirectStandardOutput $stdout `
+            -RedirectStandardError $stderr
+
+        $stdoutText = if (Test-Path $stdout) { Get-Content $stdout -Raw } else { "" }
+        $stderrText = if (Test-Path $stderr) { Get-Content $stderr -Raw } else { "" }
+
+        if ($stdoutText) {
+            Add-BootstrapLog $stdoutText
+        }
+
+        if ($stderrText) {
+            Add-BootstrapLog $stderrText
+        }
+
+        if ($script:VerboseInstall) {
+            if ($stdoutText) {
+                Write-Host $stdoutText -NoNewline
+            }
+
+            if ($stderrText) {
+                Write-Host $stderrText -NoNewline
+            }
+        }
+
+        return [pscustomobject]@{
+            ExitCode = $process.ExitCode
+            Stdout = $stdoutText
+            Stderr = $stderrText
+        }
+    } finally {
+        Remove-Item -Force $stdout, $stderr -ErrorAction SilentlyContinue
+    }
+}
+
+function Merge-BootstrapLogIntoInstallLog {
+    if (-not (Test-Path $script:InstallLogPath)) {
+        New-Item -ItemType Directory -Force -Path (Split-Path $script:InstallLogPath) | Out-Null
+        Set-Content -Path $script:InstallLogPath -Encoding utf8 -Value @(
+            "Strata install log"
+            ("Repository: {0}" -f $InstallDir)
+            ("Timestamp: {0}" -f (Get-Date))
+            ""
+        )
+    }
+
+    if (Test-Path $script:BootstrapLogPath) {
+        $bootstrapContent = Get-Content $script:BootstrapLogPath -Raw
+        if ($bootstrapContent) {
+            Add-Content -Path $script:InstallLogPath -Encoding utf8 -Value @(
+                ""
+                "=== Bootstrap ==="
+                ""
+            )
+            Add-Content -Path $script:InstallLogPath -Encoding utf8 -Value $bootstrapContent
+        }
+    }
+}
+
+function Show-Failure {
+    param(
+        [string]$Message,
+        [string]$LogPath
+    )
+
+    Write-Host $Message
+    Write-Host "Detailed logs:"
+    Write-Host ("  {0}" -f $LogPath)
 }
 
 function Invoke-InnerInstaller {
@@ -92,51 +230,23 @@ function Invoke-InnerInstaller {
 
     $installerPath = Join-Path $RepoPath "install.ps1"
     if (-not (Test-Path $installerPath)) {
-        Write-Host "Repo-local install.ps1 was not found."
+        Show-Failure "Repo-local install.ps1 was not found." $script:InstallLogPath
         Write-Host "The checkout may be incomplete."
         exit 1
     }
 
     Write-Host ""
     Write-Host "Running repo-local installer..."
-    & powershell -NoProfile -ExecutionPolicy Bypass -File $installerPath
+
+    $arguments = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $installerPath)
+    if ($script:VerboseInstall) {
+        $arguments += "-VerboseInstall"
+    }
+
+    & powershell @arguments
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "Repo-local installer did not complete successfully."
+        Show-Failure "Repo-local installer did not complete successfully." $script:InstallLogPath
         exit 1
-    }
-}
-
-function Invoke-Verification {
-    param(
-        [string]$RepoPath
-    )
-
-    Write-Host ""
-    Write-Host "Verifying installation..."
-    & py -m strata help
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "py -m strata help failed."
-    }
-
-    $strataCommand = Get-Command strata -ErrorAction SilentlyContinue
-    if ($strataCommand) {
-        Write-Host ""
-        Write-Host "Running strata doctor install..."
-        & strata doctor install
-        if ($LASTEXITCODE -ne 0) {
-            Write-Host "strata doctor install reported a problem."
-        }
-        return
-    }
-
-    Write-Host ""
-    Write-Host "strata is not on PATH yet."
-    Write-Host "Running fallback verification with py -m strata doctor install..."
-    & py -m strata doctor install
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "Fallback verification reported a problem."
-    } else {
-        Write-Host "py -m strata works. Restart VS Code or your terminal after PATH changes."
     }
 }
 
@@ -153,40 +263,47 @@ Write-Host "  - install or update Strata at the install directory"
 Write-Host "  - check Git first"
 Write-Host "  - run the repo-local install.ps1"
 Write-Host "  - let install.ps1 handle Python and PATH prompts"
-Write-Host '  - verify `strata doctor install`'
-Write-Host '  - verify `py -m strata help`'
+Write-Host '  - verify `strata doctor install` quietly'
+Write-Host '  - verify `py -m strata help` quietly'
 Write-Host ""
 
 if (-not (Test-CommandAvailable git)) {
     if (Test-CommandAvailable winget) {
         if (Confirm-Yes "Install Git using winget now? [y/N]") {
-            Install-GitWithWinget
+            $wingetResult = Invoke-LoggedNativeCommand -Label "winget install Git" -FilePath "winget" -ArgumentList @("install", "--id", "Git.Git", "-e") -WorkingDirectory $env:TEMP
+            if ($wingetResult.ExitCode -ne 0) {
+                Show-Failure "Git installation failed." $script:BootstrapLogPath
+                exit 1
+            }
+
             if (-not (Test-CommandAvailable git)) {
-                Write-Host "Git is still not available after winget finished."
+                Show-Failure "Git is still not available after winget finished." $script:BootstrapLogPath
                 Write-Host "Restart your terminal, then rerun install-strata.ps1."
                 exit 1
             }
         } else {
-            Write-Host "Git is required before Strata can be installed."
+            Show-Failure "Git is required before Strata can be installed." $script:BootstrapLogPath
             exit 1
         }
     } else {
-        Write-Host "Git is not installed, and winget is unavailable."
+        Show-Failure "Git is not installed, and winget is unavailable." $script:BootstrapLogPath
         Write-Host "Install Git manually, then rerun install-strata.ps1."
         exit 1
     }
 }
 
+Initialize-BootstrapLog
+
 if (Test-Path $InstallDir) {
     if (-not (Test-GitRepository $InstallDir)) {
-        Write-Host "The install directory already exists, but it is not a git repository."
+        Show-Failure "The install directory already exists, but it is not a git repository." $script:BootstrapLogPath
         Write-Host "Choose a different InstallDir or move this folder aside before rerunning."
         exit 1
     }
 
     $status = Get-GitStatusShort $InstallDir
     if ($status) {
-        Write-Host "Local changes exist in the existing Strata checkout:"
+        Show-Failure "Local changes exist in the existing Strata checkout:" $script:BootstrapLogPath
         Write-Host $status
         Write-Host "Resolve, commit, or stash those changes manually, then rerun install-strata.ps1."
         exit 1
@@ -197,25 +314,22 @@ if (Test-Path $InstallDir) {
         exit 0
     }
 
-    Write-Host ""
     Write-Host "Updating existing Strata checkout..."
-    & git -C $InstallDir pull --ff-only
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "Git update failed."
+    $gitResult = Invoke-LoggedNativeCommand -Label "git pull --ff-only" -FilePath "git" -ArgumentList @("-C", $InstallDir, "pull", "--ff-only") -WorkingDirectory $InstallDir
+    if ($gitResult.ExitCode -ne 0) {
+        Show-Failure "Git update failed." $script:BootstrapLogPath
         exit 1
     }
 } else {
     Write-Host "Cloning Strata..."
-    & git clone --branch $Branch $RepoUrl $InstallDir
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "Git clone failed."
+    $gitResult = Invoke-LoggedNativeCommand -Label "git clone" -FilePath "git" -ArgumentList @("clone", "--branch", $Branch, $RepoUrl, $InstallDir) -WorkingDirectory $env:TEMP
+    if ($gitResult.ExitCode -ne 0) {
+        Show-Failure "Git clone failed." $script:BootstrapLogPath
         exit 1
     }
 }
 
-Invoke-InnerInstaller -RepoPath $InstallDir
-Invoke-Verification -RepoPath $InstallDir
+Merge-BootstrapLogIntoInstallLog
+Write-Host ("{0} Strata checkout ready" -f $script:CheckMark)
 
-Write-Host ""
-Write-Host "Try:"
-Write-Host "  strata start"
+Invoke-InnerInstaller -RepoPath $InstallDir
