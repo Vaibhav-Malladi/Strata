@@ -237,25 +237,25 @@ def _review_status(verify_status: str | None, gate_status: str) -> str:
 
 def _next_action(review_status: str, auto_verify: bool) -> str:
     if review_status == "FAIL":
-        return format_error("Fix the reported issues and rerun `strata review`.")
+        return "Fix: Fix the reported issues and rerun `strata review`."
 
     if review_status == "WARN":
-        return format_warning("Review warnings before commit, then rerun if needed.")
+        return "Fix: Review warnings before commit, then rerun if needed."
 
     if not auto_verify:
-        return format_warning("Verify was skipped by config. Run `strata verify` if needed.")
+        return "Next: Verify was skipped by config. Run `strata verify` if needed."
 
-    return format_success("Safe to review generated reports and commit if expected.")
+    return "Next: Safe to review generated reports and commit if expected."
 
 
 def _patch_only_next_action(review_status: str) -> str:
     if review_status == "FAIL":
-        return format_error("Fix the reported issues and rerun `strata ask`.")
+        return "Fix: Fix the reported issues and rerun `strata ask`."
 
     if review_status == "WARN":
-        return format_warning("Review warnings before applying the patch.")
+        return "Fix: Review warnings before applying the patch."
 
-    return format_success("Run `strata apply` when you are ready.")
+    return "Next: Run `strata apply` when you are ready."
 
 
 def _patch_status(patch_summary: dict, validation: dict | None) -> str:
@@ -330,11 +330,8 @@ def _print_patch_review(patch_summary: dict, validation: dict | None) -> None:
     patch_status = str(patch_summary.get("status", "missing")).lower()
     validation_status = str(validation.get("status", patch_status)).lower() if validation is not None else patch_status
     targets = validation.get("targets", []) if validation is not None else []
-    next_step = (
-        'Run `strata apply`.'
-        if validation is not None and validation.get("valid")
-        else 'Run `strata ask "your task"` first.'
-    )
+    next_label = "Next" if validation is not None and validation.get("valid") else "Fix"
+    next_step = "Run `strata apply`." if validation is not None and validation.get("valid") else 'Run `strata ask "your task"` first.'
 
     print(build_banner())
     print()
@@ -348,7 +345,7 @@ def _print_patch_review(patch_summary: dict, validation: dict | None) -> None:
             ("Validation", _display_validation_status(validation_status)),
             ("Targets", ", ".join(str(target) for target in targets) if targets else "-"),
             ("Dry-run", _display_validation_status(validation_status)),
-            ("Next", next_step),
+            (next_label, next_step),
         ],
         status=_patch_status(patch_summary, validation),
     )

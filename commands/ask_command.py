@@ -15,7 +15,7 @@ from ui import (
     format_warning,
     print_banner,
     print_command_header,
-    print_next_steps,
+    print_success,
     print_status_card,
     print_warning,
     render_step,
@@ -23,7 +23,13 @@ from ui import (
 )
 from workflow_config import load_config
 
-_DIRECT_EDIT_WARNING = "This adapter may edit files directly. V6 direct-edit safety is not enabled yet. Review carefully."
+_DIRECT_EDIT_WARNING_LINES = [
+    "Warning:",
+    "  This adapter may edit files directly.",
+    "  Strata V6 direct-edit safety is not enabled yet.",
+    "  If this command changes files without creating `.aidc/agent_patch.diff`,",
+    "  run `strata review` and inspect `git diff` carefully.",
+]
 
 
 def write_ask_command(root_path: str = ".", *args: str) -> int:
@@ -82,15 +88,19 @@ def write_ask_command(root_path: str = ".", *args: str) -> int:
         )
 
         if adapter == "prompt_file":
-            print_next_steps(_manual_next_steps())
+            for line in _manual_next_steps():
+                print(line)
+            print_success('Next: Save the AI patch to `.aidc/agent_patch.diff`, then run `strata review`.')
             return 0
 
-        print_next_steps(_not_ready_next_steps())
+        for line in _not_ready_next_steps():
+            print(line)
+        print_error('Fix: Fix the adapter setup and run `strata ask` again.')
         return 1
 
     if adapter_family == "command":
-        print_warning(_DIRECT_EDIT_WARNING)
-        warnings = _merge_unique(warnings, [_DIRECT_EDIT_WARNING])
+        _print_direct_edit_warning()
+        warnings = _merge_unique(warnings, [" ".join(line.strip() for line in _DIRECT_EDIT_WARNING_LINES[1:])])
 
     execution_result = _execute_adapter(root, adapter, prepare_result["config"])
     execution_status = str(execution_result.get("status", "failed")).lower()
@@ -125,10 +135,10 @@ def write_ask_command(root_path: str = ".", *args: str) -> int:
     )
 
     if execution_status == "patch_ready":
-        print_next_steps(["Run `strata review`."])
+        print_success("Next: Run `strata review`.")
         return 0
 
-    print_next_steps(["Fix the adapter setup and run `strata ask` again."])
+    print_error("Fix: Fix the adapter setup and run `strata ask` again.")
     return 1
 
 
@@ -354,23 +364,6 @@ def _merge_unique(existing: list[str], additions: Sequence[str]) -> list[str]:
     return merged
 
 
-def _manual_next_steps() -> list[str]:
-    return [
-        "1. Open `.aidc/agent_prompt.md`",
-        "2. Paste it into the AI tool",
-        "3. Ask for a unified diff",
-        "4. Save it to `.aidc/agent_patch.diff`",
-        "5. Run `strata review`",
-    ]
-
-
-def _not_ready_next_steps() -> list[str]:
-    return [
-        "Run `strata doctor adapter`.",
-        "Fix the adapter setup, then run `strata ask` again.",
-    ]
-
-
 def _parse_ask_args(args: Sequence[str]) -> dict:
     positionals: list[str] = []
 
@@ -417,3 +410,25 @@ def _print_error(title: str, message: str) -> None:
     print_banner()
     print_command_header("Ask", title, mode="compact")
     print(format_error(message))
+
+
+def _print_direct_edit_warning() -> None:
+    for line in _DIRECT_EDIT_WARNING_LINES:
+        print(line)
+
+
+def _manual_next_steps() -> list[str]:
+    return [
+        "1. Open `.aidc/agent_prompt.md`",
+        "2. Paste it into the AI tool",
+        "3. Ask for a unified diff",
+        "4. Save it to `.aidc/agent_patch.diff`",
+        "5. Run `strata review`",
+    ]
+
+
+def _not_ready_next_steps() -> list[str]:
+    return [
+        "Run `strata doctor adapter`.",
+        "Fix the adapter setup, then run `strata ask` again.",
+    ]

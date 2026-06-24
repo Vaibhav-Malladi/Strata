@@ -49,6 +49,7 @@ def test_apply_dry_run_missing_returns_nonzero_and_prints_missing():
         assert "missing" in output
         assert "Validation" in output
         assert re.search(r"Validation\s+.*missing", output)
+        assert len(re.findall(r"^Status\s+", output, re.MULTILINE)) == 1
         assert re.search(r"Targets\s+-", output)
         assert "Patch file not found." in output
         assert "Applies patch" in output

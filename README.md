@@ -80,6 +80,9 @@ This is the recommended beginner path:
 - `apply` applies the approved patch.
 - Strata does not commit or push automatically.
 
+Run `strata` at any time to see the recommended next step.
+Run `strata help` for advanced commands.
+
 Manual mode note:
 
 - If your adapter is `prompt_file`, `strata ask` writes `.aidc/agent_prompt.md`.

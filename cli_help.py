@@ -1,124 +1,168 @@
-from cli_ui import bold, cyan, dim
+from cli_ui import bold, dim
+
+from status import analyze_status
 
 
-def print_usage() -> None:
+def print_guided_entrypoint(root: str = ".") -> None:
     print(bold("Strata"))
-    print(dim("Local-first repository intelligence for AI coding agents."))
-    print()
-
-    print(bold("Usage:"))
-    print("  strata start [path]")
-    print('  strata ask "<task>" [path]')
-    print("  strata review [path]")
-    print("  strata review <root>")
-    print("  strata apply")
-    print("  strata apply --yes")
-    print("  strata apply --dry-run")
-    print("  strata apply --dry-run <root>")
-    print("  strata apply --yes <root>")
-    print("  strata start <root>")
-    print('  strata ask "<task>" <root>')
-    print("  strata scan [path]")
-    print("  strata show [path]")
-    print("  strata map [path]")
-    print("  strata routes [path]")
-    print("  strata diff [path]")
-    print("  strata patch [root]")
-    print("  strata execute")
-    print("  strata execute <root>")
-    print("  strata doctor adapter")
-    print("  strata doctor adapter <root>")
-    print("  strata snapshot [path]")
-    print("  strata verify")
-    print("  strata verify <root>")
-    print("  strata gate")
-    print("  strata gate <root>")
-    print("  strata setup")
-    print("  strata setup --manual")
-    print("  strata setup --command")
-    print("  strata setup --aider")
-    print("  strata setup --codex-cli")
-    print("  strata setup --http")
-    print("  strata setup --ollama")
-    print("  strata setup --show")
-    print("  strata config [root]")
-    print("  strata config init [root]")
-    print("  strata config set <key> <value> [root]")
-    print("  strata config set mode hybrid")
-    print("  strata config set agent codex")
-    print("  strata config set auto_snapshot false")
-    print("  strata config set command_timeout_seconds 120")
-    print("  strata config set http_timeout_seconds 120")
-    print("  strata config set http_timeout 120")
-    print("  strata config set base_url http://localhost:1234/v1")
-    print("  strata config set api_key_env OPENAI_API_KEY")
-    print('  strata brief "<task>"')
-    print('  strata brief <path> "<task>"')
-    print("  strata cycles [path]")
-    print("  strata health [path]")
-    print("  strata impact <file>")
-    print("  strata impact <root> <file>")
-    print("  strata tests-for <file>")
-    print("  strata tests-for <root> <file>")
-    print('  strata preflight "<task>"')
-    print('  strata preflight <root> "<task>"')
-    print('  strata context "<task>"')
-    print('  strata context <root> "<task>"')
-    print('  strata prepare "<task>"')
-    print('  strata prepare "<task>" <root>')
-    print('  strata run "<task>"')
-    print('  strata run "<task>" <root>')
-    print('  strata run --type <task_type> "<task>"')
-    print('  strata run --type <task_type> "<task>" <root>')
-    print('  strata run --dry-run "<task>"')
-    print('  strata run --dry-run --type <task_type> "<task>"')
-    print('  strata run "<task>" --dry-run')
-    print('  strata run "<task>" --type <task_type>')
-    print('  strata agent-prompt "<task>" <agent>')
-    print('  strata agent-prompt <root> "<task>" <agent>')
-    print("  strata status [path]")
-    print("  strata help")
-    print()
-
-    print(dim("Legacy fallback: use `py cli.py ...` if the `strata` entry point is unavailable."))
+    print(dim("Local-first repository intelligence for AI-assisted coding."))
     print()
 
     print(bold("Main workflow:"))
-    print(f"  {cyan('start')}         Set up Strata and understand this project.")
-    print(f"  {cyan('ask')}           Prepare context, ask AI, and collect a safe patch.")
-    print(f"  {cyan('review')}        Inspect and validate the patch before applying.")
-    print(f"  {cyan('apply')}         Apply the approved patch to your working tree.")
+    for index, (command, description) in enumerate(_main_workflow_lines(), start=1):
+        print(f"  {index}. {command}")
+        print(f"     {description}")
+        if index != 4:
+            print()
+
+    print()
+    print(bold("Current state"))
+    print(f"  {_current_state(root)}")
+    print()
+    print(bold("Next:"))
+    print(f"  {_recommended_next_command(root)}")
+    print()
+    print(bold("Advanced:"))
+    print("  Run `strata help` to see all advanced commands.")
+
+
+def print_usage() -> None:
+    print("Strata")
+    print("Local-first repository intelligence for AI-assisted coding workflows.")
     print()
 
-    print(bold("Advanced commands:"))
-    print(f"  {cyan('scan')}          Build .aidc/graph.json")
-    print(f"  {cyan('show')}          Show saved graph summary or one file")
-    print(f"  {cyan('map')}           Generate .aidc/project_map.md")
-    print(f"  {cyan('routes')}        Generate .aidc/routes.md and .aidc/routes.json")
-    print(f"  {cyan('diff')}          Compare the latest snapshot against the current repository structure.")
-    print(f"  {cyan('patch')}         Inspect .aidc/agent_patch.diff without applying it.")
-    print(f"  {cyan('apply --dry-run')}  Validate patch safety without applying it.")
-    print(f"  {cyan('execute')}       Run the configured command adapter and produce .aidc/agent_patch.diff.")
-    print(f"  {cyan('doctor')}        Check adapter readiness without executing commands.")
-    print(f"  {cyan('snapshot')}      Save a timestamped structural snapshot for later diff/verify.")
-    print(f"  {cyan('verify')}        Verify current repository structure against the latest snapshot.")
-    print(f"  {cyan('gate')}          Check current repository readiness without requiring a snapshot.")
-    print(f"  {cyan('setup')}         Launch the first-time setup wizard or apply a preset.")
-    print(f"  {cyan('config')}        Show or initialize .aidc/config.json")
-    print(f"  {cyan('config set')}    Update a workflow config value")
-    print(f"  {cyan('brief')}         Generate .aidc/task_brief.md")
-    print(f"  {cyan('cycles')}        Check circular dependencies")
-    print(f"  {cyan('health')}        Show dependency health summary")
-    print(f"  {cyan('impact')}        Analyze impact of changing a file")
-    print(f"  {cyan('tests-for')}     Suggest tests for a changed file")
-    print(f"  {cyan('preflight')}     Generate .aidc/preflight.md")
-    print(f"  {cyan('context')}       Generate a compact deterministic AI context pack for a task.")
-    print(f"  {cyan('prepare')}       Run scan, context, preflight, and agent prompt generation.")
-    print(f"  {cyan('run')}           Build a workflow plan, prepare artifacts, and route through the configured adapter without executing commands automatically.")
-    print(f"  {cyan('agent-prompt')}  Generate .aidc/agent_prompt.md")
-    print(f"  {cyan('status')}        Check generated Strata output status")
-    print(f"  {cyan('help')}          Show this help message")
+    print("Main workflow:")
+    for command, description in _main_workflow_lines():
+        print(f"  {command}")
+        print(f"    {description}")
     print()
 
-    print(bold("Supported agents:"))
-    print("  generic, local, aider, chatgpt")
+    print("Root path forms:")
+    for line in _workflow_root_forms():
+        print(f"  {line}")
+    print()
+
+    print("Usage:")
+    print("  strata <command> [args]")
+    print("  strata help")
+    print()
+
+    print("Advanced commands:")
+    for line, description in _advanced_command_entries():
+        print(f"  {line}")
+        if description:
+            print(f"    {description}")
+    print()
+
+    print("Legacy / fallback:")
+    print("Legacy fallback: use `py cli.py ...` if the `strata` entry point is unavailable.")
+    print("  Supported agents: generic, local, aider, chatgpt")
+
+
+def _main_workflow_lines() -> list[tuple[str, str]]:
+    return [
+        ("strata start [path]", "Set up Strata and understand this project."),
+        ('strata ask "<task>" [path]', "Prepare context, ask AI, and collect a safe patch."),
+        ("strata review [path]", "Inspect and validate the patch before applying."),
+        ("strata apply [--yes] [--dry-run] [path]", "Validate or apply the generated patch."),
+    ]
+
+
+def _advanced_command_entries() -> list[tuple[str, str | None]]:
+    return [
+        ("strata scan [path]", None),
+        ("strata show [path]", None),
+        ("strata map [path]", None),
+        ("strata routes [path]", None),
+        ("strata diff [path]", None),
+        ("strata patch [root]", None),
+        ("strata execute", "Run the configured command adapter and produce .aidc/agent_patch.diff."),
+        ("strata execute <root>", None),
+        ("strata doctor adapter", None),
+        ("strata doctor adapter <root>", None),
+        ("strata snapshot [path]", None),
+        ("strata verify", None),
+        ("strata verify <root>", None),
+        ("strata gate", None),
+        ("strata gate <root>", None),
+        ("strata setup", None),
+        ("strata setup --manual", None),
+        ("strata setup --command", None),
+        ("strata setup --aider", None),
+        ("strata setup --codex-cli", None),
+        ("strata setup --http", None),
+        ("strata setup --ollama", None),
+        ("strata setup --show", None),
+        ("strata config [root]", None),
+        ("strata config init [root]", None),
+        ("strata config set <key> <value> [root]", None),
+        ("strata config set mode hybrid", None),
+        ("strata config set agent codex", None),
+        ("strata config set auto_snapshot false", None),
+        ("strata config set command_timeout_seconds 120", None),
+        ("strata config set http_timeout_seconds 120", None),
+        ("strata config set http_timeout 120", None),
+        ("strata config set base_url http://localhost:1234/v1", None),
+        ("strata config set api_key_env OPENAI_API_KEY", None),
+        ('strata brief "<task>"', None),
+        ('strata brief <path> "<task>"', None),
+        ("strata cycles [path]", None),
+        ("strata health [path]", None),
+        ("strata impact <file>", None),
+        ("strata impact <root> <file>", None),
+        ("strata tests-for <file>", None),
+        ("strata tests-for <root> <file>", None),
+        ('strata preflight "<task>"', None),
+        ('strata preflight <root> "<task>"', None),
+        ('strata context "<task>"', None),
+        ('strata context <root> "<task>"', None),
+        ('strata prepare "<task>"', None),
+        ('strata prepare "<task>" <root>', None),
+        ('strata run "<task>"', "Build a workflow plan, prepare artifacts, and route through the configured adapter without executing commands automatically."),
+        ('strata run "<task>" <root>', None),
+        ('strata run --type <task_type> "<task>"', None),
+        ('strata run --type <task_type> "<task>" <root>', None),
+        ('strata run --dry-run "<task>"', None),
+        ('strata run --dry-run --type <task_type> "<task>"', None),
+        ('strata run "<task>" --dry-run', None),
+        ('strata run "<task>" --type <task_type>', None),
+        ('strata agent-prompt "<task>" <agent>', None),
+        ('strata agent-prompt <root> "<task>" <agent>', None),
+        ("strata status [path]", None),
+        ("strata help", None),
+        ("strata apply --dry-run", None),
+        ("strata apply --dry-run <root>", None),
+        ("strata apply --yes <root>", None),
+    ]
+
+
+def _workflow_root_forms() -> list[str]:
+    return [
+        'strata start <root>',
+        'strata ask "<task>" <root>',
+        "strata review <root>",
+        "strata apply --dry-run <root>",
+        "strata apply --yes <root>",
+    ]
+
+
+def _current_state(root: str) -> str:
+    try:
+        status = analyze_status(root)
+    except Exception:
+        return "unknown"
+
+    state = str(status.get("state", "unknown")).strip()
+    if not state:
+        return "unknown"
+
+    return state
+
+
+def _recommended_next_command(root: str) -> str:
+    state = _current_state(root)
+
+    if state == "current":
+        return 'Run `strata ask "your task"`.'
+
+    return "Run `strata start`."

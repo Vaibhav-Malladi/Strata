@@ -49,14 +49,16 @@ def write_apply_dry_run_command(root_path: str = ".") -> int:
     validation_status = validation["status"] if validation is not None else patch_summary.get("status", "missing")
     targets = validation.get("targets", []) if validation is not None else []
     message = _format_message(validation if validation is not None else patch_summary)
+    next_label = "Next" if validation is not None and validation.get("valid") else "Fix"
+    next_step = "Run `strata apply`." if validation is not None and validation.get("valid") else 'Run `strata ask "your task"` first.'
     rows = [
-        ("Status", display_status),
         ("Patch", format_path(patch_summary.get("patch_path", ".aidc/agent_patch.diff"))),
         ("Exists", _format_exists(bool(patch_summary.get("exists")))),
         ("Size", _format_size(patch_summary.get("size", 0))),
         ("Validation", _format_validation(validation_status)),
         ("Targets", _format_targets(targets)),
         ("Applies patch", "no"),
+        (next_label, next_step),
         ("Message", message),
     ]
 
@@ -249,7 +251,7 @@ def _confirm_apply(targets: object) -> bool:
 
 def _apply_success_message(message: object) -> str:
     base = str(message or "Patch applied successfully.")
-    note = "Strata did not commit or push anything. Run your project tests and commit when ready."
+    note = "Next: Run your project tests, review `git diff`, then commit when ready. Strata did not commit or push anything."
 
     if note in base:
         return base

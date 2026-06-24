@@ -1,6 +1,6 @@
 import sys
 
-from cli_help import print_usage
+from cli_help import print_guided_entrypoint, print_usage
 from commands.agent_prompt_command import write_agent_prompt_command
 from commands.brief_command import write_brief
 from commands.config_command import (
@@ -48,7 +48,7 @@ def main() -> int:
     args = sys.argv[1:]
 
     if not args:
-        print_usage()
+        print_guided_entrypoint()
         return 0
 
     command = args[0]
