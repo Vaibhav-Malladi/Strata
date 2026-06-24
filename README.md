@@ -1,8 +1,46 @@
 # Strata
 
-Strata V6 is a guided, patch-first AI coding workflow. It helps you prepare focused context, ask an AI for a patch, review the patch, and apply it only after you confirm it looks right.
+**Strata helps you use AI coding tools more accurately and safely.**
 
-The beginner workflow is:
+It scans your codebase, builds focused context for your task, helps your AI tool produce a patch, lets you review the patch, and applies it only after you confirm it.
+
+Strata is built for one simple idea:
+
+> **Preflight before editing. Verify after editing.**
+
+Strata does **not** commit or push automatically.
+Strata does **not** apply changes unless you explicitly run `strata apply`.
+Strata does **not** call an AI service unless you configure an adapter or workflow that does so.
+
+---
+
+## What Strata Actually Does
+
+When people use AI coding tools, two common problems happen.
+
+### Problem 1: The AI gets too much or wrong context
+
+Large projects have many files. If an AI tool reads too much, it can get confused. If it reads too little, it may miss the important file.
+
+Strata helps by scanning your repository and preparing **focused context** for the specific task you asked about.
+
+### Problem 2: AI edits are hard to inspect
+
+Some AI coding tools produce a patch. Some edit files directly. Either way, you need to know what changed before trusting it.
+
+Strata helps by keeping the workflow reviewable:
+
+* it prepares focused context before AI work,
+* it expects a patch when possible,
+* it reports direct edits when a tool changes files directly,
+* it lets you review before applying,
+* it never commits or pushes for you.
+
+---
+
+## Quickstart: Simple Workflow
+
+The beginner workflow is four commands:
 
 ```powershell
 strata start
@@ -11,45 +49,25 @@ strata review
 strata apply
 ```
 
-Strata does **not** commit or push automatically. It also does **not** edit source files by itself. Instead, it helps humans and AI coding tools understand repository structure and risk before and after edits.
+| Step               | What happens                                                           |
+| ------------------ | ---------------------------------------------------------------------- |
+| `strata start`     | Scans your repo and prepares Strata.                                   |
+| `strata ask "..."` | Builds focused context and asks or helps your AI tool produce a patch. |
+| `strata review`    | Shows what the AI wants to change before applying it.                  |
+| `strata apply`     | Applies the patch only after confirmation.                             |
 
-**Core message:** Preflight before editing. Verify after editing.
+Strata does not commit or push. That remains your decision.
 
 ---
 
-## Status
+## Install
 
-```text
-V6 / guided patch-first workflow
-```
+### Requirements
 
-## Terminal UI
+* Python 3.10+
+* `rich>=13`
 
-Strata now uses a Rich-powered terminal UI for cleaner banners, cards, and tables.
-Progress indicators appear only in interactive terminals, while CI and non-TTY runs
-stay plain and readable.
-
-The command screens now use a fuller Strata wordmark, compact command headers for
-doctor/patch/apply, a lifecycle panel for execute, and visible progress updates in
-`py tests.py` and `py tests\run.py`. Test runs use a Rich progress bar in
-interactive terminals and a periodic plain-text fallback in non-TTY runs.
-
-Useful env vars:
-
-- `STRATA_PLAIN=1`
-- `STRATA_NO_SPINNER=1`
-- `STRATA_FORCE_SPINNER=1`
-- `STRATA_NO_COLOR=1`
-- `NO_COLOR=1`
-
-## Install / Local Development
-
-Requirements:
-
-- Python 3.10+
-- `rich>=13`
-
-Recommended install:
+### Local development install
 
 ```powershell
 git clone https://github.com/Vaibhav-Malladi/Strata.git
@@ -58,524 +76,469 @@ py -m pip install -e .
 strata help
 ```
 
-Main workflow:
-
-```powershell
-strata <command>
-```
-
-Windows fallback:
+If the `strata` command is not available in your shell yet, use:
 
 ```powershell
 py cli.py help
 ```
 
-Use the fallback if the `strata` console script is not available yet in your shell.
+---
 
-## Beginner Workflow
+## Connecting Your AI Tool
 
-This is the recommended path:
+Strata can work with different AI coding workflows.
 
-- `start` prepares Strata for the repository.
-- `ask` prepares focused context and asks AI for a patch.
-- `review` checks the patch before applying it.
-- `apply` applies only after confirmation.
-- Strata does not commit or push automatically.
+Some users prefer to copy and paste prompts manually. Others use command-line tools like Aider, Codex CLI, Ollama, or an OpenAI-compatible endpoint.
 
-After `strata ask`, Strata shows a compact inline patch review so you can quickly see what changed before running a full review or applying.
-Strata also shows an estimated context reduction after it builds focused context, so you can see how much repo content was intentionally left out. The numbers are estimates only, not exact token counts or cost savings.
-Some AI tools may edit files directly. Strata detects this and writes `.aidc/direct_edit.diff` so the change is still reviewable.
+---
 
-Run `strata` at any time to see the recommended next step. Advanced commands still exist for power users.
+### Option 1: Manual Paste Workflow
 
-Manual mode note:
+Use this if you work with:
 
-- If your adapter is `prompt_file`, `strata ask` writes `.aidc/agent_prompt.md`.
-- Open that file in your AI tool, ask for a unified diff, save it to `.aidc/agent_patch.diff`, and then run `strata review`.
+* ChatGPT
+* Claude
+* Copilot Chat
+* any AI tool where you paste text manually
 
-Advanced commands still exist for power users, including `setup`, `config`, `run`, `doctor`, `execute`, `patch`, `gate`, `scan`, `status`, and `context`.
+This is the safest default workflow.
 
-## First-Time Setup
+```powershell
+strata ask "fix the login bug"
+```
 
-Use the setup wizard to configure Strata without editing config keys by hand:
+Strata writes:
+
+```text
+.aidc/agent_prompt.md
+```
+
+Open that file, paste it into your AI tool, and ask the AI to return a **unified diff** patch.
+
+Save the AI’s patch here:
+
+```text
+.aidc/agent_patch.diff
+```
+
+Then run:
+
+```powershell
+strata review
+strata apply
+```
+
+---
+
+### Option 2: Aider
+
+Use this if you use Aider as your AI coding CLI.
+
+```powershell
+strata setup --aider
+strata ask "fix the login bug"
+strata review
+strata apply
+```
+
+Aider is a command-family adapter. Some AI CLIs can edit files directly depending on their settings. If that happens, Strata can write a direct-edit report:
+
+```text
+.aidc/direct_edit.diff
+```
+
+That makes the change reviewable even when the tool did not produce `.aidc/agent_patch.diff`.
+
+---
+
+### Option 3: Codex CLI
+
+Use this if you use Codex CLI.
+
+```powershell
+strata setup --codex-cli
+strata ask "fix the login bug"
+strata review
+strata apply
+```
+
+Codex CLI is also a command-family adapter. As with Aider, if it edits files directly instead of writing a patch, Strata can report those direct edits through:
+
+```text
+.aidc/direct_edit.diff
+```
+
+---
+
+### Option 4: Ollama
+
+Use this if you run local models through Ollama.
+
+```powershell
+strata setup --ollama
+strata config set model qwen2.5-coder
+strata ask "fix the login bug"
+strata review
+strata apply
+```
+
+Ollama support uses the native Ollama endpoint:
+
+```text
+/api/generate
+```
+
+Recommended local models:
+
+* `qwen2.5-coder`
+* `qwen2.5-coder:7b`
+
+Strata still keeps the patch workflow explicit. It asks for a patch, writes the result to `.aidc/agent_patch.diff`, and waits for you to review and apply.
+
+---
+
+### Option 5: OpenAI-Compatible HTTP Endpoint
+
+Use this if you have a local or cloud endpoint that follows the OpenAI-compatible chat completions style.
+
+```powershell
+strata setup --http
+strata config set base_url http://localhost:1234/v1
+strata config set api_key_env OPENAI_API_KEY
+strata ask "fix the login bug"
+strata review
+strata apply
+```
+
+Important:
+
+```text
+api_key_env
+```
+
+stores only the environment variable name. It should not store the actual secret key.
+
+---
+
+## What You See in the Terminal
+
+Strata uses a Rich-powered terminal UI with banners, cards, tables, and clear status messages.
+
+It can show:
+
+* current workflow status,
+* next recommended command,
+* patch review status,
+* context efficiency estimates,
+* direct-edit warnings,
+* test progress,
+* gate results.
+
+In interactive terminals, Strata can show progress indicators. In CI and non-interactive terminals, it falls back to plain readable output.
+
+Useful environment variables:
+
+| Variable                 | Effect                                                    |
+| ------------------------ | --------------------------------------------------------- |
+| `STRATA_PLAIN=1`         | Use plain text output.                                    |
+| `STRATA_NO_COLOR=1`      | Disable Strata colors.                                    |
+| `NO_COLOR=1`             | Disable colors using the standard environment convention. |
+| `STRATA_NO_SPINNER=1`    | Disable spinners and animations.                          |
+| `STRATA_FORCE_SPINNER=1` | Force spinner behavior in unusual terminals.              |
+
+---
+
+## Context Efficiency
+
+Strata tries to reduce the amount of unnecessary code sent to the AI.
+
+After building focused context, Strata can show a card like:
+
+```text
+Context Efficiency
+  Source files scanned        141
+  Files included              10
+  Full source estimate        ~269,825 tokens
+  Strata context estimate     ~808 tokens
+  Estimated context reduction ~99%
+  Note                        Actual AI token usage may vary by adapter.
+```
+
+This is an estimate, not a guarantee.
+
+The metric means:
+
+* Strata scanned the repo.
+* Strata selected only the files likely to matter.
+* The context pack is smaller than sending everything.
+* Actual AI token usage can vary depending on the adapter or AI tool.
+
+---
+
+## Supported Languages
+
+| Language / Framework    | Support level               |
+| ----------------------- | --------------------------- |
+| Python                  | Strongest support           |
+| JavaScript / TypeScript | Good heuristic support      |
+| React                   | Detected where recognizable |
+| Angular                 | Detected where recognizable |
+
+JavaScript and TypeScript support includes lightweight handling for:
+
+* relative imports,
+* extensionless imports,
+* index files,
+* path aliases,
+* simple workspace references,
+* barrel re-exports.
+
+It is not a full TypeScript compiler replacement.
+
+---
+
+## Files Strata Creates
+
+Strata writes local workflow files inside:
+
+```text
+.aidc/
+```
+
+Common files:
+
+| File                           | Purpose                                              |
+| ------------------------------ | ---------------------------------------------------- |
+| `.aidc/config.json`            | Local Strata settings for this repo.                 |
+| `.aidc/agent_prompt.md`        | Prompt/context to give your AI tool.                 |
+| `.aidc/agent_patch.diff`       | Patch returned by the AI tool.                       |
+| `.aidc/direct_edit.diff`       | Report created when an AI tool edits files directly. |
+| `.aidc/graph.json`             | Repository structure graph.                          |
+| `.aidc/context_pack.md`        | Focused context for the task.                        |
+| `.aidc/gate_report.md`         | Readiness report before commit.                      |
+| `.aidc/diff_report.md`         | Structural diff report.                              |
+| `.aidc/verification_report.md` | Verification report.                                 |
+| `.aidc/project_map.md`         | Human-readable project map.                          |
+| `.aidc/routes.md`              | Route report, where supported.                       |
+
+The `.aidc/` folder is local workflow output. Generally, do not commit it unless you intentionally decide to track a specific generated report.
+
+---
+
+## Safety Model
+
+Strata is designed around a patch-first safety model.
+
+### What Strata does
+
+* prepares focused context,
+* asks for or helps collect a patch,
+* validates patch safety,
+* shows review output,
+* applies only when you explicitly run apply,
+* reports direct edits from tools that bypass patch creation.
+
+### What Strata does not do
+
+* does not secretly edit files,
+* does not apply patches during `ask`,
+* does not commit,
+* does not push,
+* does not store secret API keys,
+* does not replace your test suite.
+
+### Patch safety
+
+Strata rejects dangerous patch paths such as:
+
+```text
+.git/
+.env
+.ssh/
+.aidc/config.json
+```
+
+You can validate without applying:
+
+```powershell
+strata apply --dry-run
+```
+
+Then apply only when ready:
+
+```powershell
+strata apply
+```
+
+---
+
+# Power User and Developer Reference
+
+Everything below is for users who want more control over Strata’s workflow.
+
+---
+
+## Setup Presets
 
 ```powershell
 strata setup
-```
-
-Presets:
-
-```powershell
 strata setup --manual
 strata setup --command
 strata setup --http
 strata setup --ollama
+strata setup --aider
+strata setup --codex-cli
 strata setup --show
 ```
 
-Recommended choices:
-
-- Manual if you copy prompts into ChatGPT, Claude, or Copilot.
-- Command if a local CLI writes `.aidc/agent_patch.diff`.
-- HTTP if you use an OpenAI-compatible local or cloud endpoint.
-- Ollama if you want a local Qwen/Ollama workflow.
-
-## Aider / Codex CLI Presets
-
-Strata includes command-family presets for Aider and Codex CLI so setup is faster
-and the expected workflow stays explicit.
-
-Use them when your installed CLI can read `.aidc/agent_prompt.md` and write
-`.aidc/agent_patch.diff` for Strata to inspect afterward:
-
-```powershell
-strata setup --aider
-strata setup --codex-cli
-```
-
-Interactive setup also accepts the aliases `aider`, `codex`, `codex_cli`, and
-`codex-cli`.
-
-These presets are still conservative command-family entries. Many AI coding CLIs
-can edit files directly depending on their configuration, so always verify the
-command before running `strata execute`.
-
-Recommended flow:
-
-```powershell
-strata setup --aider
-strata doctor adapter
-strata execute --dry-run
-strata execute
-strata patch
-strata apply --dry-run
-strata apply
-```
-
-The same flow works for Codex CLI after `strata setup --codex-cli`.
+| Preset                     | Use it when                                                   |
+| -------------------------- | ------------------------------------------------------------- |
+| `strata setup`             | You want the setup wizard.                                    |
+| `strata setup --manual`    | You copy prompts into ChatGPT, Claude, or Copilot manually.   |
+| `strata setup --command`   | You use a local command that writes `.aidc/agent_patch.diff`. |
+| `strata setup --http`      | You use an OpenAI-compatible endpoint.                        |
+| `strata setup --ollama`    | You use a local Ollama model.                                 |
+| `strata setup --aider`     | You use Aider.                                                |
+| `strata setup --codex-cli` | You use Codex CLI.                                            |
+| `strata setup --show`      | You want to inspect current config.                           |
 
 ---
 
-## Advanced / Legacy Workflow
+## Adapter Reference
+
+| Adapter                  | Family        | Status       | Behavior                                                              |
+| ------------------------ | ------------- | ------------ | --------------------------------------------------------------------- |
+| `prompt_file`            | `prompt_file` | Stable       | Writes `.aidc/agent_prompt.md`; user pastes manually.                 |
+| `command`                | `command`     | Stable       | Runs a configured local command and expects `.aidc/agent_patch.diff`. |
+| `aider`                  | `command`     | Stable       | Aider preset in the command family.                                   |
+| `codex_cli`              | `command`     | Stable       | Codex CLI preset in the command family.                               |
+| `ollama`                 | `http`        | Stable       | Uses Ollama’s native `/api/generate` endpoint.                        |
+| `openai_compatible_http` | `http`        | Experimental | Uses an OpenAI-compatible HTTP endpoint.                              |
+
+---
+
+## Config Reference
+
+Show current config:
 
 ```powershell
-cd D:\AI-PROJECT\strata
-py -m pip install -e .
+strata config
+```
 
+Create config if missing:
+
+```powershell
 strata config init
-strata config set mode hybrid
-strata config set agent codex
-strata config set auto_snapshot false
-strata config set command_timeout_seconds 120
-
-strata run "fix helper bug"
-# Paste .aidc\agent_prompt.md into your AI coding tool.
-# Then run strata review.
-
-strata review
-strata gate
 ```
 
-## Model-agnostic Run Workflow
-
-`strata run` remains the model-agnostic workflow shell for advanced users.
-It does not lock Strata to one AI model or tool. Instead, it reads the local workflow
-config, builds a deterministic task plan, runs prepare, and routes through the configured
-adapter.
-
-The safe default adapter is still `prompt_file`. That means Strata prepares
-`.aidc/agent_prompt.md` and tells you where to paste it next. It does not execute AI
-automatically.
-
-If `adapter=command`, `strata run` still only prepares the workflow. Use
-`strata doctor adapter` to check the configuration, then `strata execute` to produce
-`.aidc/agent_patch.diff`.
-
-Safe example:
-
-```powershell
-strata run "fix broken helper import"
-```
-
-Dry-run example:
-
-```powershell
-strata run --dry-run "fix broken helper import"
-```
-
-This shows the detected task type and planned steps. It does not write files, create
-`.aidc`, run prepare, call adapters, or execute AI.
-
-This does not execute the configured command adapter, and it does not create or apply
-`.aidc/agent_patch.diff`.
-
-## Patch-first Command Execution
-
-`strata execute` runs the configured `command` adapter or experimental
-`openai_compatible_http` adapter. Strata verifies the adapter contract and the patch
-output, not whether the external tool is actually AI. Command execution is explicit,
-separate from `strata run`, and patch application still requires `strata apply`.
-
-Command execution has a timeout. It defaults to 120 seconds and can be adjusted in
-local workflow config. `strata execute` may also show short stdout/stderr previews
-from the command it ran, but it still does not apply patches automatically.
-
-HTTP-family adapters now have an experimental execution path for
-`openai_compatible_http`. `strata doctor adapter` still validates `base_url`,
-`api_key_env`, and timeout config locally without reading the actual environment
-variable or making any network call. The HTTP request/response contract helpers are
-already in place, including the OpenAI-compatible URL, payload, and response-text
-extraction shapes. `strata execute` can now POST to OpenAI-compatible chat
-completion endpoints, extract a unified diff, write `.aidc/agent_patch.diff`, and
-validate the patch. It still does not apply patches automatically. Ollama
-execution is implemented through the native `/api/generate` endpoint and still
-keeps patch application explicit.
-
-Strata groups adapters into three families: `prompt_file`, `command`, and `http`.
-Named adapters are presets or aliases that map onto one of those families.
-
-`prompt_file` remains manual. `command` is the only family with real command-line
-execution today, and `openai_compatible_http` adds experimental HTTP execution.
-Command-family presets like `aider` and `codex_cli` are supported as
-setup/doctor-friendly presets, but Strata still expects the external CLI to write
-`.aidc/agent_patch.diff` and keeps patch application explicit.
-
-Safe workflow:
-
-1. configure adapter
-2. run or prepare task
-3. doctor check
-4. execute adapter
-5. inspect patch
-6. dry-run apply
-7. apply patch
-8. review and gate
-9. commit manually only after tests and gate pass
-
-The configured adapter is expected to produce `.aidc/agent_patch.diff`.
-The patch must be a safe unified diff. Validation rejects dangerous paths such as
-`.git`, `.env`, `.ssh`, and `.aidc/config.json`.
-`strata apply --dry-run` validates patch format and safety without applying.
-`strata apply` applies only after validation.
-Strata never commits automatically.
-
-PowerShell example:
-
-```powershell
-strata config set adapter command
-strata config set command "python fake_ai.py"
-strata run "fix helper bug"
-strata doctor adapter
-strata execute
-strata patch
-strata apply --dry-run
-strata apply
-strata review
-py tests.py
-py tests\run.py
-.\strata gate
-git add .
-git commit -m "Fix helper bug"
-```
-
-### Manual Smoke Test With Fake Command Adapter
-
-Use this only as a local smoke test. The helper script is not a real AI tool; it
-just writes a demo patch for `demo_patch_target.txt` into `.aidc/agent_patch.diff`.
-It emits the create-file diff shape Strata can validate and apply today.
+Common config examples:
 
 ```powershell
 strata config set adapter command
 strata config set command "py examples\fake_ai_patch_writer.py"
-strata run "create demo patch file"
-strata doctor adapter
-strata execute
-strata patch
-strata apply --dry-run
-strata apply
-strata review
-```
-
-If `py` is not registered on your Windows machine, use `python` or your local
-repo interpreter path for the `command` value.
-
-Cleanup:
-
-```powershell
-del demo_patch_target.txt
-del .aidc\agent_patch.diff
-```
-
-## Adapter Status
-
-| Adapter | Family | Status | Behavior |
-|---|---|---|---|
-| `prompt_file` | `prompt_file` | Implemented | Writes/uses `.aidc/agent_prompt.md`; user pastes it into an AI tool manually. |
-| `command` | `command` | Implemented | Runs the configured command adapter and writes `.aidc/agent_patch.diff`. |
-| `ollama` | `http` | Implemented | Uses Ollama's native `/api/generate` endpoint, writes `.aidc/agent_patch.diff`, and does not apply patches automatically. |
-| `openai_compatible_http` | `http` | Experimental | OpenAI-compatible HTTP execution writes `.aidc/agent_patch.diff`, validates the patch, and still does not apply it automatically. |
-| `aider` | `command` | Implemented | Command-family preset that writes `aider --message-file .aidc/agent_prompt.md`; verify it emits `.aidc/agent_patch.diff` before execute. |
-| `codex_cli` | `command` | Implemented | Command-family preset that writes `codex --prompt-file .aidc/agent_prompt.md`; verify it emits `.aidc/agent_patch.diff` before execute. |
-
-## Native Ollama Workflow
-
-Ollama defaults to `http://localhost:11434` and uses the native `/api/generate`
-endpoint. Strata asks Ollama for a unified diff patch, writes the result to
-`.aidc/agent_patch.diff`, and still leaves patch application to `strata apply`.
-
-Recommended local models:
-
-- `qwen2.5-coder`
-- `qwen2.5-coder:7b` if you already have it installed
-
-Example:
-
-```powershell
-strata config set adapter ollama
-strata config set model qwen2.5-coder
-strata config set base_url null
-strata run "fix helper bug"
-strata doctor adapter
-strata execute --dry-run
-strata execute
-strata patch
-strata apply --dry-run
-strata apply
-strata review
-```
-
-If you want to point Strata at a different local Ollama server, set
-`base_url` to that server's root URL. The adapter still expects unified diff
-output and does not apply patches automatically.
-
-Manual safety loop:
-
-```powershell
-strata scan
-strata context "task"
-strata preflight "task"
-strata snapshot
-
-# AI/user edits
-
-strata diff
-strata verify
-strata gate
-```
-
-## Workflow Config
-
-`.aidc/config.json` is local workflow config generated for the current repository and is not meant to be a shared project source file.
-
-```powershell
-strata config
-strata config init
-strata config set mode hybrid
-strata config set agent codex
-strata config set auto_snapshot false
-strata config set auto_verify true
-strata config set require_gate true
 strata config set command_timeout_seconds 120
-strata config set base_url http://localhost:1234/v1
-strata config set api_key_env OPENAI_API_KEY
-strata config set http_timeout_seconds 120
-```
 
-Supported keys:
-
-- `mode`: `manual` | `hybrid` | `auto`
-- `agent`: `manual` | `local` | `codex` | `aider`
-- `adapter`: `prompt_file` | `command` | `ollama` | `openai_compatible_http` | `aider` | `codex_cli`
-- `prompt_path`: path to the generated AI prompt file; defaults to `.aidc/agent_prompt.md`
-- `model`: optional model name for future adapters
-- `command`: optional command string for the command adapter
-- `command_timeout_seconds`: optional command timeout in seconds, default `120`
-- `base_url`: optional HTTP adapter base URL
-- `api_key_env`: optional environment variable name that stores the API key, not the secret itself
-- `http_timeout_seconds`: optional HTTP adapter timeout in seconds, default `120`
-- `auto_snapshot`: `true` | `false`
-- `auto_verify`: `true` | `false`
-- `require_gate_pass_before_commit`: `true` | `false`
-
-Important notes:
-
-- `mode=auto` is a stored config option for future workflows.
-- It does not yet mean Strata will automatically run an AI coding agent.
-- `agent=codex` currently means Strata generates Codex-ready prompt context.
-- It does not yet execute Codex.
-- `prompt_file` stays manual even when `command` is configured.
-- The named adapter value is checked against its family, so the docs and CLI can
-  explain whether a configured adapter is manual, command-driven, or HTTP-shaped.
-- `api_key_env` stores only the environment variable name. Do not put the secret
-  value in config.
-- `openai_compatible_http` can execute against OpenAI-compatible chat completion
-  endpoints and still keeps patch application separate.
-- `strata doctor adapter` validates HTTP config only and does not make network calls.
-- The HTTP adapter contract helpers build deterministic OpenAI-compatible request
-  and response shapes locally, and `strata execute` now uses them for
-  `openai_compatible_http`.
-
-Example HTTP setup:
-
-```powershell
 strata config set adapter openai_compatible_http
 strata config set base_url http://localhost:1234/v1
 strata config set api_key_env OPENAI_API_KEY
 strata config set http_timeout_seconds 120
+
+strata config set adapter ollama
+strata config set model qwen2.5-coder
+
+strata config set auto_snapshot false
+strata config set auto_verify true
+strata config set require_gate true
+```
+
+Supported config keys include:
+
+| Key                               | Meaning                                             |
+| --------------------------------- | --------------------------------------------------- |
+| `adapter`                         | Adapter type or preset.                             |
+| `prompt_path`                     | Path to generated AI prompt.                        |
+| `model`                           | Model name for compatible adapters.                 |
+| `command`                         | Local command for command adapter.                  |
+| `command_timeout_seconds`         | Timeout for command execution.                      |
+| `base_url`                        | HTTP adapter base URL.                              |
+| `api_key_env`                     | Environment variable name for API key.              |
+| `http_timeout_seconds`            | Timeout for HTTP adapter.                           |
+| `auto_snapshot`                   | Whether prepare can create snapshots automatically. |
+| `auto_verify`                     | Whether review can run verification automatically.  |
+| `require_gate_pass_before_commit` | Whether gate is required by local workflow policy.  |
+
+---
+
+## Full Command Reference
+
+| Command                                   | Purpose                                                             |
+| ----------------------------------------- | ------------------------------------------------------------------- |
+| `strata start [root]`                     | Prepare Strata for the repository and show readiness.               |
+| `strata ask "<task>" [root]`              | Prepare context, ask AI for a patch, and collect the result safely. |
+| `strata review [root]`                    | Inspect and validate the patch before applying it.                  |
+| `strata apply [--dry-run] [--yes] [root]` | Validate or apply the generated patch.                              |
+| `strata setup [--preset]`                 | Configure Strata adapter settings.                                  |
+| `strata config [root]`                    | Show workflow config.                                               |
+| `strata config init [root]`               | Create `.aidc/config.json` if missing.                              |
+| `strata config set <key> <value> [root]`  | Set a workflow config value.                                        |
+| `strata run "<task>" [root]`              | Advanced workflow shell.                                            |
+| `strata prepare "<task>" [root]`          | Generate task context and prompt files.                             |
+| `strata doctor adapter`                   | Validate configured adapter and contract.                           |
+| `strata execute [--dry-run] [root]`       | Run the configured adapter and produce a patch.                     |
+| `strata patch [root]`                     | Inspect the generated patch.                                        |
+| `strata gate`                             | Check repository readiness before commit.                           |
+| `strata scan`                             | Build `.aidc/graph.json`.                                           |
+| `strata context "<task>"`                 | Generate a focused context pack.                                    |
+| `strata preflight "<task>"`               | Generate `.aidc/preflight.md`.                                      |
+| `strata agent-prompt "<task>" <agent>`    | Generate `.aidc/agent_prompt.md`.                                   |
+| `strata snapshot`                         | Save a structural snapshot.                                         |
+| `strata diff`                             | Compare the latest snapshot with current structure.                 |
+| `strata verify`                           | Verify structure against latest snapshot.                           |
+| `strata status`                           | Check generated Strata output status.                               |
+| `strata map`                              | Generate `.aidc/project_map.md`.                                    |
+| `strata routes`                           | Generate `.aidc/routes.md` and `.aidc/routes.json`.                 |
+| `strata cycles`                           | Inspect repository cycles.                                          |
+| `strata health`                           | Run a repository health check.                                      |
+| `strata impact`                           | Summarize change impact.                                            |
+| `strata tests-for`                        | Suggest tests related to a path or task.                            |
+| `strata brief`                            | Generate a concise task brief.                                      |
+| `strata show`                             | Show saved graph summary or file details.                           |
+| `strata help`                             | Show CLI help text.                                                 |
+
+---
+
+## Advanced Manual Execute Workflow
+
+Use this when you want full control over each step.
+
+```powershell
+strata config set adapter command
+strata config set command "py examples\fake_ai_patch_writer.py"
+
 strata run "fix helper bug"
 strata doctor adapter
-strata execute --dry-run
 strata execute
 strata patch
 strata apply --dry-run
 strata apply
 strata review
+
+py tests.py
+py tests\run.py
+
+$env:PYTHONIOENCODING="utf-8"
+strata gate
+
+git status --short
+git add <files-you-reviewed>
+git commit -m "Fix helper bug"
 ```
 
-This example shows the experimental HTTP execution flow. `strata execute --dry-run`
-does not make a network call, and `strata execute` writes `.aidc/agent_patch.diff`
-without applying it. Use `strata patch`, `strata apply --dry-run`, and
-`strata apply` afterward.
+Avoid committing before tests and gate pass.
 
 ---
 
-## Prepare Before Editing
-
-```powershell
-strata prepare "fix login bug"
-```
-
-This does:
-
-- scan
-- context
-- preflight
-- agent-prompt
-- snapshot only if `auto_snapshot=true`
-
-This writes:
-
-- `.aidc/graph.json`
-- `.aidc/context_pack.md`
-- `.aidc/preflight.md`
-- `.aidc/agent_prompt.md`
-- optional snapshot files
-
-Paste `.aidc\agent_prompt.md` into your AI coding tool after running it.
-
----
-
-## Review After Editing
-
-```powershell
-strata review
-```
-
-This does:
-
-- diff
-- verify if `auto_verify=true`
-- gate
-
-This writes:
-
-- `.aidc/diff_report.md`
-- `.aidc/diff_report.json`
-- `.aidc/verification_report.md` if verify runs
-- `.aidc/verification_report.json` if verify runs
-- `.aidc/gate_report.md`
-- `.aidc/gate_report.json`
-
-If review passes, inspect the reports, run tests and gate, and then commit manually if expected. If review fails, inspect the generated reports and fix the issues. Review does not commit automatically.
-
----
-
-## Command Summary
-
-| Command | Purpose |
-|---|---|
-| `strata start [root]` | Prepare Strata for the repository and show readiness. |
-| `strata ask "<task>" [root]` | Prepare context, ask AI for a patch, and collect the result safely. |
-| `strata review [root]` | Inspect and validate the patch before applying it. |
-| `strata apply [--yes] [--dry-run] [root]` | Validate or apply the generated patch. |
-| `strata config [root]` | Show workflow config for the repository. |
-| `strata config init [root]` | Create `.aidc/config.json` if missing; validate and preserve an existing valid config. |
-| `strata config set <key> <value> [root]` | Set a workflow config value. |
-| `strata run "<task>" [root]` | Model-agnostic workflow shell. Plans the task, prepares context, writes `.aidc/agent_prompt.md`, and routes through the configured adapter without executing commands automatically. |
-| `strata prepare "<task>" [root]` | Generate task context and prompt files before editing. |
-| `strata doctor adapter` | Validate the configured adapter and contract before execution. |
-| `strata execute [--dry-run] [root]` | Run the configured command adapter or experimental OpenAI-compatible HTTP adapter and produce `.aidc/agent_patch.diff` without applying it. |
-| `strata patch [root]` | Inspect the generated patch. |
-| `strata apply --dry-run [root]` | Validate patch safety without applying it. |
-| `strata scan` | Build `.aidc/graph.json`. |
-| `strata context "task"` | Generate a compact deterministic context pack. |
-| `strata preflight "task"` | Generate `.aidc/preflight.md` for a task. |
-| `strata agent-prompt "<task>" <agent>` | Generate `.aidc/agent_prompt.md` for a task and agent. |
-| `strata snapshot` | Save a structural snapshot under `.aidc/snapshots/`. |
-| `strata diff` | Compare the latest snapshot with the current repository structure. |
-| `strata verify` | Verify current structure against the latest snapshot. |
-| `strata gate` | Check current repository readiness before commit. |
-| `strata status` | Check generated Strata output status. |
-| `strata map` | Generate `.aidc/project_map.md`. |
-| `strata routes` | Generate `.aidc/routes.md` and `.aidc/routes.json`. |
-| `strata cycles` | Inspect repository cycles. |
-| `strata health` | Run a repository health check. |
-| `strata impact` | Summarize change impact. |
-| `strata tests-for` | Suggest tests related to a path or task. |
-| `strata brief` | Generate a concise task brief. |
-| `strata show` | Show the saved graph summary or file details. |
-| `strata help` | Show the CLI help text. |
-
----
-
-## Generated Files
-
-Common `.aidc` outputs:
-
-```text
-.aidc/config.json
-.aidc/agent_prompt.md
-.aidc/graph.json
-.aidc/context_pack.md
-.aidc/preflight.md
-.aidc/snapshots/latest.txt
-.aidc/diff_report.md
-.aidc/diff_report.json
-.aidc/verification_report.md
-.aidc/verification_report.json
-.aidc/gate_report.md
-.aidc/gate_report.json
-.aidc/routes.md
-.aidc/routes.json
-.aidc/project_map.md
-.aidc/task_brief.md
-```
-
-`.aidc/config.json` is local workflow config, not a shared project file.
-
-Except for `.aidc/config.json`, these files are generated reports and should generally not be edited manually.
-
----
-
-## Current Language Support
-
-- Python support is strongest.
-- JavaScript and TypeScript parsing exists in lightweight form.
-- JS/TS resolution now covers relative imports, extensionless imports, index files,
-  tsconfig/jsconfig path aliases, simple package and workspace references, and
-  barrel re-export edges.
-- The JS/TS resolver is heuristic and uses standard-library file inspection only;
-  it does not implement full TypeScript compiler resolution.
-- React and Angular hints may be detected where recognizable.
-- Strata now reports repo intelligence summaries in CLI output and reports, so
-  languages, frameworks, React components/hooks, Angular components/services/
-  modules/routes, and alias/workspace import resolution are easier to spot.
-
-Rust, Java, and full framework support are planned, not complete.
-
----
-
-## Testing
+## Testing Strata Itself
 
 Run:
 
@@ -590,56 +553,70 @@ Expected result:
 All tests passed.
 ```
 
+For a final readiness check:
+
+```powershell
+$env:PYTHONIOENCODING="utf-8"
+strata gate
+```
+
 ---
 
-## Limitations / Roadmap
+## V6 Release Summary
 
-- `mode=auto` is planned workflow state, not autonomous execution.
-- `strata run` prepares the workflow and does not execute commands automatically.
-- `prompt_file` remains the manual default for the run workflow.
-- `strata execute` runs the configured `command` adapter or experimental OpenAI-compatible HTTP adapter, and Strata still does not decide whether the external tool is AI.
-- `strata execute` writes a patch; it does not apply patches automatically.
-- `strata apply` is separate and explicit, and `--dry-run` validates patch safety without applying.
-- Other direct integrations such as future agent backends remain planned; the `aider` and `codex_cli` presets are supported now, but the external CLI still owns patch creation.
-- Strata never commits changes automatically; gate remains the safety boundary.
-- Undo and history support are planned.
-- Balanced and fast workflow modes are planned.
-- Machine-readable JSON/plain output is planned.
-- Deeper language and monorepo support is still growing.
-- Watch, hooks, and CI integrations are planned.
-- Model-specific token and cost reporting is planned.
+Strata V6 focuses on making the workflow guided, safer, and easier to understand.
 
-Planned future improvements include:
+V6 added:
 
-- undo/history support
-- balanced and fast workflow modes
-- machine-readable JSON/plain output
-- deeper language and monorepo support
-- watch/hooks/CI integrations
-- model-specific token/cost reporting
+* guided workflow commands,
+* beginner-friendly `strata` entrypoint,
+* clearer Next/Fix guidance,
+* inline patch review after `strata ask`,
+* estimated context reduction metrics,
+* direct-edit reporting through `.aidc/direct_edit.diff`,
+* preserved advanced commands for power users.
+
+---
+
+## Roadmap
+
+Planned future work includes:
+
+* undo and history support,
+* balanced and fast workflow modes,
+* machine-readable JSON/plain output,
+* watch mode and CI hooks,
+* deeper monorepo support,
+* model-specific token and cost reporting,
+* Rust and Java language support.
+
+These are planned items, not current behavior.
 
 ---
 
 ## What Strata Is For
 
-Strata is designed for developers who want better repository context before and after editing with AI tools. It helps answer questions like:
+Strata is useful when you want better repository context before and after AI-assisted edits.
 
-- What files exist?
-- What imports what?
-- What routes exist?
-- What files are relevant to this task?
-- What could break if this file changes?
-- What tests should I run?
-- What context should I give an AI assistant?
+It helps answer questions like:
 
-It is useful for:
+* What files matter for this task?
+* What imports what?
+* What routes exist?
+* What could break if this file changes?
+* What tests should I run?
+* What context should I give my AI assistant?
+* What exactly changed after the AI worked?
 
-- AI-assisted coding workflows
-- local-first repository inspection
-- pre-edit context packs
-- post-edit structural verification
-- Python projects
-- JavaScript and TypeScript projects
+Strata is useful for:
+
+* AI-assisted coding workflows,
+* local-first repository inspection,
+* pre-edit context packs,
+* post-edit review,
+* patch-first workflows,
+* Python projects,
+* JavaScript and TypeScript projects.
 
 ---
 
@@ -647,20 +624,18 @@ It is useful for:
 
 Strata is not:
 
-- an autonomous coding agent
-- an IDE
-- an LLM
-- a file editor
-- a runtime monitor
-- a cloud indexing platform
-- a replacement for compiler-grade analysis tools
+* an autonomous coding agent,
+* an IDE,
+* an LLM,
+* a cloud indexing platform,
+* a replacement for tests,
+* a replacement for compiler-grade analysis tools,
+* a tool that commits or pushes code for you.
 
 ---
 
-## Notes
+## Core Promise
 
-- `strata scan` creates the repository graph used by most other commands.
-- `strata snapshot` is the baseline for `strata diff` and `strata verify`.
-- `strata gate` is useful when you want a readiness check without thinking about a snapshot.
-- `strata status` helps confirm whether generated artifacts are current.
-- `py cli.py ...` can be used if the console entry point is unavailable.
+Strata keeps AI coding work inspectable.
+
+It helps you prepare better context before AI edits and verify what happened after AI edits, while keeping the final decision in your hands.
