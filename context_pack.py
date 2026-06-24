@@ -31,6 +31,7 @@ from context_matching import (
     _normalize_path,
     _normalize_text,
 )
+from repo_summary import collect_frontend_symbols, collect_framework_names, summarize_graph
 
 
 MAX_RELEVANT_FILES = 10
@@ -160,10 +161,27 @@ def build_context_pack(graph: dict, task: str, routes_data: dict | None = None) 
         for item in relevant_files
     ]
     task_terms = extract_task_terms(task)
+    repo_summary = summarize_graph(graph)
     routes = _rank_relevant_routes(graph, task_terms, relevant_paths, routes_data)
     neighbors = find_dependency_neighbors(graph, relevant_paths)
     verification = _suggest_verification(graph, relevant_files)
     related_tests = _collect_related_tests(graph, relevant_files)
+    frontend_frameworks = collect_framework_names(repo_summary)
+    frontend_source = (
+        {
+            "files": [
+                item["file"]
+                for item in relevant_files
+                if isinstance(item, dict) and isinstance(item.get("file"), dict)
+            ]
+        }
+        if relevant_files
+        else graph
+    )
+    frontend_symbols = collect_frontend_symbols(frontend_source)
+
+    if not frontend_symbols and frontend_source is not graph:
+        frontend_symbols = collect_frontend_symbols(graph)
 
     lines = []
     lines.append("# Strata Context Pack")
@@ -172,6 +190,13 @@ def build_context_pack(graph: dict, task: str, routes_data: dict | None = None) 
     lines.append("")
     lines.append(task)
     lines.append("")
+    if frontend_frameworks:
+        lines.append("## Repository Intelligence")
+        lines.append("")
+        lines.append(f"Frameworks detected: {', '.join(frontend_frameworks)}")
+        if frontend_symbols:
+            lines.append(f"Relevant frontend symbols: {', '.join(frontend_symbols)}")
+        lines.append("")
     lines.append("## How This Pack Was Built")
     lines.append("")
     lines.append(

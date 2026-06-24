@@ -532,6 +532,9 @@ Except for `.aidc/config.json`, these files are generated reports and should gen
 - The JS/TS resolver is heuristic and uses standard-library file inspection only;
   it does not implement full TypeScript compiler resolution.
 - React and Angular hints may be detected where recognizable.
+- Strata now reports repo intelligence summaries in CLI output and reports, so
+  languages, frameworks, React components/hooks, Angular components/services/
+  modules/routes, and alias/workspace import resolution are easier to spot.
 
 Rust, Java, and full framework support are planned, not complete.
 

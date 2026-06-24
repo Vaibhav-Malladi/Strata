@@ -9,6 +9,7 @@ from cli_core import (
     save_graph,
 )
 from context_pack import build_context_pack, rank_relevant_files
+from repo_summary import build_repo_intelligence_rows, summarize_graph
 from routes import collect_routes
 from ui import build_banner, build_kv_table, build_section, format_path
 
@@ -38,6 +39,7 @@ def write_context(root_path: str, task: str | None = None) -> int:
     relevant_files = rank_relevant_files(graph, task)
     routes_count = _count_routes(routes_data)
     symbols_count = _count_symbols(graph)
+    repo_intelligence = summarize_graph(graph)
 
     print(build_banner())
     print()
@@ -55,6 +57,9 @@ def write_context(root_path: str, task: str | None = None) -> int:
             ]
         )
     )
+    print()
+    print(build_section("Repo intelligence"))
+    print(build_kv_table(build_repo_intelligence_rows(repo_intelligence)))
 
     return 0
 

@@ -67,6 +67,7 @@ import test_verify_command
 import test_diff_command
 import test_review_command
 import test_scan_command
+import test_repo_summary
 import test_setup_command
 from tests import test_languages
 from tests import test_js_resolution
@@ -130,6 +131,7 @@ TEST_MODULES = [
     test_diff_command,
     test_review_command,
     test_scan_command,
+    test_repo_summary,
     test_setup_command,
     test_languages,
     test_js_resolution,

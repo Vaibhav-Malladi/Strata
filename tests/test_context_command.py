@@ -44,6 +44,46 @@ def create_context_repo(root: Path, with_routes: bool = False) -> None:
     )
 
 
+def create_frontend_context_repo(root: Path) -> None:
+    (root / "src" / "components").mkdir(parents=True, exist_ok=True)
+    (root / "src" / "shared").mkdir(parents=True, exist_ok=True)
+
+    (root / "src" / "components" / "Button.tsx").write_text(
+        'import React, { useState } from "react";\n'
+        '\n'
+        'export function Button() {\n'
+        "    useState(0);\n"
+        "    return <button />;\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    (root / "src" / "user.service.ts").write_text(
+        'import { Injectable } from "@angular/core";\n'
+        '\n'
+        '@Injectable({ providedIn: "root" })\n'
+        "export class UserService {}\n",
+        encoding="utf-8",
+    )
+
+    (root / "src" / "app.module.ts").write_text(
+        'import { NgModule } from "@angular/core";\n'
+        '\n'
+        "@NgModule({})\n"
+        "export class AppModule {}\n",
+        encoding="utf-8",
+    )
+
+    (root / "src" / "shared" / "app.routes.ts").write_text(
+        'import { RouterModule } from "@angular/router";\n'
+        '\n'
+        "export const routes = [\n"
+        '    { path: "home", component: AppComponent },\n'
+        "];\n",
+        encoding="utf-8",
+    )
+
+
 def test_write_context_creates_context_pack_file():
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
@@ -74,6 +114,7 @@ def test_write_context_creates_context_pack_file():
         assert "Symbols" in output
         assert "Routes" in output
         assert "Relevant files" in output
+        assert "Repo intelligence" in output
         assert "user_login.py" in content
 
 
@@ -110,6 +151,7 @@ def test_write_context_still_works_when_routes_are_missing():
         assert "No relevant backend routes found." in content
         assert "Context complete" in output
         assert "Routes" in output
+        assert "Repo intelligence" in output
 
 
 def test_write_context_reports_counts_for_simple_task_case():
@@ -134,7 +176,36 @@ def test_write_context_reports_counts_for_simple_task_case():
         assert "Files" in output
         assert "Symbols" in output
         assert "Routes" in output
+        assert "Repo intelligence" in output
         assert "fix helper bug" in content
+
+
+def test_write_context_reports_frontend_repo_intelligence():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        create_frontend_context_repo(root)
+
+        with change_directory(root):
+            exit_code, output = capture_output(
+                write_context,
+                str(root),
+                "update button service module",
+            )
+
+        content = (root / ".aidc" / "context_pack.md").read_text(encoding="utf-8")
+
+        assert exit_code == 0
+        assert "Repo intelligence" in output
+        assert "Frameworks" in output
+        assert "React" in output
+        assert "Angular" in output
+        assert "Frameworks detected:" in content
+        assert "React" in content
+        assert "Angular" in content
+        assert "Relevant frontend symbols:" in content
+        assert "Button" in content
+        assert "UserService" in content
+        assert "AppModule" in content
 
 
 TESTS = [
@@ -142,4 +213,5 @@ TESTS = [
     test_write_context_prints_usage_when_task_missing,
     test_write_context_still_works_when_routes_are_missing,
     test_write_context_reports_counts_for_simple_task_case,
+    test_write_context_reports_frontend_repo_intelligence,
 ]

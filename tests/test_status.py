@@ -1,8 +1,11 @@
+import json
 import os
 import tempfile
 from pathlib import Path
 
+from commands.status_command import show_status
 from status import analyze_status, format_status_report
+from tests.helpers import capture_output, change_directory
 
 
 GENERATED_FILE_PATHS = [
@@ -201,10 +204,103 @@ def test_format_status_report_contains_sections():
     assert "strata snapshot" in report
 
 
+def test_show_status_displays_repo_intelligence_when_graph_exists():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        aidc = root / ".aidc"
+        aidc.mkdir(parents=True, exist_ok=True)
+
+        graph = {
+            "schema_version": 1,
+            "root": str(root),
+            "files": [
+                {
+                    "path": "src/App.tsx",
+                    "language": "typescript",
+                    "framework": "react",
+                    "frameworks": ["react"],
+                    "imports": [],
+                    "external_imports": [],
+                    "unresolved_imports": [],
+                    "path_alias_imports": [],
+                    "unresolved_import_details": [],
+                    "classes": [],
+                    "functions": [],
+                    "components": [
+                        {
+                            "name": "App",
+                        }
+                    ],
+                    "hooks": [
+                        {
+                            "name": "useState",
+                        }
+                    ],
+                    "angular": {
+                        "components": [],
+                        "services": [],
+                        "modules": [],
+                        "routes": [],
+                    },
+                },
+                {
+                    "path": "src/app.component.ts",
+                    "language": "typescript",
+                    "framework": "angular",
+                    "frameworks": ["angular"],
+                    "imports": [],
+                    "external_imports": [],
+                    "unresolved_imports": [],
+                    "path_alias_imports": [],
+                    "unresolved_import_details": [],
+                    "classes": [],
+                    "functions": [],
+                    "components": [],
+                    "hooks": [],
+                    "angular": {
+                        "components": [
+                            {
+                                "name": "AppComponent",
+                            }
+                        ],
+                        "services": [],
+                        "modules": [
+                            {
+                                "name": "AppModule",
+                            }
+                        ],
+                        "routes": [
+                            {
+                                "name": "home",
+                                "path": "home",
+                            }
+                        ],
+                    },
+                },
+            ],
+            "edges": [],
+        }
+
+        (aidc / "graph.json").write_text(json.dumps(graph), encoding="utf-8")
+        (root / "main.py").write_text("print('hello')\n", encoding="utf-8")
+
+        with change_directory(root):
+            exit_code, output = capture_output(show_status, ".")
+
+        assert exit_code is None
+        assert "Repo intelligence" in output
+        assert "React" in output
+        assert "Angular" in output
+        assert "Components" in output
+        assert "Angular routes" in output
+        assert "Strata status" in output
+
+
 TESTS = [
     test_analyze_status_reports_missing_generated_files,
     test_analyze_status_reports_current_when_outputs_exist,
     test_analyze_status_reports_stale_outputs,
     test_analyze_status_tracks_latest_snapshot_indicator_only,
     test_format_status_report_contains_sections,
+    test_show_status_displays_repo_intelligence_when_graph_exists,
 ]

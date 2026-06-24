@@ -51,6 +51,14 @@ def _main_file(result: dict) -> dict | None:
     return None
 
 
+def get_file_by_name(graph: dict, file_name: str) -> dict:
+    for file_info in graph["files"]:
+        if file_info["path"].endswith(file_name):
+            return file_info
+
+    raise AssertionError(f"File not found in graph: {file_name}")
+
+
 def test_scan_repo_finds_python_files():
     result = _scan_temp_repo_result()
 
@@ -140,6 +148,59 @@ def test_scan_repo_records_unresolved_import_line_number():
     assert matching_details[0]["line"] == 3
 
 
+def test_scanner_records_frontend_framework_signals():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+
+        (root / "src" / "components").mkdir(parents=True, exist_ok=True)
+
+        (root / "src" / "App.tsx").write_text(
+            'import React, { useState } from "react";\n'
+            'import { Button } from "./components/Button";\n'
+            '\n'
+            'export function App() {\n'
+            "    useState(0);\n"
+            "    return <Button />;\n"
+            "}\n",
+            encoding="utf-8",
+        )
+
+        (root / "src" / "components" / "Button.tsx").write_text(
+            'import React from "react";\n'
+            '\n'
+            'export const Button = () => <button />;\n',
+            encoding="utf-8",
+        )
+
+        (root / "src" / "app.component.ts").write_text(
+            'import { Component } from "@angular/core";\n'
+            '\n'
+            '@Component({ selector: "app-root" })\n'
+            "export class AppComponent {}\n",
+            encoding="utf-8",
+        )
+
+        (root / "src" / "user.service.ts").write_text(
+            'import { Injectable } from "@angular/core";\n'
+            '\n'
+            '@Injectable({ providedIn: "root" })\n'
+            "export class UserService {}\n",
+            encoding="utf-8",
+        )
+
+        graph = scan_repo(str(root))
+        app = get_file_by_name(graph, "App.tsx")
+        component = get_file_by_name(graph, "app.component.ts")
+        service = get_file_by_name(graph, "user.service.ts")
+
+        assert "react" in app["frameworks"]
+        assert any(item["name"] == "App" for item in app["components"])
+        assert any(item["kind"] == "call" for item in app["hooks"])
+        assert "angular" in component["frameworks"]
+        assert any(item["name"] == "AppComponent" for item in component["angular"]["components"])
+        assert any(item["name"] == "UserService" for item in service["angular"]["services"])
+
+
 TESTS = [
     test_scan_repo_finds_python_files,
     test_scan_repo_detects_imports,
@@ -148,4 +209,5 @@ TESTS = [
     test_scan_repo_includes_schema_version,
     test_scan_repo_classifies_imports,
     test_scan_repo_records_unresolved_import_line_number,
+    test_scanner_records_frontend_framework_signals,
 ]

@@ -1,4 +1,5 @@
 from cli_core import OUTPUT_FILE, build_graph, save_graph, count_unresolved_imports
+from repo_summary import build_repo_intelligence_rows, summarize_graph
 from ui import build_banner, build_kv_table, build_section, format_path, format_warning
 
 
@@ -31,5 +32,8 @@ def write_graph(root_path: str) -> int:
             ]
         )
     )
+    print()
+    print(build_section("Repo intelligence"))
+    print(build_kv_table(build_repo_intelligence_rows(summarize_graph(graph))))
 
     return 0
