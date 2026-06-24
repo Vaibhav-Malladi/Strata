@@ -53,7 +53,7 @@ def test_cli_no_args_shows_guided_entrypoint_before_advanced_commands():
 
         assert exit_code == 0
         assert "Strata" in output
-        assert "Local-first repository intelligence for AI-assisted coding." in output
+        assert output.count("Local-first repository intelligence for AI-assisted coding") == 1
         assert "Main workflow" in output
         assert "Current state" in output
         assert "Next:" in output

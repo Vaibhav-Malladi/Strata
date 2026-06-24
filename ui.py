@@ -179,7 +179,10 @@ def print_wordmark(subtitle: str | None = None, compact: bool = False) -> None:
     print(_render_wordmark(subtitle=subtitle, compact=compact))
 
 
-def render_banner(title: str = APP_NAME, subtitle: str | None = None) -> str:
+def render_banner(title: str = APP_NAME, subtitle: str | None = None, compact: bool = False) -> str:
+    if compact:
+        return _render_banner_text(title, subtitle)
+
     if title == APP_NAME and subtitle is None:
         return render_wordmark()
 
@@ -330,8 +333,8 @@ def render_footer_hint(text: str) -> str:
     return normalized
 
 
-def print_banner(title: str = APP_NAME, subtitle: str | None = None) -> None:
-    print(render_banner(title, subtitle))
+def print_banner(title: str = APP_NAME, subtitle: str | None = None, compact: bool = True) -> None:
+    print(render_banner(title, subtitle, compact=compact))
 
 
 def print_section(title: str) -> None:
@@ -457,7 +460,7 @@ def get_console(stream=None, force_spinner: bool = False):
 
 
 def build_banner() -> str:
-    return render_banner()
+    return render_banner(compact=True)
 
 
 def build_section(title: str) -> str:

@@ -6,13 +6,13 @@ from adapter_doctor import check_adapter
 from cli_core import build_graph, save_graph
 from repo_summary import build_repo_intelligence_rows, summarize_graph
 from ui import (
-    build_banner,
     build_kv_table,
     build_section,
     format_error,
     format_path,
     format_success,
     format_warning,
+    print_banner,
     print_command_header,
     print_status_card,
 )
@@ -58,7 +58,7 @@ def write_start_command(root_path: str = ".") -> int:
         else format_warning("not ready")
     )
 
-    print(build_banner())
+    print_banner(compact=False)
     print()
     print_command_header("Start", "Prepare Strata for this repository", mode="compact")
     print_status_card(
@@ -140,7 +140,7 @@ def _next_step(config_exists: bool, adapter_result: dict | None) -> str:
 
 
 def _print_error(title: str, message: str) -> None:
-    print(build_banner())
+    print_banner(compact=False)
     print()
     print_command_header("Start", title, mode="compact")
     print(format_error(message))

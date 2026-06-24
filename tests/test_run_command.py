@@ -5,6 +5,7 @@ from pathlib import Path
 import commands.run_command as run_command_module
 from commands.run_command import write_run_command
 from workflow_config import default_config, save_config
+import tests.run as test_runner
 from tests.helpers import capture_output, change_directory
 
 
@@ -391,6 +392,33 @@ def test_run_outputs_single_banner():
 
         assert exit_code == 0
         assert "Strata" in output
+        assert "Local-first repository intelligence for AI-assisted coding" not in output
+
+
+def test_shorten_test_name_keeps_short_names_unchanged():
+    name = "tests.test_run_command::test_run_dry_run_does_not_create_aidc"
+
+    assert test_runner.shorten_test_name(name, max_width=80) == name
+
+
+def test_shorten_test_name_prefers_suffix_for_long_names():
+    name = "tests/test_http_executor.py::test_successful_patch_with_very_long_name"
+
+    shortened = test_runner.shorten_test_name(name, max_width=60)
+
+    assert shortened.startswith("...")
+    assert shortened.endswith("::test_successful_patch_with_very_long_name")
+    assert len(shortened) <= 60
+
+
+def test_shorten_test_name_truncates_when_suffix_is_still_too_long():
+    name = "tests/test_http_executor.py::test_successful_patch_with_a_really_really_really_long_suffix_name"
+
+    shortened = test_runner.shorten_test_name(name, max_width=40)
+
+    assert shortened.startswith("...")
+    assert len(shortened) <= 40
+    assert "suffix_name" in shortened
 
 
 TESTS = [
@@ -412,4 +440,7 @@ TESTS = [
     test_run_missing_task_returns_nonzero,
     test_run_too_many_args_returns_nonzero,
     test_run_outputs_single_banner,
+    test_shorten_test_name_keeps_short_names_unchanged,
+    test_shorten_test_name_prefers_suffix_for_long_names,
+    test_shorten_test_name_truncates_when_suffix_is_still_too_long,
 ]

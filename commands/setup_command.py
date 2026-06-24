@@ -4,13 +4,13 @@ from http_adapter_contract import normalize_base_url
 from adapter_presets import get_adapter_preset
 from ollama_adapter import DEFAULT_OLLAMA_BASE_URL, DEFAULT_OLLAMA_MODEL, normalize_ollama_base_url
 from ui import (
-    build_banner,
     build_kv_table,
     build_section,
     format_error,
     format_path,
     format_success,
     format_warning,
+    print_banner,
     print_command_header,
     print_next_steps,
     print_status_card,
@@ -285,7 +285,7 @@ def _run_interactive_setup(root: str) -> int:
         _print_setup_summary(root, {}, result, title="Setup error")
         return 1
 
-    print(build_banner())
+    print_banner(compact=False)
     print()
     print(build_section("Choose how Strata should work with your AI tool"))
     print(
@@ -442,7 +442,7 @@ def _run_interactive_setup(root: str) -> int:
 
 
 def _print_setup_summary(root: str, config: dict, result: dict, title: str) -> None:
-    print(build_banner())
+    print_banner(compact=False)
     print()
     print_command_header("Setup", title, mode="compact")
     print_status_card(

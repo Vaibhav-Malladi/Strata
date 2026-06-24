@@ -7,6 +7,7 @@ from types import SimpleNamespace
 from tests.helpers import capture_output
 import tests.run as test_runner
 from ui import (
+    build_banner,
     color,
     get_console,
     print_next_steps,
@@ -55,6 +56,14 @@ def test_render_banner_defaults_to_wordmark():
 
     assert "Strata" in banner
     assert "Local-first repository intelligence for AI-assisted coding" in banner
+
+
+def test_build_banner_defaults_to_compact_title_panel():
+    with _forced_env(STRATA_PLAIN="1", STRATA_NO_COLOR="1", CI=None):
+        banner = build_banner()
+
+    assert "Strata" in banner
+    assert "Local-first repository intelligence for AI-assisted coding" not in banner
 
 
 def test_render_command_header_compact_shows_command_and_subtitle():
@@ -238,6 +247,7 @@ def _exercise_spinner_exception():
 TESTS = [
     test_render_wordmark_includes_title_and_tagline_without_ansi,
     test_render_banner_defaults_to_wordmark,
+    test_build_banner_defaults_to_compact_title_panel,
     test_render_command_header_compact_shows_command_and_subtitle,
     test_render_kv_table_aligns_keys_and_values,
     test_render_status_card_includes_status_and_rows,

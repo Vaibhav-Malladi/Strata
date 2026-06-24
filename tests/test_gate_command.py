@@ -69,7 +69,6 @@ def test_gate_command_writes_reports_and_formats_terminal_output():
         assert (root / ".aidc" / "gate_report.md").exists()
         assert (root / ".aidc" / "gate_report.json").exists()
         assert "Strata" in output
-        assert "Local-first repository intelligence for AI-assisted coding" in output
         assert "Gate complete" in output
         assert "PASS" in output
         assert "Failures" in output
@@ -132,7 +131,6 @@ def test_gate_command_clean_repo_reports_pass_without_crashing():
         assert exit_code == 0
         assert payload["status"] == "PASS"
         assert "Strata" in output
-        assert "Local-first repository intelligence for AI-assisted coding" in output
         assert "Gate complete" in output
         assert "PASS" in output
 

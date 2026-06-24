@@ -1,11 +1,11 @@
-from cli_ui import bold, dim
+from cli_ui import bold
+from ui import print_banner
 
 from status import analyze_status
 
 
 def print_guided_entrypoint(root: str = ".") -> None:
-    print(bold("Strata"))
-    print(dim("Local-first repository intelligence for AI-assisted coding."))
+    print_banner(compact=False)
     print()
 
     print(bold("Main workflow:"))
@@ -27,8 +27,7 @@ def print_guided_entrypoint(root: str = ".") -> None:
 
 
 def print_usage() -> None:
-    print("Strata")
-    print("Local-first repository intelligence for AI-assisted coding workflows.")
+    print_banner(compact=False)
     print()
 
     print("Main workflow:")

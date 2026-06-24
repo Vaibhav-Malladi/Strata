@@ -3,13 +3,16 @@ import sys
 import traceback
 
 try:  # pragma: no cover - rich progress is exercised indirectly.
-    from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
+    from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
+    from rich.table import Column
 except Exception:  # pragma: no cover - fallback when Rich is unavailable.
     BarColumn = None
     Progress = None
     SpinnerColumn = None
     TextColumn = None
     TimeElapsedColumn = None
+    TimeRemainingColumn = None
+    Column = None
 
 TESTS_DIR = os.path.dirname(__file__)
 PROJECT_ROOT = os.path.dirname(TESTS_DIR)
@@ -87,6 +90,7 @@ from ui import get_console, is_rich_enabled, print_command_header, print_success
 
 
 _PLAIN_PROGRESS_INTERVAL = 50
+_PROGRESS_LABEL_MAX_WIDTH = 60
 
 
 TEST_MODULES = [
@@ -177,7 +181,15 @@ def _run_tests(total_tests: int) -> int:
 
 
 def _supports_rich_progress() -> bool:
-    return Progress is not None and TextColumn is not None and BarColumn is not None and TimeElapsedColumn is not None and is_rich_enabled()
+    return (
+        Progress is not None
+        and TextColumn is not None
+        and BarColumn is not None
+        and TimeElapsedColumn is not None
+        and TimeRemainingColumn is not None
+        and Column is not None
+        and is_rich_enabled()
+    )
 
 
 def _run_tests_with_rich_progress(total_tests: int) -> int:
@@ -189,23 +201,26 @@ def _run_tests_with_rich_progress(total_tests: int) -> int:
 
     columns.extend(
         [
-            TextColumn("[bold cyan]{task.description}"),
-            BarColumn(),
-            TextColumn("{task.completed}/{task.total}"),
-            TextColumn("[dim]{task.fields[module]}"),
-            TextColumn("[dim]{task.fields[current]}"),
-            TimeElapsedColumn(),
+            TextColumn("[bold cyan]{task.description}", table_column=Column(width=14, no_wrap=True)),
+            BarColumn(table_column=Column(min_width=20, ratio=1)),
+            TextColumn("{task.completed}/{task.total}", table_column=Column(width=9, no_wrap=True)),
+            TimeElapsedColumn(table_column=Column(width=8, no_wrap=True)),
+            TimeRemainingColumn(compact=True, table_column=Column(width=8, no_wrap=True)),
+            TextColumn(
+                "[dim]{task.fields[label]}",
+                table_column=Column(ratio=2, min_width=20, max_width=_PROGRESS_LABEL_MAX_WIDTH, overflow="ellipsis"),
+            ),
         ]
     )
 
     total = 0
-    with Progress(*columns, console=console, transient=True, refresh_per_second=12) as progress:
-        task_id = progress.add_task("Running tests", total=total_tests, module="", current="")
+    with Progress(*columns, console=console, transient=True, refresh_per_second=12, expand=True) as progress:
+        task_id = progress.add_task("Running tests", total=total_tests, label="")
         for module in TEST_MODULES:
             module_label = _format_module_label(module)
             for test in module.TESTS:
                 test_label = _format_test_label(test)
-                progress.update(task_id, module=module_label, current=test_label)
+                progress.update(task_id, label=shorten_test_name(f"{module_label}::{test_label}"))
                 try:
                     test()
                 except Exception:
@@ -252,6 +267,28 @@ def _format_module_label(module) -> str:
 
 def _format_test_label(test) -> str:
     return str(getattr(test, "__name__", "test"))
+
+
+def shorten_test_name(name: str, max_width: int = 60) -> str:
+    normalized = str(name or "").strip()
+
+    if len(normalized) <= max_width:
+        return normalized
+
+    if max_width <= 3:
+        return normalized[:max_width]
+
+    if "::" in normalized:
+        _, suffix = normalized.rsplit("::", 1)
+        if len(suffix) <= max_width - 5:
+            return f"...::{suffix}"
+        if len(suffix) <= max_width - 3:
+            return f"...{suffix}"
+        suffix_width = max_width - 3
+        return f"...{suffix[-suffix_width:]}"
+
+    suffix_width = max_width - 3
+    return f"...{normalized[-suffix_width:]}"
 
 
 def _env_flag(name: str) -> bool:

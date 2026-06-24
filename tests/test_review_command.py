@@ -167,7 +167,9 @@ def test_review_does_not_stack_multiple_banners():
         exit_code, output = _run_review_cli(root)
 
         assert exit_code == 0
-        assert output.count("Local-first repository intelligence") == 1
+        assert output.count("Local-first repository intelligence") == 0
+        assert "Review" in output
+        assert "Review complete" in output or "Patch review" in output
 
 
 def test_help_mentions_review():

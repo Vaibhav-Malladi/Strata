@@ -143,8 +143,11 @@ def test_prepare_does_not_stack_multiple_banners():
         exit_code, output = _run_prepare_cli(root, "fix helper bug")
 
         assert exit_code == 0
-        assert output.count("Local-first repository intelligence") == 1
-        assert output.count("Strata") == 1
+        assert output.count("Local-first repository intelligence") == 0
+        assert "Prepare complete" in output
+        assert "Context" in output
+        assert "Preflight" in output
+        assert "agent_prompt.md" in output
 
 
 def test_help_mentions_prepare():
