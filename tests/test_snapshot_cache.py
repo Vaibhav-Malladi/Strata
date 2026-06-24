@@ -143,6 +143,7 @@ def test_ignored_directories_are_not_included():
             ".git",
             ".venv",
             "venv",
+            "pkg.egg-info",
             "__pycache__",
             ".cache",
             ".pytest_cache",
@@ -172,9 +173,12 @@ def test_ignored_directories_are_not_included():
         assert not any(path.startswith(".git/") for path in paths)
         assert not any(path.startswith(".venv/") for path in paths)
         assert not any(path.startswith("venv/") for path in paths)
+        assert not any(path.startswith("pkg.egg-info/") for path in paths)
         assert not any(path.startswith("__pycache__/") for path in paths)
         assert not any(path.startswith(".cache/") for path in paths)
         assert not any(path.startswith(".pytest_cache/") for path in paths)
+        assert not any(path.startswith("build/") for path in paths)
+        assert not any(path.startswith("dist/") for path in paths)
 
 
 TESTS = [

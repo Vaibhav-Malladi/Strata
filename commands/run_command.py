@@ -8,6 +8,7 @@ from agent_adapters import run_adapter
 from commands.apply_command import write_apply_command
 from commands.ask_command import _build_inline_review_result, _execute_adapter
 from commands.prepare_command import prepare_workflow
+from full_scan import format_full_scan_status, load_full_scan_cache
 from snapshot_cache import format_snapshot_cache_status
 from ui import (
     format_error,
@@ -100,6 +101,7 @@ def write_run_command(root_path: str, *args: str) -> int:
     review_result = _build_inline_review_result(root, mode="run")
     snapshot_result = prepare_result["snapshot_result"]
     cache_result = prepare_result.get("cache_result")
+    full_scan_state = prepare_result.get("full_scan_state") or load_full_scan_cache(root)
     snapshot_display = (
         format_path(Path(snapshot_result["latest_path"]))
         if snapshot_result is not None
@@ -108,6 +110,7 @@ def write_run_command(root_path: str, *args: str) -> int:
     snapshot_cache_display = (
         format_snapshot_cache_status(cache_result) if cache_result is not None else "skipped"
     )
+    full_scan_display = format_full_scan_status(full_scan_state)
     prompt_path = str(prepare_result["config"].get("prompt_path") or ".aidc/agent_prompt.md")
 
     _print_guided_summary(
@@ -116,9 +119,12 @@ def write_run_command(root_path: str, *args: str) -> int:
         prompt_path=prompt_path,
         snapshot_display=snapshot_display,
         snapshot_cache_display=snapshot_cache_display,
+        full_scan_display=full_scan_display,
+        full_scan_state=full_scan_state,
         review_result=review_result,
     )
     _print_snapshot_cache_note(cache_result)
+    _print_full_scan_note(task, full_scan_state)
 
     if review_result["ready"] and fast:
         if _confirm_apply():
@@ -258,6 +264,8 @@ def _print_guided_summary(
     prompt_path: str,
     snapshot_display: str,
     snapshot_cache_display: str,
+    full_scan_display: str,
+    full_scan_state: dict | None,
     review_result: dict,
 ) -> None:
     rows = [
@@ -268,6 +276,9 @@ def _print_guided_summary(
         ("Prompt", format_path(Path(prompt_path)) if prompt_path else "skipped"),
         ("Snapshot", snapshot_display),
         ("Snapshot cache", snapshot_cache_display),
+        ("Full scan", full_scan_display),
+        ("Context mode", "focused context"),
+        ("Confidence", _context_confidence(full_scan_state)),
     ]
     rows.extend(review_result["rows"])
 
@@ -317,5 +328,51 @@ def _print_snapshot_cache_note(cache_result: dict | None) -> None:
     print(format_warning(message))
 
 
+def _print_full_scan_note(task: str, full_scan_state: dict | None) -> None:
+    if not _is_repo_wide_task(task):
+        return
+
+    status = str((full_scan_state or {}).get("status", "missing")).strip().lower()
+    if status == "fresh":
+        return
+
+    print(
+        format_warning(
+            "This looks repo-wide. Full scan is not ready, so Strata will continue with focused context. Tip: run `strata scan`."
+        )
+    )
+
+
 def _print_usage() -> None:
     print(RUN_USAGE)
+
+
+def _context_confidence(full_scan_state: dict | None) -> str:
+    status = str((full_scan_state or {}).get("status", "missing")).strip().lower()
+
+    if status == "fresh":
+        return "full"
+
+    if status in {"partial", "stale"}:
+        return "medium"
+
+    return "basic"
+
+
+def _is_repo_wide_task(task: str) -> bool:
+    normalized = f" {task.lower()} "
+    keywords = [
+        " refactor ",
+        " migrate ",
+        " rename ",
+        " architecture ",
+        " dependency ",
+        " all ",
+        " entire ",
+        " across ",
+        " frontend ",
+        " backend ",
+        " project-wide ",
+        " repo-wide ",
+    ]
+    return any(keyword in normalized for keyword in keywords)

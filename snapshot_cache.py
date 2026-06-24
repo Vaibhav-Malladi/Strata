@@ -7,26 +7,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-SNAPSHOT_CACHE_FILE = Path(".aidc") / "cache" / "repo_snapshot.json"
+from fs_utils import atomic_write_json
+from repo_ignore import should_ignore_directory, should_ignore_file
 
-_IGNORED_DIRECTORY_NAMES = {
-    ".aidc",
-    ".cache",
-    ".git",
-    ".mypy_cache",
-    ".nox",
-    ".pytest_cache",
-    ".ruff_cache",
-    ".tox",
-    ".venv",
-    "__pycache__",
-    "build",
-    "coverage",
-    "dist",
-    "htmlcov",
-    "node_modules",
-    "venv",
-}
+SNAPSHOT_CACHE_FILE = Path(".aidc") / "cache" / "repo_snapshot.json"
 
 _CACHE_SCHEMA_VERSION = 1
 
@@ -101,10 +85,7 @@ def write_repo_snapshot_cache(
         "changed_since_snapshot": changed_since_snapshot,
     }
 
-    cache_path.write_text(
-        json.dumps(payload, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
+    atomic_write_json(cache_path, payload)
 
     return {
         "cache_path": str(cache_path),
@@ -167,15 +148,15 @@ def _collect_file_fingerprints(root_path: Path) -> tuple[dict[str, dict[str, int
         dirnames[:] = [
             dirname
             for dirname in sorted(dirnames)
-            if not _should_ignore_directory(dirname)
+            if not should_ignore_directory(dirname)
         ]
-        ignored_count += sum(1 for dirname in original_dirnames if _should_ignore_directory(dirname))
+        ignored_count += sum(1 for dirname in original_dirnames if should_ignore_directory(dirname))
         filenames.sort()
 
         for filename in filenames:
             file_path = Path(current_root) / filename
 
-            if not file_path.is_file() or file_path.is_symlink():
+            if not file_path.is_file() or file_path.is_symlink() or should_ignore_file(file_path):
                 ignored_count += 1
                 continue
 
@@ -244,11 +225,3 @@ def _git_head(root_path: Path) -> str | None:
 
     head = result.stdout.strip()
     return head or None
-
-
-def _should_ignore_directory(name: str) -> bool:
-    normalized = name.strip()
-    if not normalized:
-        return True
-
-    return normalized in _IGNORED_DIRECTORY_NAMES

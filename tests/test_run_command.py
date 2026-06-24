@@ -311,6 +311,8 @@ def test_run_normal_prompt_file_shows_review_summary_and_next_apply():
         assert "Files changed" in output
         assert "Targets" in output
         assert "Next:" in output
+        assert "Full scan" in output
+        assert "focused context" in output
         assert "strata apply" in output
         assert "Local-first repository intelligence for AI-assisted coding" not in output
         assert (repo_root / "main.py").read_text(encoding="utf-8") == (
@@ -341,6 +343,29 @@ def test_run_normal_no_patch_gives_fix_guidance():
         assert "Fix:" in output
         assert "inspect .aidc/agent_patch.diff" in output
         assert "run strata review" in output
+
+
+def test_run_repo_wide_task_warns_when_full_scan_missing():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        repo_root = Path(temp_dir)
+        _create_run_repo(repo_root)
+        _save_run_config(
+            repo_root,
+            adapter="prompt_file",
+            prompt_path=".aidc/agent_prompt.md",
+        )
+
+        with change_directory(repo_root):
+            exit_code, output = capture_output(
+                write_run_command,
+                str(repo_root),
+                "repo-wide refactor",
+            )
+
+        assert exit_code == 1
+        assert "focused context" in output
+        assert "full scan" in output.lower()
+        assert "strata scan" in output.lower()
 
 
 def test_run_fast_decline_does_not_apply():
@@ -529,6 +554,7 @@ TESTS = [
     test_run_dry_run_respects_auto_verify_false,
     test_run_normal_prompt_file_shows_review_summary_and_next_apply,
     test_run_normal_no_patch_gives_fix_guidance,
+    test_run_repo_wide_task_warns_when_full_scan_missing,
     test_run_fast_decline_does_not_apply,
     test_run_fast_yes_applies_and_prints_next_steps,
     test_run_invalid_type_returns_nonzero,

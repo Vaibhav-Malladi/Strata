@@ -1,7 +1,10 @@
 from pathlib import Path
 
+from full_scan import format_full_scan_status, load_full_scan_cache
+
 SNAPSHOT_LATEST_FILE = ".aidc/snapshots/latest.txt"
 SNAPSHOT_CACHE_FILE = ".aidc/cache/repo_snapshot.json"
+FULL_SCAN_CACHE_FILE = ".aidc/cache/repo_scan.json"
 
 GENERATED_FILES = [
     ".aidc/graph.json",
@@ -20,6 +23,7 @@ GENERATED_FILES = [
     ".aidc/gate_report.json",
     SNAPSHOT_LATEST_FILE,
     SNAPSHOT_CACHE_FILE,
+    FULL_SCAN_CACHE_FILE,
 ]
 
 
@@ -47,6 +51,7 @@ def analyze_status(root: str = ".") -> dict:
     root_path = Path(root)
     generated = _analyze_generated_files(root_path)
     newest_source = _newest_source_mtime(root_path)
+    full_scan = load_full_scan_cache(root_path)
 
     missing = [
         item["path"]
@@ -77,6 +82,7 @@ def analyze_status(root: str = ".") -> dict:
         "missing_files": missing,
         "stale_files": stale,
         "newest_source_mtime": newest_source,
+        "full_scan": full_scan,
     }
 
 
@@ -86,6 +92,7 @@ def format_status_report(status: dict) -> str:
         "",
         f"Root: `{status.get('root', '.')}`",
         f"State: **{status.get('state', 'unknown')}**",
+        f"Full scan: **{format_full_scan_status(status.get('full_scan'))}**",
         "",
         "## Generated Files",
         "",
@@ -133,6 +140,19 @@ def format_status_report(status: dict) -> str:
         lines.append("")
 
     lines.extend(_format_recommended_actions(status))
+
+    full_scan = status.get("full_scan") or {}
+    if str(full_scan.get("status", "missing")).lower() == "interrupted":
+        lines.extend(
+            [
+                "",
+                "## Full Scan",
+                "",
+                "- Previous full scan was interrupted.",
+                "- Last complete cache is still safe.",
+                "- Run `strata scan` to refresh.",
+            ]
+        )
 
     return "\n".join(lines).rstrip() + "\n"
 

@@ -11,6 +11,7 @@ from snapshot_cache import (
     format_snapshot_cache_status,
     write_repo_snapshot_cache,
 )
+from full_scan import load_full_scan_cache, format_full_scan_status
 from ui import (
     build_banner,
     build_kv_table,
@@ -69,6 +70,10 @@ def write_prepare_command(root_path: str, task: str | None = None) -> int:
                     else "skipped",
                 ),
                 (
+                    "Full scan",
+                    format_full_scan_status(result.get("full_scan_state")),
+                ),
+                (
                     "Snapshot",
                     format_path(Path(result["snapshot_result"]["latest_path"]))
                     if result["snapshot_result"] is not None
@@ -111,6 +116,7 @@ def prepare_workflow(root_path: str, task: str, config: dict | None = None) -> d
 
         after_snapshot = capture_repo_snapshot(root_path)
         cache_result = write_repo_snapshot_cache(root_path, before_snapshot, after_snapshot)
+        full_scan_state = load_full_scan_cache(root_path)
     except (OSError, ValueError):
         raise
 
@@ -120,6 +126,7 @@ def prepare_workflow(root_path: str, task: str, config: dict | None = None) -> d
         "routes_data": routes_data,
         "snapshot_result": snapshot_result,
         "cache_result": cache_result,
+        "full_scan_state": full_scan_state,
     }
 
 

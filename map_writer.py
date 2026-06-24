@@ -1,5 +1,7 @@
 import os
 
+from fs_utils import atomic_write_text
+
 
 def generate_project_map(graph: dict) -> str:
     """Generate a Markdown project map from a Strata graph."""
@@ -113,9 +115,7 @@ def write_project_map(graph: dict, output_path: str) -> None:
         os.makedirs(output_dir, exist_ok=True)
 
     content = generate_project_map(graph)
-
-    with open(output_path, "w", encoding="utf-8") as file:
-        file.write(content)
+    atomic_write_text(output_path, content)
 
 
 def _group_edges_by_key(edges: list[dict], key: str) -> dict:

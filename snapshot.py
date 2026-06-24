@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-import json
 from datetime import datetime
 from pathlib import Path
+
+from fs_utils import atomic_write_json, atomic_write_text
 
 
 def make_snapshot_timestamp(now: datetime | None = None) -> str:
@@ -62,16 +63,16 @@ def write_snapshot(
     graph_payload = graph if isinstance(graph, dict) else {}
     routes_payload = _normalize_routes_payload(routes_data)
 
-    _write_json(graph_path, graph_payload)
-    _write_json(routes_path, routes_payload)
+    atomic_write_json(graph_path, graph_payload)
+    atomic_write_json(routes_path, routes_payload)
 
     summary = summarize_snapshot(graph_payload, routes_payload)
     summary["timestamp"] = snapshot_timestamp
     summary["root"] = str(root_path)
 
     summary_markdown = build_snapshot_summary_markdown(summary)
-    summary_path.write_text(summary_markdown, encoding="utf-8")
-    latest_path.write_text(snapshot_timestamp, encoding="utf-8")
+    atomic_write_text(summary_path, summary_markdown)
+    atomic_write_text(latest_path, snapshot_timestamp)
 
     return {
         "root": str(root_path),
@@ -222,10 +223,3 @@ def _normalize_routes_payload(routes_data: dict | list | None) -> dict:
         return payload
 
     return {"routes": []}
-
-
-def _write_json(path: Path, payload: dict) -> None:
-    path.write_text(
-        json.dumps(payload, indent=2, sort_keys=True),
-        encoding="utf-8",
-    )

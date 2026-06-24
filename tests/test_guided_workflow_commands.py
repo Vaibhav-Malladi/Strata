@@ -107,6 +107,8 @@ def test_start_reports_repo_readiness_and_intelligence():
         assert "Reading repository" in output
         assert "Repo map ready" in output
         assert "Snapshot cache" in output
+        assert "Full scan" in output
+        assert "missing" in output.lower()
         assert "first-time setup" in output.lower()
         assert "Graph" in output
         assert ".aidc/graph.json" in output.replace("\\", "/")
@@ -115,6 +117,7 @@ def test_start_reports_repo_readiness_and_intelligence():
         assert "Repo intelligence" in output
         assert "Repo readiness" in output
         assert "ready" in output
+        assert "strata scan" in output.lower()
         assert "strata ask \"your task\"" in output
         assert (root / ".aidc" / "graph.json").exists()
         assert (root / ".aidc" / "cache" / "repo_snapshot.json").exists()
@@ -125,6 +128,7 @@ def test_start_reports_repo_readiness_and_intelligence():
         assert "Snapshot cache" in output
         assert "fresh" in output.lower()
         assert "Changed since snapshot" in output
+        assert "Full scan" in output
 
 
 def test_start_without_config_shows_connect_ai_guidance():
@@ -137,10 +141,36 @@ def test_start_without_config_shows_connect_ai_guidance():
         assert exit_code == 0
         assert "Connect AI" in output
         assert "Snapshot cache" in output
+        assert "Full scan" in output
+        assert "strata scan" in output.lower()
         assert "strata setup" in output
         assert "strata setup --manual" in output
         assert "browser AI" in output
         assert "strata ask \"your task\"" in output
+
+
+def test_start_reports_interrupted_full_scan_marker():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _create_repo(root)
+        _save_config(
+            root,
+            adapter="prompt_file",
+            prompt_path=".aidc/agent_prompt.md",
+        )
+        temp_scan = root / ".aidc" / "cache" / "repo_scan.tmp.json"
+        temp_scan.parent.mkdir(parents=True, exist_ok=True)
+        temp_scan.write_text(
+            '{"schema_version":1,"status":"scanning","root":"%s"}' % root.as_posix(),
+            encoding="utf-8",
+        )
+
+        exit_code, output = _run_cli(root, "start")
+
+        assert exit_code == 0
+        assert "interrupted" in output.lower()
+        assert "Last complete cache is still safe" in output
+        assert "strata scan" in output.lower()
 
 
 def test_start_reports_stale_snapshot_cache_after_repo_change():
@@ -183,6 +213,8 @@ def test_ask_prompt_file_manual_mode_writes_prompt_and_recommends_review():
         assert (root / ".aidc" / "agent_prompt.md").exists()
         assert not (root / ".aidc" / "agent_patch.diff").exists()
         assert "Ask prepared" in output
+        assert "Full scan" in output
+        assert "focused context" in output
         assert "Open `.aidc/agent_prompt.md`" in output
         assert "ChatGPT" in output
         assert ".aidc/agent_patch.diff" in output
@@ -207,11 +239,31 @@ def test_ask_command_missing_adapter_shows_setup_guidance():
         assert exit_code == 1
         assert "No AI adapter is configured yet." in output
         assert "Connect AI" in output
+        assert "Full scan" in output
+        assert "focused context" in output
         assert "strata setup" in output
         assert "strata setup --manual" in output
         assert "ChatGPT" in output
         assert ".aidc/agent_patch.diff" in output
         assert "strata review" in output
+
+
+def test_ask_repo_wide_task_warns_when_full_scan_missing():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _create_repo(root)
+        _save_config(
+            root,
+            adapter="prompt_file",
+            prompt_path=".aidc/agent_prompt.md",
+        )
+
+        exit_code, output = _run_cli(root, "ask", "repo-wide refactor")
+
+        assert exit_code == 0
+        assert "focused context" in output
+        assert "full scan" in output.lower()
+        assert "strata scan" in output.lower()
 
 
 def test_review_without_patch_gives_clear_next_step():
@@ -326,6 +378,7 @@ TESTS = [
     test_start_without_config_shows_connect_ai_guidance,
     test_ask_prompt_file_manual_mode_writes_prompt_and_recommends_review,
     test_ask_command_missing_adapter_shows_setup_guidance,
+    test_ask_repo_wide_task_warns_when_full_scan_missing,
     test_review_without_patch_gives_clear_next_step,
     test_apply_dry_run_still_works,
     test_existing_advanced_commands_still_route,

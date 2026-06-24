@@ -4,6 +4,7 @@ from pathlib import Path
 
 from adapter_doctor import check_adapter
 from cli_core import OUTPUT_FILE, build_graph, save_graph
+from full_scan import LARGE_REPO_THRESHOLD, format_full_scan_status, load_full_scan_cache
 from repo_summary import build_repo_intelligence_rows, summarize_graph
 from snapshot_cache import (
     capture_repo_snapshot,
@@ -64,6 +65,7 @@ def write_start_command(root_path: str = ".") -> int:
 
     after_snapshot = capture_repo_snapshot(root)
     snapshot_cache_result = write_repo_snapshot_cache(root, before_snapshot, after_snapshot)
+    full_scan_state = load_full_scan_cache(root)
 
     config_exists = config_path(root).exists()
     adapter_result = None
@@ -97,6 +99,7 @@ def write_start_command(root_path: str = ".") -> int:
             ("Files", len(graph.get("files", []))),
             ("Edges", len(graph.get("edges", []))),
             ("Snapshot cache", format_snapshot_cache_status(snapshot_cache_result)),
+            ("Full scan", format_full_scan_status(full_scan_state)),
             ("Changed since snapshot", snapshot_cache_result["changed_since_snapshot_count"]),
             ("Changed during scan", snapshot_cache_result["changed_during_scan_count"]),
             (
@@ -114,6 +117,10 @@ def write_start_command(root_path: str = ".") -> int:
         status=status,
     )
 
+    if snapshot_cache_result["file_count"] >= LARGE_REPO_THRESHOLD:
+        print(format_warning("Large repo detected: focused mode still works while the full scan runs."))
+
+    _print_full_scan_note(full_scan_state)
     if not repo_ready:
         print()
         print(build_section("Connect AI"))
@@ -218,3 +225,26 @@ def _print_snapshot_cache_card(snapshot_cache_result: dict) -> None:
         ],
         status=status,
     )
+
+
+def _print_full_scan_note(full_scan_state: dict | None) -> None:
+    if not full_scan_state:
+        print(format_warning("Full scan missing. Run `strata scan` in another terminal for better repo-wide intelligence."))
+        return
+
+    status = str(full_scan_state.get("status", "missing")).strip().lower()
+
+    if status == "interrupted":
+        print(
+            format_warning(
+                "Previous full scan was interrupted. Last complete cache is still safe. Run `strata scan` to refresh."
+            )
+        )
+        return
+
+    if status == "missing":
+        print(format_warning("Full scan missing. Run `strata scan` in another terminal for better repo-wide intelligence."))
+        return
+
+    if status in {"partial", "stale"}:
+        print(format_warning("Full scan is not current. Run `strata scan` to refresh repo-wide intelligence."))

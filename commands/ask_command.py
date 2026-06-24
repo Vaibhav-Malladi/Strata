@@ -14,6 +14,7 @@ from http_executor import execute_openai_compatible_http_adapter
 from ollama_adapter import execute_ollama_adapter
 from patch_contract import inspect_patch
 from patch_validator import validate_patch_file
+from full_scan import format_full_scan_status, load_full_scan_cache
 from snapshot_cache import format_snapshot_cache_status
 from ui import (
     format_error,
@@ -75,6 +76,7 @@ def write_ask_command(root_path: str = ".", *args: str) -> int:
     prompt_path = str(prepare_result["config"].get("prompt_path") or ".aidc/agent_prompt.md")
     snapshot_result = prepare_result.get("snapshot_result")
     cache_result = prepare_result.get("cache_result")
+    full_scan_state = prepare_result.get("full_scan_state") or load_full_scan_cache(root)
     snapshot_display = (
         format_path(Path(snapshot_result["latest_path"]))
         if snapshot_result is not None
@@ -83,6 +85,7 @@ def write_ask_command(root_path: str = ".", *args: str) -> int:
     snapshot_cache_display = (
         format_snapshot_cache_status(cache_result) if cache_result is not None else "skipped"
     )
+    full_scan_display = format_full_scan_status(full_scan_state)
     warnings = list(adapter_result.get("warnings", []) or [])
     context_efficiency_rows = _build_context_efficiency_rows(
         prepare_result["graph"],
@@ -99,12 +102,15 @@ def write_ask_command(root_path: str = ".", *args: str) -> int:
             prompt_path=prompt_path,
             snapshot_display=snapshot_display,
             snapshot_cache_display=snapshot_cache_display,
+            full_scan_display=full_scan_display,
             warnings=warnings,
             ready=ready,
             cache_result=cache_result,
+            full_scan_state=full_scan_state,
         )
         print_status_card("Context Efficiency", context_efficiency_rows)
         _print_snapshot_cache_note(cache_result)
+        _print_full_scan_note(task, full_scan_state)
         for line in _not_ready_next_steps():
             print(line)
         print_status_card(
@@ -124,12 +130,15 @@ def write_ask_command(root_path: str = ".", *args: str) -> int:
             prompt_path=prompt_path,
             snapshot_display=snapshot_display,
             snapshot_cache_display=snapshot_cache_display,
+            full_scan_display=full_scan_display,
             warnings=warnings,
             ready=ready,
             cache_result=cache_result,
+            full_scan_state=full_scan_state,
         )
         print_status_card("Context Efficiency", context_efficiency_rows)
         _print_snapshot_cache_note(cache_result)
+        _print_full_scan_note(task, full_scan_state)
 
         for line in _manual_next_steps():
             print(line)
@@ -240,9 +249,11 @@ def _print_prepared_summary(
     prompt_path: str,
     snapshot_display: str,
     snapshot_cache_display: str,
+    full_scan_display: str,
     warnings: list[str],
     ready: bool,
     cache_result: dict | None,
+    full_scan_state: dict | None,
 ) -> None:
     print_banner()
     print_command_header("Ask", "Prepare context and request a patch", mode="compact")
@@ -256,6 +267,9 @@ def _print_prepared_summary(
             ("Prompt", format_path(prompt_path)),
             ("Snapshot", snapshot_display),
             ("Snapshot cache", snapshot_cache_display),
+            ("Full scan", full_scan_display),
+            ("Context mode", "focused context"),
+            ("Confidence", _context_confidence(full_scan_state)),
             ("Adapter status", _display_adapter_status(adapter_result, ready)),
             ("Message", _display_value(adapter_result.get("message"))),
         ],
@@ -281,6 +295,21 @@ def _print_snapshot_cache_note(cache_result: dict | None) -> None:
         message = f"Snapshot cache partial: {changed_count} file(s) changed while Strata was scanning."
 
     print(format_warning(message))
+
+
+def _print_full_scan_note(task: str, full_scan_state: dict | None) -> None:
+    if not _is_repo_wide_task(task):
+        return
+
+    status = str((full_scan_state or {}).get("status", "missing")).strip().lower()
+    if status == "fresh":
+        return
+
+    print(
+        format_warning(
+            "This looks repo-wide. Full scan is not ready, so Strata will continue with focused context. Tip: run `strata scan`."
+        )
+    )
 
 
 def _inline_patch_status(
@@ -560,6 +589,37 @@ def _display_value(value: object) -> object:
         return "-"
 
     return value
+
+
+def _context_confidence(full_scan_state: dict | None) -> str:
+    status = str((full_scan_state or {}).get("status", "missing")).strip().lower()
+
+    if status == "fresh":
+        return "full"
+
+    if status in {"partial", "stale"}:
+        return "medium"
+
+    return "basic"
+
+
+def _is_repo_wide_task(task: str) -> bool:
+    normalized = f" {task.lower()} "
+    keywords = [
+        " refactor ",
+        " migrate ",
+        " rename ",
+        " architecture ",
+        " dependency ",
+        " all ",
+        " entire ",
+        " across ",
+        " frontend ",
+        " backend ",
+        " project-wide ",
+        " repo-wide ",
+    ]
+    return any(keyword in normalized for keyword in keywords)
 
 
 def _merge_unique(existing: list[str], additions: Sequence[str]) -> list[str]:

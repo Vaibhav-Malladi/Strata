@@ -4,29 +4,12 @@ import os
 import importlib.util
 import sys
 import sysconfig
+import time
+from typing import Any, Callable
 
 from js_resolution import build_js_resolution_context, resolve_js_import
 from languages import detect_language, parse_source_file
-
-
-IGNORED_DIRS = {
-    ".git",
-    ".cache",
-    ".mypy_cache",
-    ".nox",
-    ".pytest_cache",
-    ".ruff_cache",
-    ".tox",
-    ".venv",
-    "build",
-    "coverage",
-    "dist",
-    "htmlcov",
-    "node_modules",
-    "venv",
-    "__pycache__",
-    ".aidc",
-}
+from repo_ignore import should_ignore_directory, should_ignore_file
 
 
 _STDLIB_PATHS = {
@@ -176,7 +159,11 @@ def _record_js_resolution(
     return None
 
 
-def scan_repo(root_path: str) -> dict:
+def scan_repo(
+    root_path: str,
+    progress: Callable[[dict[str, Any]], None] | None = None,
+    expected_file_count: int | None = None,
+) -> dict:
     """
     Scan a repository folder and parse all supported source files.
     """
@@ -191,32 +178,96 @@ def scan_repo(root_path: str) -> dict:
     module_index = {}
     path_index = {}
     js_resolution_context = build_js_resolution_context(root_path)
+    start_time = time.monotonic()
+    discovered_count = 0
+    scanned_count = 0
+    skipped_count = 0
+    failed_count = 0
+
+    _emit_progress(
+        progress,
+        phase="discovering_files",
+        discovered=0,
+        scanned=0,
+        skipped=0,
+        failed=0,
+        elapsed=0.0,
+        eta=None,
+        expected_file_count=expected_file_count,
+    )
 
     for current_dir, dir_names, file_names in os.walk(root_path):
-        dir_names[:] = [
-            name for name in dir_names
-            if name not in IGNORED_DIRS
-        ]
+        dir_names[:] = [name for name in sorted(dir_names) if not should_ignore_directory(name)]
+        file_names.sort()
 
         for file_name in file_names:
             file_path = os.path.join(current_dir, file_name)
             file_path = os.path.normpath(file_path)
 
+            if should_ignore_file(file_path):
+                skipped_count += 1
+                continue
+
+            discovered_count += 1
+
             parsed = parse_source_file(file_path)
 
-            if parsed is not None:
-                parsed["path"] = os.path.normpath(parsed["path"])
-                parsed["external_imports"] = []
-                parsed["unresolved_imports"] = []
-                parsed["unresolved_import_details"] = []
-                parsed["path_alias_imports"] = []
-                parsed["path_alias_import_details"] = []
+            if parsed is None:
+                skipped_count += 1
+                _emit_progress_if_needed(
+                    progress,
+                    start_time=start_time,
+                    discovered_count=discovered_count,
+                    scanned_count=scanned_count,
+                    skipped_count=skipped_count,
+                    failed_count=failed_count,
+                    expected_file_count=expected_file_count,
+                )
+                continue
 
-                graph["files"].append(parsed)
+            parsed["path"] = os.path.normpath(parsed["path"])
+            parsed["external_imports"] = []
+            parsed["unresolved_imports"] = []
+            parsed["unresolved_import_details"] = []
+            parsed["path_alias_imports"] = []
+            parsed["path_alias_import_details"] = []
 
-                module_name = module_name_from_path(root_path, file_path)
-                module_index[module_name] = file_path
-                path_index[file_path] = file_path
+            graph["files"].append(parsed)
+            scanned_count += 1
+
+            error_value = parsed.get("error")
+            if error_value:
+                failed_count += 1
+
+            module_name = module_name_from_path(root_path, file_path)
+            module_index[module_name] = file_path
+            path_index[file_path] = file_path
+
+            _emit_progress_if_needed(
+                progress,
+                start_time=start_time,
+                discovered_count=discovered_count,
+                scanned_count=scanned_count,
+                skipped_count=skipped_count,
+                failed_count=failed_count,
+                expected_file_count=expected_file_count,
+            )
+
+    _emit_progress(
+        progress,
+        phase="parsing_source_files",
+        discovered=discovered_count,
+        scanned=scanned_count,
+        skipped=skipped_count,
+        failed=failed_count,
+        elapsed=time.monotonic() - start_time,
+        eta=_estimate_eta(
+            start_time=start_time,
+            processed_count=scanned_count or discovered_count,
+            total_count=expected_file_count,
+        ),
+        expected_file_count=expected_file_count,
+    )
 
     for file_info in graph["files"]:
         from_path = file_info["path"]
@@ -301,4 +352,114 @@ def scan_repo(root_path: str) -> dict:
                     }
                 )
 
+    _emit_progress(
+        progress,
+        phase="building_graph",
+        discovered=discovered_count,
+        scanned=scanned_count,
+        skipped=skipped_count,
+        failed=failed_count,
+        elapsed=time.monotonic() - start_time,
+        eta=_estimate_eta(
+            start_time=start_time,
+            processed_count=scanned_count or discovered_count,
+            total_count=expected_file_count,
+        ),
+        expected_file_count=expected_file_count,
+    )
+
     return graph
+
+
+def _emit_progress(
+    progress: Callable[[dict[str, Any]], None] | None,
+    *,
+    phase: str,
+    discovered: int,
+    scanned: int,
+    skipped: int,
+    failed: int,
+    elapsed: float,
+    eta: str | None,
+    expected_file_count: int | None,
+) -> None:
+    if progress is None:
+        return
+
+    progress(
+        {
+            "phase": phase,
+            "discovered": discovered,
+            "scanned": scanned,
+            "skipped": skipped,
+            "failed": failed,
+            "elapsed": elapsed,
+            "eta": eta or "estimating...",
+            "expected_file_count": expected_file_count,
+        }
+    )
+
+
+def _emit_progress_if_needed(
+    progress: Callable[[dict[str, Any]], None] | None,
+    *,
+    start_time: float,
+    discovered_count: int,
+    scanned_count: int,
+    skipped_count: int,
+    failed_count: int,
+    expected_file_count: int | None,
+) -> None:
+    if progress is None:
+        return
+
+    should_emit = scanned_count <= 3 or scanned_count % 100 == 0
+    if not should_emit:
+        return
+
+    _emit_progress(
+        progress,
+        phase="parsing_source_files",
+        discovered=discovered_count,
+        scanned=scanned_count,
+        skipped=skipped_count,
+        failed=failed_count,
+        elapsed=time.monotonic() - start_time,
+        eta=_estimate_eta(
+            start_time=start_time,
+            processed_count=scanned_count or discovered_count,
+            total_count=expected_file_count,
+        ),
+        expected_file_count=expected_file_count,
+    )
+
+
+def _estimate_eta(
+    *,
+    start_time: float,
+    processed_count: int,
+    total_count: int | None,
+) -> str | None:
+    if total_count is None or total_count <= 0 or processed_count <= 0:
+        return "estimating..."
+
+    elapsed = max(time.monotonic() - start_time, 0.001)
+
+    if elapsed < 5 and processed_count < 200:
+        return "estimating..."
+
+    remaining = max(total_count - processed_count, 0)
+    if remaining <= 0:
+        return "about 0 sec"
+
+    seconds_per_item = elapsed / processed_count
+    eta_seconds = max(int(seconds_per_item * remaining), 0)
+
+    if eta_seconds < 90:
+        return f"about {max(1, eta_seconds)} sec"
+
+    minutes = round(eta_seconds / 60)
+    if minutes <= 1:
+        return "about 1 min"
+
+    return f"about {minutes} min"

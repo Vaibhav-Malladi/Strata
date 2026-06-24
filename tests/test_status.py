@@ -25,6 +25,7 @@ GENERATED_FILE_PATHS = [
     ".aidc/gate_report.json",
     ".aidc/snapshots/latest.txt",
     ".aidc/cache/repo_snapshot.json",
+    ".aidc/cache/repo_scan.json",
 ]
 
 
@@ -63,6 +64,7 @@ def test_analyze_status_reports_missing_generated_files():
         assert ".aidc/gate_report.json" in result["missing_files"]
         assert ".aidc/snapshots/latest.txt" in result["missing_files"]
         assert ".aidc/cache/repo_snapshot.json" in result["missing_files"]
+        assert ".aidc/cache/repo_scan.json" in result["missing_files"]
 
 
 def test_analyze_status_reports_current_when_outputs_exist():
@@ -94,6 +96,7 @@ def test_analyze_status_reports_current_when_outputs_exist():
         assert ".aidc/gate_report.json" in paths
         assert ".aidc/snapshots/latest.txt" in paths
         assert ".aidc/cache/repo_snapshot.json" in paths
+        assert ".aidc/cache/repo_scan.json" in paths
 
 
 def test_analyze_status_reports_stale_outputs():
@@ -121,6 +124,7 @@ def test_analyze_status_reports_stale_outputs():
         assert ".aidc/graph.json" in normalized_stale
         assert ".aidc/snapshots/latest.txt" in normalized_stale
         assert ".aidc/cache/repo_snapshot.json" in normalized_stale
+        assert ".aidc/cache/repo_scan.json" in normalized_stale
 
 
 def test_analyze_status_tracks_latest_snapshot_indicator_only():
@@ -143,6 +147,7 @@ def test_analyze_status_tracks_latest_snapshot_indicator_only():
 
         assert ".aidc/snapshots/latest.txt" in paths
         assert ".aidc/cache/repo_snapshot.json" in paths
+        assert ".aidc/cache/repo_scan.json" in paths
         assert ".aidc/snapshots/20240102_030405/graph.json" not in paths
 
 
@@ -186,6 +191,11 @@ def test_format_status_report_contains_sections():
                 "exists": False,
                 "modified_time": None,
             },
+            {
+                "path": ".aidc/cache/repo_scan.json",
+                "exists": False,
+                "modified_time": None,
+            },
         ],
         "missing_files": [
             ".aidc/graph.json",
@@ -195,6 +205,7 @@ def test_format_status_report_contains_sections():
             ".aidc/routes.json",
             ".aidc/snapshots/latest.txt",
             ".aidc/cache/repo_snapshot.json",
+            ".aidc/cache/repo_scan.json",
         ],
         "stale_files": [],
         "newest_source_mtime": None,
@@ -212,8 +223,37 @@ def test_format_status_report_contains_sections():
     assert ".aidc/routes.json" in report
     assert ".aidc/snapshots/latest.txt" in report
     assert ".aidc/cache/repo_snapshot.json" in report
+    assert ".aidc/cache/repo_scan.json" in report
     assert "strata routes" in report
     assert "strata snapshot" in report
+
+
+def test_format_status_report_mentions_interrupted_full_scan():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        (root / "main.py").write_text("print('hello')\n", encoding="utf-8")
+        write_generated_files(root)
+
+        temp_scan = root / ".aidc" / "cache" / "repo_scan.tmp.json"
+        temp_scan.parent.mkdir(parents=True, exist_ok=True)
+        temp_scan.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "status": "scanning",
+                    "root": str(root),
+                    "file_count": 2,
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        result = analyze_status(str(root))
+        report = format_status_report(result)
+
+        assert result["full_scan"]["status"] == "interrupted"
+        assert "Full scan" in report
+        assert "interrupted" in report.lower()
 
 
 def test_show_status_displays_repo_intelligence_when_graph_exists():
@@ -314,5 +354,6 @@ TESTS = [
     test_analyze_status_reports_stale_outputs,
     test_analyze_status_tracks_latest_snapshot_indicator_only,
     test_format_status_report_contains_sections,
+    test_format_status_report_mentions_interrupted_full_scan,
     test_show_status_displays_repo_intelligence_when_graph_exists,
 ]
