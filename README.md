@@ -81,6 +81,7 @@ This is the recommended beginner path:
 - Strata does not commit or push automatically.
 
 Run `strata` at any time to see the recommended next step.
+After `strata ask` receives a patch, Strata shows a compact inline review so you can quickly see what changed before running a full review or applying.
 Run `strata help` for advanced commands.
 
 Manual mode note:

@@ -8,6 +8,8 @@ from command_executor import DEFAULT_TIMEOUT_SECONDS, execute_command_adapter
 from commands.prepare_command import prepare_workflow
 from http_executor import execute_openai_compatible_http_adapter
 from ollama_adapter import execute_ollama_adapter
+from patch_contract import inspect_patch
+from patch_validator import validate_patch_file
 from ui import (
     format_error,
     format_path,
@@ -17,7 +19,6 @@ from ui import (
     print_command_header,
     print_success,
     print_status_card,
-    print_warning,
     render_step,
     status_spinner,
 )
@@ -100,46 +101,18 @@ def write_ask_command(root_path: str = ".", *args: str) -> int:
 
     if adapter_family == "command":
         _print_direct_edit_warning()
-        warnings = _merge_unique(warnings, [" ".join(line.strip() for line in _DIRECT_EDIT_WARNING_LINES[1:])])
 
-    execution_result = _execute_adapter(root, adapter, prepare_result["config"])
-    execution_status = str(execution_result.get("status", "failed")).lower()
-    patch_status = execution_result.get("patch_status")
-    patch_valid = bool(execution_result.get("patch_valid"))
-    targets = execution_result.get("targets", [])
-    execution_warnings = _merge_unique(
-        warnings,
-        list(execution_result.get("warnings", []) or []),
-    )
-
-    status = _format_execution_status(execution_status)
-    next_step = "Run `strata review`." if execution_status == "patch_ready" else "Fix the adapter setup and run `strata ask` again."
+    _execute_adapter(root, adapter, prepare_result["config"])
+    review_result = _build_inline_review_result(root)
 
     print_banner()
     print_command_header("Ask", "Prepare context and request a patch", mode="compact")
     print_status_card(
-        "Ask patch",
-        _build_execution_rows(
-            task=task,
-            config=prepare_result["config"],
-            adapter=adapter,
-            prompt_path=prompt_path,
-            execution_result=execution_result,
-            patch_status=patch_status,
-            patch_valid=patch_valid,
-            targets=targets,
-            warnings=execution_warnings,
-            next_step=next_step,
-        ),
-        status=status,
+        "Inline review",
+        review_result["rows"],
     )
 
-    if execution_status == "patch_ready":
-        print_success("Next: Run `strata review`.")
-        return 0
-
-    print_error("Fix: Fix the adapter setup and run `strata ask` again.")
-    return 1
+    return 0 if review_result["ready"] else 1
 
 
 def _execute_adapter(root: str, adapter: str, config: dict) -> dict:
@@ -170,50 +143,43 @@ def _execute_adapter(root: str, adapter: str, config: dict) -> dict:
     return execution_result
 
 
-def _build_execution_rows(
-    *,
-    task: str,
-    config: dict,
-    adapter: str,
-    prompt_path: str,
-    execution_result: dict,
-    patch_status: object,
-    patch_valid: bool,
-    targets: object,
-    warnings: list[str],
-    next_step: str,
-) -> list[tuple[str, object]]:
+def _build_inline_review_result(root: str) -> dict:
+    patch_summary = inspect_patch(root)
+    summary_status = str(patch_summary.get("status", "missing")).lower()
+    validation = None
+    validation_error = None
+
+    if summary_status != "missing":
+        try:
+            validation = validate_patch_file(root)
+        except (OSError, ValueError) as error:
+            validation_error = str(error)
+
+    patch_status = _inline_patch_status(summary_status, validation, validation_error)
+    validation_status = _inline_validation_status(summary_status, validation, validation_error)
+    dry_run_status = _inline_dry_run_status(validation, validation_error)
+    files_changed = _inline_files_changed(validation)
+    targets = _inline_targets(validation)
+    fix = _inline_fix(summary_status, validation, validation_error)
+    next_step = _inline_next_step(summary_status, validation, validation_error)
+
     rows: list[tuple[str, object]] = [
-        ("Task", task),
-        ("Mode", _display_value(config.get("mode"))),
-        ("Agent", _display_value(config.get("agent"))),
-        ("Adapter", _display_value(adapter)),
-        ("Prompt", format_path(prompt_path)),
-        ("Patch", format_path(execution_result.get("patch_path") or ".aidc/agent_patch.diff")),
-        ("Patch status", _format_patch_status(patch_status)),
-        ("Patch valid", _format_yes_no(patch_valid)),
-        ("Targets", _format_targets(targets)),
-        ("Message", str(execution_result.get("message", ""))),
-        ("Next", next_step),
+        ("Patch status", _format_inline_value(patch_status)),
+        ("Validation", _format_inline_value(validation_status)),
+        ("Dry-run", _format_inline_value(dry_run_status)),
+        ("Files changed", files_changed),
+        ("Targets", targets),
     ]
 
-    if warnings:
-        rows.append(("Warnings", _format_notes(warnings)))
+    if fix:
+        rows.append(("Fix", fix))
 
-    stdout_preview = _preview_text(execution_result.get("stdout", ""))
-    stderr_preview = _preview_text(execution_result.get("stderr", ""))
+    rows.append(("Next", next_step))
 
-    if stdout_preview:
-        rows.append(("Stdout", stdout_preview))
-
-    if stderr_preview:
-        rows.append(("Stderr", stderr_preview))
-
-    errors = execution_result.get("errors", [])
-    if errors:
-        rows.append(("Errors", _format_notes(errors)))
-
-    return rows
+    return {
+        "rows": rows,
+        "ready": patch_status == "ready",
+    }
 
 
 def _print_prepared_summary(
@@ -246,6 +212,135 @@ def _print_prepared_summary(
 
     if warnings:
         print_status_card("Ask warnings", [("Warnings", _format_notes(warnings))], status=format_warning("warn"))
+
+
+def _inline_patch_status(
+    summary_status: str,
+    validation: dict | None,
+    validation_error: str | None,
+) -> str:
+    if validation_error is not None:
+        return "invalid"
+
+    if validation is None:
+        return summary_status or "missing"
+
+    status = str(validation.get("status", summary_status or "missing")).lower()
+
+    if status == "valid":
+        return "ready"
+
+    return status or "missing"
+
+
+def _inline_validation_status(
+    summary_status: str,
+    validation: dict | None,
+    validation_error: str | None,
+) -> str:
+    if validation_error is not None:
+        return "failed"
+
+    if validation is None:
+        if summary_status == "missing":
+            return "missing"
+        return "not run"
+
+    status = str(validation.get("status", summary_status or "missing")).lower()
+
+    if status == "valid":
+        return "passed"
+
+    return status or "not run"
+
+
+def _inline_dry_run_status(validation: dict | None, validation_error: str | None) -> str:
+    if validation_error is not None:
+        return "failed"
+
+    if validation is None:
+        return "not run"
+
+    status = str(validation.get("status", "invalid")).lower()
+    if status == "valid":
+        return "passed"
+
+    return "not run"
+
+
+def _inline_files_changed(validation: dict | None) -> object:
+    if validation is None:
+        return "-"
+
+    if str(validation.get("status", "")).lower() != "valid":
+        return "-"
+
+    return str(len(validation.get("targets", []) or []))
+
+
+def _inline_targets(validation: dict | None) -> object:
+    if validation is None:
+        return "-"
+
+    if str(validation.get("status", "")).lower() != "valid":
+        return "-"
+
+    targets = validation.get("targets", [])
+    return ", ".join(str(target) for target in targets) if targets else "-"
+
+
+def _inline_fix(summary_status: str, validation: dict | None, validation_error: str | None) -> str | None:
+    if validation_error is not None:
+        return "Review the adapter output and save a valid unified diff."
+
+    if summary_status == "missing":
+        return "Fix the adapter setup or save a patch to `.aidc/agent_patch.diff`."
+
+    if validation is None:
+        return None
+
+    status = str(validation.get("status", summary_status or "missing")).lower()
+
+    if status in {"invalid", "empty"}:
+        return "Ask the AI to return a valid unified diff."
+
+    return None
+
+
+def _inline_next_step(summary_status: str, validation: dict | None, validation_error: str | None) -> str:
+    if validation_error is not None:
+        return "Run `strata review`."
+
+    if summary_status == "missing":
+        return 'Run `strata ask "your task"` again, or run `strata review` after saving a patch.'
+
+    if validation is None:
+        return "Run `strata review`."
+
+    status = str(validation.get("status", summary_status or "missing")).lower()
+
+    if status == "valid":
+        return "Run `strata review` for full review, or `strata apply` when ready."
+
+    return 'Run `strata ask "your task"` again.'
+
+
+def _format_inline_value(status: str) -> str:
+    normalized = str(status or "").strip().lower()
+
+    if normalized == "ready":
+        return format_success("ready")
+
+    if normalized == "passed":
+        return format_success("passed")
+
+    if normalized in {"missing", "not run", "empty"}:
+        return format_warning(normalized)
+
+    if normalized in {"invalid", "failed"}:
+        return format_error(normalized)
+
+    return format_warning(normalized or "-")
 
 
 def _format_ready_status(adapter: str, ready: bool) -> str:
