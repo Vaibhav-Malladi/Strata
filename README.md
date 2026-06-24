@@ -88,6 +88,40 @@ Recommended choices:
 - HTTP if you use an OpenAI-compatible local or cloud endpoint.
 - Ollama if you want a local Qwen/Ollama workflow.
 
+## Aider / Codex CLI Presets
+
+Strata includes command-family presets for Aider and Codex CLI so setup is faster
+and the expected workflow stays explicit.
+
+Use them when your installed CLI can read `.aidc/agent_prompt.md` and write
+`.aidc/agent_patch.diff` for Strata to inspect afterward:
+
+```powershell
+strata setup --aider
+strata setup --codex-cli
+```
+
+Interactive setup also accepts the aliases `aider`, `codex`, `codex_cli`, and
+`codex-cli`.
+
+These presets are still conservative command-family entries. Many AI coding CLIs
+can edit files directly depending on their configuration, so always verify the
+command before running `strata execute`.
+
+Recommended flow:
+
+```powershell
+strata setup --aider
+strata doctor adapter
+strata execute --dry-run
+strata execute
+strata patch
+strata apply --dry-run
+strata apply
+```
+
+The same flow works for Codex CLI after `strata setup --codex-cli`.
+
 ---
 
 ## Recommended V4 Workflow
@@ -169,8 +203,9 @@ Named adapters are presets or aliases that map onto one of those families.
 
 `prompt_file` remains manual. `command` is the only family with real command-line
 execution today, and `openai_compatible_http` adds experimental HTTP execution.
-Planned command-family presets like `aider` and `codex_cli` are not direct
-integrations yet. Planned http-family adapters like `ollama` are still future work.
+Command-family presets like `aider` and `codex_cli` are supported as
+setup/doctor-friendly presets, but Strata still expects the external CLI to write
+`.aidc/agent_patch.diff` and keeps patch application explicit.
 
 Safe workflow:
 
@@ -246,8 +281,8 @@ del .aidc\agent_patch.diff
 | `command` | `command` | Implemented | Runs the configured command adapter and writes `.aidc/agent_patch.diff`. |
 | `ollama` | `http` | Implemented | Uses Ollama's native `/api/generate` endpoint, writes `.aidc/agent_patch.diff`, and does not apply patches automatically. |
 | `openai_compatible_http` | `http` | Experimental | OpenAI-compatible HTTP execution writes `.aidc/agent_patch.diff`, validates the patch, and still does not apply it automatically. |
-| `aider` | `command` | Planned | Future Aider preset on the command family. |
-| `codex_cli` | `command` | Planned | Future Codex CLI preset on the command family. |
+| `aider` | `command` | Implemented | Command-family preset that writes `aider --message-file .aidc/agent_prompt.md`; verify it emits `.aidc/agent_patch.diff` before execute. |
+| `codex_cli` | `command` | Implemented | Command-family preset that writes `codex --prompt-file .aidc/agent_prompt.md`; verify it emits `.aidc/agent_patch.diff` before execute. |
 
 ## Native Ollama Workflow
 
@@ -522,7 +557,7 @@ All tests passed.
 - `strata execute` runs the configured `command` adapter or experimental OpenAI-compatible HTTP adapter, and Strata still does not decide whether the external tool is AI.
 - `strata execute` writes a patch; it does not apply patches automatically.
 - `strata apply` is separate and explicit, and `--dry-run` validates patch safety without applying.
-- Other adapters such as `ollama`, `aider`, and `codex_cli` remain planned unless you use them through the command adapter path.
+- Other direct integrations such as future agent backends remain planned; the `aider` and `codex_cli` presets are supported now, but the external CLI still owns patch creation.
 - Strata never commits changes automatically; gate remains the safety boundary.
 - Interactive setup prompts are not implemented yet.
 - Richer language support is still growing.

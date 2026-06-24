@@ -26,6 +26,7 @@ import test_graph
 import test_gate
 import test_gate_command
 import test_cli_core
+import test_adapter_presets
 import test_map_writer
 import test_brief
 import test_cycles
@@ -86,6 +87,7 @@ TEST_MODULES = [
     test_gate,
     test_gate_command,
     test_cli_core,
+    test_adapter_presets,
     test_map_writer,
     test_brief,
     test_cycles,

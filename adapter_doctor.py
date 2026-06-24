@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from adapter_presets import get_adapter_preset
 from agent_adapters import (
     DEFAULT_PATCH_PATH,
     DEFAULT_PROMPT_PATH,
@@ -15,8 +16,6 @@ from ollama_adapter import DEFAULT_OLLAMA_BASE_URL, normalize_ollama_base_url
 from workflow_config import load_config
 
 _PLANNED_COMMAND_ADAPTERS = {"aider", "codex_cli"}
-_PLANNED_HTTP_ADAPTERS: set[str] = set()
-_PLANNED_ADAPTERS = _PLANNED_COMMAND_ADAPTERS | _PLANNED_HTTP_ADAPTERS
 _ALL_SUPPORTED_ADAPTERS = supported_adapters()
 
 
@@ -76,33 +75,7 @@ def check_adapter(root: str | Path = ".") -> dict[str, Any]:
         return _check_ollama(root_path, config, mode, agent)
 
     if adapter in _PLANNED_COMMAND_ADAPTERS:
-        prompt_display = _display_prompt(prompt_config)
-        patch_display = _display_patch()
-        check_message = "Command-family preset execution is not implemented yet."
-        return _build_result(
-            status="not_ready",
-            ready=False,
-            adapter=adapter,
-            adapter_family=family,
-            mode=mode,
-            agent=agent,
-            prompt=prompt_display,
-            patch=patch_display,
-            command="-",
-            command_timeout_seconds=None,
-            base_url=None,
-            model=None,
-            api_key_env=None,
-            http_timeout_seconds=None,
-            message=check_message,
-            checks=[
-                _check("config", "pass", "Workflow config loaded."),
-                _check("adapter", "info", check_message),
-                _check("prompt", "info", "Prompt path is configured."),
-                _check("patch", "info", "Patch path is configured."),
-            ],
-            errors=[check_message],
-        )
+        return _check_command_preset(root_path, config, mode, agent, adapter)
 
     if adapter == "prompt_file":
         return _check_prompt_file(root_path, config, mode, agent)
@@ -184,6 +157,52 @@ def _check_prompt_file(root_path: Path, config: dict[str, Any], mode: str, agent
 
 
 def _check_command(root_path: Path, config: dict[str, Any], mode: str, agent: str) -> dict[str, Any]:
+    return _check_command_like(
+        root_path,
+        config,
+        mode,
+        agent,
+        adapter="command",
+        ready_message="Adapter configuration looks ready.",
+        command_missing_message="Command adapter requires a configured command.",
+        warning_message=None,
+    )
+
+
+def _check_command_preset(
+    root_path: Path,
+    config: dict[str, Any],
+    mode: str,
+    agent: str,
+    adapter: str,
+) -> dict[str, Any]:
+    preset = get_adapter_preset(adapter)
+    display_name = str(preset.get("display_name", adapter)).strip() or adapter
+    warning = str(preset.get("warning", ""))
+
+    return _check_command_like(
+        root_path,
+        config,
+        mode,
+        agent,
+        adapter=adapter,
+        ready_message=f"{display_name} preset is configured.",
+        command_missing_message=f"{display_name} preset requires a configured command.",
+        warning_message=warning or None,
+    )
+
+
+def _check_command_like(
+    root_path: Path,
+    config: dict[str, Any],
+    mode: str,
+    agent: str,
+    *,
+    adapter: str,
+    ready_message: str,
+    command_missing_message: str,
+    warning_message: str | None,
+) -> dict[str, Any]:
     prompt_config = config.get("prompt_path")
     command_config = config.get("command")
     resolved_prompt_path = prompt_path(root_path, prompt_config)
@@ -192,13 +211,14 @@ def _check_command(root_path: Path, config: dict[str, Any], mode: str, agent: st
     command_display = _display_command(command_config)
     timeout_display = _display_timeout(config.get("command_timeout_seconds"))
     errors: list[str] = []
+    warnings: list[str] = []
     checks = [
         _check("config", "pass", "Workflow config loaded."),
         _check("adapter", "pass", "Adapter is supported."),
     ]
 
     if not command_display or command_display == "-":
-        errors.append("Command adapter requires a configured command.")
+        errors.append(command_missing_message)
         checks.append(_check("command", "fail", "Command is missing."))
     else:
         checks.append(_check("command", "pass", "Command is configured."))
@@ -213,11 +233,14 @@ def _check_command(root_path: Path, config: dict[str, Any], mode: str, agent: st
 
     checks.append(_check("patch", "info", "Patch path is configured."))
 
+    if warning_message is not None:
+        warnings.append(warning_message)
+
     if errors:
         return _build_result(
             status="not_ready",
             ready=False,
-            adapter="command",
+            adapter=adapter,
             adapter_family="command",
             mode=mode,
             agent=agent,
@@ -231,12 +254,13 @@ def _check_command(root_path: Path, config: dict[str, Any], mode: str, agent: st
             message="Adapter configuration is not ready.",
             checks=checks,
             errors=errors,
+            warnings=warnings,
         )
 
     return _build_result(
         status="ready",
         ready=True,
-        adapter="command",
+        adapter=adapter,
         adapter_family="command",
         mode=mode,
         agent=agent,
@@ -247,8 +271,9 @@ def _check_command(root_path: Path, config: dict[str, Any], mode: str, agent: st
         base_url=None,
         api_key_env=None,
         http_timeout_seconds=None,
-        message="Adapter configuration looks ready.",
+        message=ready_message,
         checks=checks,
+        warnings=warnings,
     )
 
 

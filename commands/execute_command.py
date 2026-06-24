@@ -22,8 +22,6 @@ from ui import (
 )
 
 _PLANNED_COMMAND_ADAPTERS = {"aider", "codex_cli"}
-_PLANNED_HTTP_ADAPTERS: set[str] = set()
-_PLANNED_ADAPTERS = _PLANNED_COMMAND_ADAPTERS | _PLANNED_HTTP_ADAPTERS
 
 
 def write_execute_command(root_path: str = ".", dry_run: bool = False) -> int:
@@ -60,14 +58,15 @@ def write_execute_command(root_path: str = ".", dry_run: bool = False) -> int:
     patch_status = "-"
     patch_valid = "no"
     targets = "-"
+    warnings = list(result.get("warnings", []) or [])
     next_step = None
 
     if dry_run and ready:
-        display_status = format_success("dry-run")
+        display_status = format_warning("dry-run") if adapter in _PLANNED_COMMAND_ADAPTERS else format_success("dry-run")
         message = _dry_run_message(adapter, adapter_family)
 
     if not dry_run:
-        if ready and adapter == "command":
+        if ready and adapter_family == "command":
             timeout_seconds = config.get("command_timeout_seconds") if config is not None else None
             if type(timeout_seconds) is not int or timeout_seconds <= 0:
                 timeout_seconds = DEFAULT_TIMEOUT_SECONDS
@@ -85,6 +84,7 @@ def write_execute_command(root_path: str = ".", dry_run: bool = False) -> int:
             patch_status = _format_patch_status(execution_result.get("patch_status"))
             patch_valid = _format_yes_no(bool(execution_result.get("patch_valid")))
             targets = _format_targets(execution_result.get("targets", []))
+            warnings = _merge_warnings(warnings, execution_result)
             if execution_result.get("status") == "patch_ready":
                 next_step = "Run `strata patch`, then `strata apply --dry-run`, then `strata apply`."
 
@@ -99,6 +99,7 @@ def write_execute_command(root_path: str = ".", dry_run: bool = False) -> int:
             patch_status = _format_patch_status(execution_result.get("patch_status"))
             patch_valid = _format_yes_no(bool(execution_result.get("patch_valid")))
             targets = _format_targets(execution_result.get("targets", []))
+            warnings = _merge_warnings(warnings, execution_result)
             if execution_result.get("status") == "patch_ready":
                 next_step = "Run `strata patch`, then `strata apply --dry-run`, then `strata apply`."
 
@@ -113,6 +114,7 @@ def write_execute_command(root_path: str = ".", dry_run: bool = False) -> int:
             patch_status = _format_patch_status(execution_result.get("patch_status"))
             patch_valid = _format_yes_no(bool(execution_result.get("patch_valid")))
             targets = _format_targets(execution_result.get("targets", []))
+            warnings = _merge_warnings(warnings, execution_result)
             if execution_result.get("status") == "patch_ready":
                 next_step = "Run `strata patch`, then `strata apply --dry-run`, then `strata apply`."
 
@@ -169,6 +171,9 @@ def write_execute_command(root_path: str = ".", dry_run: bool = False) -> int:
     if errors:
         rows.append(("Errors", _format_notes(errors)))
 
+    if warnings:
+        rows.append(("Warnings", _format_notes(warnings)))
+
     if execution_result is not None:
         stdout_preview = _preview_text(execution_result.get("stdout", ""))
         stderr_preview = _preview_text(execution_result.get("stderr", ""))
@@ -211,24 +216,14 @@ def _build_display_status_and_message(result: dict[str, object]) -> tuple[str, s
     if ready and adapter == "command":
         return format_error("not_implemented"), "Command execution is not implemented yet."
 
+    if ready and adapter in _PLANNED_COMMAND_ADAPTERS:
+        return format_warning("ready"), _preset_ready_message(adapter)
+
     if ready and adapter == "openai_compatible_http":
         return format_success("ready"), "HTTP adapter appears ready for execution."
 
     if ready and adapter == "ollama":
         return format_success("ready"), "Ollama adapter appears ready. Runtime availability is checked during execute."
-
-    if adapter in _PLANNED_ADAPTERS:
-        if adapter_family == "command":
-            return format_error("not_implemented"), "Command-family preset execution is not implemented yet."
-
-        if adapter_family == "http":
-            return (
-                format_error("not_implemented"),
-                "HTTP adapter execution is not implemented yet. "
-                "HTTP request/response contract is available locally; network execution is not implemented yet.",
-            )
-
-        return format_error("not_implemented"), "Adapter is planned. Command execution is not implemented yet."
 
     if status == "invalid":
         errors = result.get("errors") or []
@@ -331,6 +326,59 @@ def _format_notes(notes: object) -> str:
     return "; ".join(str(note) for note in notes)
 
 
+def _collect_warnings(result: dict[str, object] | None) -> list[str]:
+    warnings: list[str] = []
+
+    if result is None:
+        return warnings
+
+    for warning in result.get("warnings", []) or []:
+        text = str(warning)
+        if text and text not in warnings:
+            warnings.append(text)
+
+    return warnings
+
+
+def _merge_warnings(existing: list[str], result: dict[str, object] | None) -> list[str]:
+    merged = list(existing)
+
+    for warning in _collect_warnings(result):
+        if warning not in merged:
+            merged.append(warning)
+
+    return merged
+
+
+def _preset_ready_message(adapter: str) -> str:
+    if adapter == "aider":
+        return "Aider preset is ready. Verify this command writes .aidc/agent_patch.diff before running execute."
+
+    if adapter == "codex_cli":
+        return "Codex CLI preset is ready. Verify this command writes .aidc/agent_patch.diff before running execute."
+
+    return "Command-family preset is ready. Verify this command writes .aidc/agent_patch.diff before running execute."
+
+
+def _preset_dry_run_message(adapter: str) -> str:
+    if adapter == "aider":
+        return (
+            "Dry run only. No command was executed. "
+            "Verify the Aider preset writes .aidc/agent_patch.diff before running execute."
+        )
+
+    if adapter == "codex_cli":
+        return (
+            "Dry run only. No command was executed. "
+            "Verify the Codex CLI preset writes .aidc/agent_patch.diff before running execute."
+        )
+
+    return (
+        "Dry run only. No command was executed. "
+        "Verify this command writes .aidc/agent_patch.diff before running execute."
+    )
+
+
 def _build_ollama_rows(
     *,
     result: dict[str, object],
@@ -405,6 +453,9 @@ def _build_http_rows(
 def _dry_run_message(adapter: str, adapter_family: str) -> str:
     if adapter == "ollama":
         return "Ollama request is ready. No HTTP request was made."
+
+    if adapter in _PLANNED_COMMAND_ADAPTERS:
+        return _preset_dry_run_message(adapter)
 
     if adapter_family == "http":
         return "Dry run only. No HTTP request was made."

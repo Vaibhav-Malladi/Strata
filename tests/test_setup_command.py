@@ -10,6 +10,8 @@ import sys
 from cli import main as cli_main
 from cli_help import print_usage
 from commands.setup_command import (
+    setup_aider,
+    setup_codex_cli,
     setup_command,
     setup_http,
     setup_manual,
@@ -146,6 +148,42 @@ def test_setup_ollama_allows_custom_model_and_no_api_key_env():
         assert config["api_key_env"] is None
 
 
+def test_setup_aider_writes_adapter_command_and_warning():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+
+        result, output = capture_output(setup_aider, str(root))
+        config = load_config(root)
+
+        assert result["status"] == "configured"
+        assert result["adapter"] == "aider"
+        assert config["adapter"] == "aider"
+        assert config["command"] == "aider --message-file .aidc/agent_prompt.md"
+        assert config["command_timeout_seconds"] == 120
+        assert result["warnings"]
+        assert ".aidc/agent_patch.diff" in result["warnings"][0]
+        assert "Aider preset setup saved." in output
+        assert ".aidc/agent_patch.diff" in output
+
+
+def test_setup_codex_cli_writes_adapter_command_and_warning():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+
+        result, output = capture_output(setup_codex_cli, str(root))
+        config = load_config(root)
+
+        assert result["status"] == "configured"
+        assert result["adapter"] == "codex_cli"
+        assert config["adapter"] == "codex_cli"
+        assert config["command"] == "codex --prompt-file .aidc/agent_prompt.md"
+        assert config["command_timeout_seconds"] == 120
+        assert result["warnings"]
+        assert ".aidc/agent_patch.diff" in result["warnings"][0]
+        assert "Codex CLI preset setup saved." in output
+        assert ".aidc/agent_patch.diff" in output
+
+
 def test_setup_show_returns_current_config_summary():
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
@@ -200,6 +238,36 @@ def test_invalid_interactive_choice_retries_then_configures_manual_setup():
         assert result == 0
         assert "Invalid choice" in output
         assert config["adapter"] == "prompt_file"
+
+
+def test_interactive_setup_accepts_aider_alias():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+
+        with patched_input(["aider"]):
+            with change_directory(root):
+                result, output = capture_output(write_setup_command, str(root))
+
+        config = load_config(root)
+
+        assert result == 0
+        assert config["adapter"] == "aider"
+        assert "Aider preset setup saved." in output
+
+
+def test_interactive_setup_accepts_codex_alias():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+
+        with patched_input(["codex"]):
+            with change_directory(root):
+                result, output = capture_output(write_setup_command, str(root))
+
+        config = load_config(root)
+
+        assert result == 0
+        assert config["adapter"] == "codex_cli"
+        assert "Codex CLI preset setup saved." in output
 
 
 def test_setup_returns_fresh_lists_each_call():
@@ -277,12 +345,46 @@ def test_cli_routes_setup_ollama():
         assert "Setup summary" in output
 
 
+def test_cli_routes_setup_aider():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+
+        with change_directory(root):
+            with change_argv(["cli.py", "setup", "--aider"]):
+                exit_code, output = capture_output(cli_main)
+
+        config = load_config(root)
+
+        assert exit_code == 0
+        assert config["adapter"] == "aider"
+        assert config["command"] == "aider --message-file .aidc/agent_prompt.md"
+        assert "Aider preset setup saved." in output
+
+
+def test_cli_routes_setup_codex_cli():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+
+        with change_directory(root):
+            with change_argv(["cli.py", "setup", "--codex-cli"]):
+                exit_code, output = capture_output(cli_main)
+
+        config = load_config(root)
+
+        assert exit_code == 0
+        assert config["adapter"] == "codex_cli"
+        assert config["command"] == "codex --prompt-file .aidc/agent_prompt.md"
+        assert "Codex CLI preset setup saved." in output
+
+
 def test_cli_help_includes_setup():
     _, output = capture_output(print_usage)
 
     assert "strata setup" in output
     assert "strata setup --manual" in output
     assert "strata setup --command" in output
+    assert "strata setup --aider" in output
+    assert "strata setup --codex-cli" in output
     assert "strata setup --http" in output
     assert "strata setup --ollama" in output
     assert "strata setup --show" in output
@@ -296,14 +398,20 @@ TESTS = [
     test_setup_http_without_base_url_returns_warning,
     test_setup_ollama_writes_adapter_and_defaults_model,
     test_setup_ollama_allows_custom_model_and_no_api_key_env,
+    test_setup_aider_writes_adapter_command_and_warning,
+    test_setup_codex_cli_writes_adapter_command_and_warning,
     test_setup_show_returns_current_config_summary,
     test_cancelled_interactive_setup_does_not_modify_config,
     test_invalid_interactive_choice_retries_then_configures_manual_setup,
+    test_interactive_setup_accepts_aider_alias,
+    test_interactive_setup_accepts_codex_alias,
     test_setup_returns_fresh_lists_each_call,
     test_setup_functions_do_not_make_network_calls,
     test_setup_no_secret_value_is_required,
     test_setup_command_output_includes_summary,
     test_cli_routes_setup_manual,
     test_cli_routes_setup_ollama,
+    test_cli_routes_setup_aider,
+    test_cli_routes_setup_codex_cli,
     test_cli_help_includes_setup,
 ]

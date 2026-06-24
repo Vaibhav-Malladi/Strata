@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from http_adapter_contract import normalize_base_url
+from adapter_presets import get_adapter_preset
 from ollama_adapter import DEFAULT_OLLAMA_BASE_URL, DEFAULT_OLLAMA_MODEL, normalize_ollama_base_url
 from ui import (
     build_banner,
@@ -23,6 +24,7 @@ _NEXT_STEPS = [
     "strata execute",
     "strata patch",
     "strata apply --dry-run",
+    "strata apply",
 ]
 
 _CANCEL_CHOICES = {"q", "quit", "cancel"}
@@ -41,6 +43,12 @@ _CHOICE_LOOKUP = {
     "openai-compatible-http": "http",
     "4": "ollama",
     "ollama": "ollama",
+    "5": "aider",
+    "aider": "aider",
+    "6": "codex_cli",
+    "codex": "codex_cli",
+    "codex_cli": "codex_cli",
+    "codex-cli": "codex_cli",
 }
 
 
@@ -121,6 +129,26 @@ def setup_command(root: str = ".", command: str | None = None) -> dict:
     )
     _print_setup_summary(root, normalized, result, title="Setup complete")
     return result
+
+
+def setup_aider(root: str = ".", command: str | None = None) -> dict:
+    return _setup_command_preset(
+        root,
+        preset_name="aider",
+        command=command,
+        title="Aider preset",
+        setup_message="Aider preset setup saved.",
+    )
+
+
+def setup_codex_cli(root: str = ".", command: str | None = None) -> dict:
+    return _setup_command_preset(
+        root,
+        preset_name="codex_cli",
+        command=command,
+        title="Codex CLI preset",
+        setup_message="Codex CLI preset setup saved.",
+    )
 
 
 def setup_http(
@@ -274,6 +302,14 @@ def _run_interactive_setup(root: str) -> int:
                     "4. Ollama",
                     f"Best for local Qwen/Ollama models. Default base URL: {DEFAULT_OLLAMA_BASE_URL}.",
                 ),
+                (
+                    "5. Aider preset",
+                    "Best when Aider can write .aidc/agent_patch.diff for a patch-first workflow.",
+                ),
+                (
+                    "6. Codex CLI preset",
+                    "Best when your Codex CLI command can write .aidc/agent_patch.diff.",
+                ),
             ]
         )
     )
@@ -308,6 +344,14 @@ def _run_interactive_setup(root: str) -> int:
             _print_setup_summary(root, current, result, title="Setup cancelled")
             return 1
         result = setup_command(root, command=command or None)
+        return 0 if result["status"] in {"configured", "needs_input"} else 1
+
+    if choice == "aider":
+        result = setup_aider(root)
+        return 0 if result["status"] in {"configured", "needs_input"} else 1
+
+    if choice == "codex_cli":
+        result = setup_codex_cli(root)
         return 0 if result["status"] in {"configured", "needs_input"} else 1
 
     if choice == "http":
@@ -438,7 +482,7 @@ def _build_summary_rows(root: str, config: dict, result: dict) -> list[tuple[str
 def _prompt_choice(default_choice: str) -> str | None:
     prompt = (
         "Choose a setup option "
-        f"[{default_choice} / 1 manual / 2 command / 3 http / 4 ollama, q to cancel]: "
+        f"[{default_choice} / 1 manual / 2 command / 3 http / 4 ollama / 5 aider / 6 codex-cli, q to cancel]: "
     )
 
     while True:
@@ -455,7 +499,11 @@ def _prompt_choice(default_choice: str) -> str | None:
         if choice is not None:
             return choice
 
-        print(format_error("Invalid choice. Enter 1, 2, 3, 4, manual, command, http, ollama, or q."))
+        print(
+            format_error(
+                "Invalid choice. Enter 1, 2, 3, 4, 5, 6, manual, command, http, ollama, aider, codex, codex_cli, or q."
+            )
+        )
 
 
 def _prompt_text(prompt_text: str, *, default: str = "", examples: tuple[str, ...] = ()) -> str | None:
@@ -479,8 +527,14 @@ def _prompt_text(prompt_text: str, *, default: str = "", examples: tuple[str, ..
 
 def _default_choice(adapter: object) -> str:
     normalized = _string_or_empty(adapter).lower()
-    if normalized in {"command", "openai_compatible_http", "ollama"}:
-        return {"command": "command", "openai_compatible_http": "http", "ollama": "ollama"}[normalized]
+    if normalized in {"command", "openai_compatible_http", "ollama", "aider", "codex_cli"}:
+        return {
+            "command": "command",
+            "openai_compatible_http": "http",
+            "ollama": "ollama",
+            "aider": "aider",
+            "codex_cli": "codex_cli",
+        }[normalized]
     return "manual"
 
 
@@ -564,6 +618,57 @@ def _error_result(adapter: str, message: str, errors: list[str]) -> dict:
         errors=errors,
         next_steps=_next_steps(),
     )
+
+
+def _setup_command_preset(
+    root: str,
+    *,
+    preset_name: str,
+    command: str | None,
+    title: str,
+    setup_message: str,
+) -> dict:
+    try:
+        current = load_config(root)
+        preset = get_adapter_preset(preset_name)
+        updated = dict(current)
+        resolved_command = _resolve_optional_text(command, preset["command"])
+        if resolved_command is None:
+            resolved_command = str(preset["command"])
+
+        updated["mode"] = _manual_mode(current.get("mode"))
+        updated["agent"] = _manual_agent(current.get("agent"))
+        updated["adapter"] = str(preset["adapter"])
+        updated["command"] = resolved_command
+        updated["base_url"] = None
+        updated["api_key_env"] = None
+        updated["command_timeout_seconds"] = 120
+
+        normalized = validate_config(updated)
+        save_config(normalized, root)
+    except ValueError as error:
+        return _error_result(preset_name, f"{title} setup failed.", [str(error)])
+
+    warnings = [str(preset["warning"])]
+
+    result = _result(
+        status="configured",
+        adapter=str(preset["adapter"]),
+        message=setup_message,
+        changes=[
+            f"mode={normalized['mode']}",
+            f"agent={normalized['agent']}",
+            f"adapter={preset['adapter']}",
+            f"command={normalized['command'] if normalized['command'] is not None else 'null'}",
+            "base_url=null",
+            "api_key_env=null",
+            "command_timeout_seconds=120",
+        ],
+        warnings=warnings,
+        next_steps=_next_steps(),
+    )
+    _print_setup_summary(root, normalized, result, title=f"{title} complete")
+    return result
 
 
 def _next_steps() -> list[str]:

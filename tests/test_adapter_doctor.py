@@ -279,7 +279,7 @@ def test_adapter_doctor_openai_http_does_not_read_api_key_value():
         assert result["api_key_env"] == "OPENAI_API_KEY"
 
 
-def test_adapter_doctor_command_family_planned_adapters_return_not_ready_with_family():
+def test_adapter_doctor_command_family_presets_are_ready_with_warning_when_configured():
     original_run = subprocess.run
 
     def _fail(*_args, **_kwargs):
@@ -290,19 +290,66 @@ def test_adapter_doctor_command_family_planned_adapters_return_not_ready_with_fa
         for adapter in ("aider", "codex_cli"):
             with tempfile.TemporaryDirectory() as temp_dir:
                 root = Path(temp_dir)
-                _save_config(root, adapter=adapter)
+                _save_config(
+                    root,
+                    mode="hybrid",
+                    agent="codex",
+                    adapter=adapter,
+                    command="tool --prompt .aidc/agent_prompt.md",
+                    prompt_path=".aidc/agent_prompt.md",
+                )
+                _write_prompt(root)
 
                 result = check_adapter(root)
 
-                assert result["status"] == "not_ready"
-                assert result["ready"] is False
+                assert result["status"] == "ready"
+                assert result["ready"] is True
                 assert result["adapter"] == adapter
                 assert result["adapter_family"] == "command"
-                assert result["message"] == "Command-family preset execution is not implemented yet."
-                assert result["errors"] == ["Command-family preset execution is not implemented yet."]
-                assert [check["status"] for check in result["checks"]] == ["pass", "info", "info", "info"]
+                assert result["command"] == "tool --prompt .aidc/agent_prompt.md"
+                assert result["errors"] == []
+                assert result["warnings"]
+                assert ".aidc/agent_patch.diff" in result["warnings"][0]
+                assert "preset" in result["message"].lower()
+                assert [check["status"] for check in result["checks"]] == [
+                    "pass",
+                    "pass",
+                    "pass",
+                    "pass",
+                    "pass",
+                    "info",
+                ]
     finally:
         subprocess.run = original_run
+
+
+def test_adapter_doctor_command_family_presets_report_missing_command():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _write_prompt(root)
+
+        for adapter in ("aider", "codex_cli"):
+            _save_config(root, mode="hybrid", agent="codex", adapter=adapter, command=None, prompt_path=".aidc/agent_prompt.md")
+
+            result = check_adapter(root)
+
+            assert result["status"] == "not_ready"
+            assert result["ready"] is False
+            assert result["adapter"] == adapter
+            assert result["adapter_family"] == "command"
+            assert result["command"] == "-"
+            assert result["errors"]
+            assert "configured command" in result["errors"][0].lower()
+            assert result["warnings"]
+            assert ".aidc/agent_patch.diff" in result["warnings"][0]
+            assert [check["status"] for check in result["checks"]] == [
+                "pass",
+                "pass",
+                "fail",
+                "pass",
+                "pass",
+                "info",
+            ]
 
 
 def test_adapter_doctor_invalid_config_returns_invalid():
@@ -365,7 +412,8 @@ TESTS = [
     test_adapter_doctor_ollama_ready_uses_default_base_url_without_network_calls,
     test_adapter_doctor_openai_http_reports_configured_base_url_and_api_key_env,
     test_adapter_doctor_openai_http_does_not_read_api_key_value,
-    test_adapter_doctor_command_family_planned_adapters_return_not_ready_with_family,
+    test_adapter_doctor_command_family_presets_are_ready_with_warning_when_configured,
+    test_adapter_doctor_command_family_presets_report_missing_command,
     test_adapter_doctor_invalid_config_returns_invalid,
     test_adapter_doctor_does_not_create_aidc_when_config_and_prompt_missing,
     test_adapter_doctor_returns_fresh_deterministic_dicts_and_lists,

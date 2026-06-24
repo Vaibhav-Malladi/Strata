@@ -29,6 +29,8 @@ def print_usage() -> None:
     print("  strata setup")
     print("  strata setup --manual")
     print("  strata setup --command")
+    print("  strata setup --aider")
+    print("  strata setup --codex-cli")
     print("  strata setup --http")
     print("  strata setup --ollama")
     print("  strata setup --show")

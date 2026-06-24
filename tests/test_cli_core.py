@@ -390,6 +390,8 @@ def test_cli_help_prefers_strata_commands():
     assert "strata gate <root>" in output
     assert "strata setup" in output
     assert "strata setup --manual" in output
+    assert "strata setup --aider" in output
+    assert "strata setup --codex-cli" in output
     assert "strata setup --ollama" in output
     assert "strata config [root]" in output
     assert "strata config init [root]" in output

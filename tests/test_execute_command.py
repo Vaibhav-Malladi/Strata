@@ -708,7 +708,7 @@ def test_execute_http_missing_base_url_returns_nonzero():
         execute_command_module.execute_openai_compatible_http_adapter = original_execute
 
 
-def test_execute_command_family_planned_adapters_do_not_execute():
+def test_execute_command_family_presets_dry_run_does_not_execute():
     original_execute = execute_command_module.execute_command_adapter
 
     def _fail(*_args, **_kwargs):
@@ -720,22 +720,69 @@ def test_execute_command_family_planned_adapters_do_not_execute():
             with tempfile.TemporaryDirectory() as temp_dir:
                 root = Path(temp_dir)
                 _create_repo(root)
+                _write_prompt(root)
                 _save_config(
                     root,
                     mode="hybrid",
                     agent="local",
                     adapter=adapter,
                     prompt_path=".aidc/agent_prompt.md",
+                    command="tool --prompt .aidc/agent_prompt.md",
                 )
 
-                exit_code, output = _run_execute_cli(root)
+                exit_code, output = _run_execute_cli(root, "--dry-run")
 
-                assert exit_code == 1
-                assert "not_implemented" in output
-                assert "Command-family preset execution is not implemented yet." in output
+                assert exit_code == 0
+                assert "dry-run" in output
                 assert adapter in output
+                assert "Warnings" in output
+                assert ".aidc/agent_patch.diff" in output
+                assert re.search(r"Executes command\s+no", output)
+                assert re.search(r"Applies patch\s+no", output)
     finally:
         execute_command_module.execute_command_adapter = original_execute
+
+
+def test_execute_command_family_presets_execute_via_command_path_and_return_patch_ready():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _create_repo(root)
+        _write_prompt(root)
+
+        for adapter in ("aider", "codex_cli"):
+            script_path = _write_script(
+                root,
+                f"fake_{adapter}.py",
+                f"""
+                from pathlib import Path
+
+                Path(".aidc").mkdir(parents=True, exist_ok=True)
+                Path(".aidc/agent_patch.diff").write_text({_valid_patch_text()!r}, encoding="utf-8")
+                """,
+            )
+            command = _python_command(script_path)
+            _save_config(
+                root,
+                mode="hybrid",
+                agent="local",
+                adapter=adapter,
+                prompt_path=".aidc/agent_prompt.md",
+                command=command,
+            )
+
+            exit_code, output = _run_execute_cli(root)
+
+            assert exit_code == 0
+            assert "patch_ready" in output
+            assert "Warnings" in output
+            assert ".aidc/agent_patch.diff" in output
+            assert re.search(r"Executes command\s+yes", output)
+            assert re.search(r"Applies patch\s+no", output)
+            assert "Next" in output
+            assert "strata patch" in output
+            assert _valid_patch_text().strip() not in output
+            assert (root / ".aidc" / "agent_patch.diff").exists()
+            assert root.joinpath("main.py").read_text(encoding="utf-8") == "print('hello')\n"
 
 
 def test_execute_ollama_dry_run_returns_zero_when_prompt_exists_and_shows_default_base_url():
@@ -926,7 +973,8 @@ TESTS = [
     test_execute_http_dry_run_returns_zero_and_makes_no_network_call,
     test_execute_http_normal_execute_against_local_fake_server_returns_patch_ready,
     test_execute_http_missing_base_url_returns_nonzero,
-    test_execute_command_family_planned_adapters_do_not_execute,
+    test_execute_command_family_presets_dry_run_does_not_execute,
+    test_execute_command_family_presets_execute_via_command_path_and_return_patch_ready,
     test_execute_ollama_dry_run_returns_zero_when_prompt_exists_and_shows_default_base_url,
     test_execute_ollama_normal_execute_against_local_fake_server_returns_patch_ready,
     test_execute_output_includes_expected_rows,

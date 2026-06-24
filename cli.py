@@ -24,6 +24,8 @@ from commands.review_command import write_review_command
 from commands.preflight_command import write_preflight
 from commands.run_command import write_run_command
 from commands.setup_command import (
+    setup_aider,
+    setup_codex_cli,
     setup_command,
     setup_http,
     setup_manual,
@@ -332,6 +334,18 @@ def _handle_setup_command(args: list[str]) -> int:
                 return 1
             continue
 
+        if arg == "--aider":
+            preset = _set_preset(preset, "aider")
+            if preset is None:
+                return 1
+            continue
+
+        if arg == "--codex-cli":
+            preset = _set_preset(preset, "codex_cli")
+            if preset is None:
+                return 1
+            continue
+
         if arg == "--http":
             preset = _set_preset(preset, "http")
             if preset is None:
@@ -371,6 +385,12 @@ def _handle_setup_command(args: list[str]) -> int:
 
     if preset == "command":
         return _setup_exit_code(setup_command(root))
+
+    if preset == "aider":
+        return _setup_exit_code(setup_aider(root))
+
+    if preset == "codex_cli":
+        return _setup_exit_code(setup_codex_cli(root))
 
     if preset == "http":
         return _setup_exit_code(setup_http(root))

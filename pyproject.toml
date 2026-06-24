@@ -43,6 +43,7 @@ package-dir = {"" = "."}
 py-modules = [
     "agent_export",
     "agent_adapters",
+    "adapter_presets",
     "brief",
     "brief_impact",
     "cli",
