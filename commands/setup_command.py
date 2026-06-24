@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import getpass
+import os
+import sys
+
 from http_adapter_contract import normalize_base_url
 from adapter_presets import get_adapter_preset
 from ollama_adapter import DEFAULT_OLLAMA_BASE_URL, DEFAULT_OLLAMA_MODEL, normalize_ollama_base_url
@@ -19,15 +23,12 @@ from ui import (
 from workflow_config import config_path, load_config, save_config, validate_config
 
 _NEXT_STEPS = [
-    "strata start",
+    "strata doctor adapter",
+    'strata run "your task"',
     'strata ask "fix bug"',
     "strata review",
-    "strata apply",
-    "strata doctor adapter",
-    "strata execute --dry-run",
-    "strata execute",
-    "strata patch",
     "strata apply --dry-run",
+    "strata apply",
 ]
 
 _CANCEL_CHOICES = {"q", "quit", "cancel"}
@@ -163,7 +164,7 @@ def setup_http(
     try:
         current = load_config(root)
         updated = dict(current)
-        resolved_base_url = _resolve_optional_text(base_url, current.get("base_url"))
+        resolved_base_url = _resolve_http_base_url(current, base_url)
         resolved_model = _resolve_optional_text(model, current.get("model"))
         resolved_api_key_env = _resolve_optional_text(api_key_env, current.get("api_key_env"))
 
@@ -190,11 +191,10 @@ def setup_http(
 
     api_key_env_status = safe_env_status(normalized.get("api_key_env"))
     if normalized.get("api_key_env"):
-        warnings.append(
-            "API key env is "
-            + api_key_env_status
-            + ". Strata stores only the variable name, not the secret."
-        )
+        if api_key_env_status == "found":
+            warnings.append("API key env is found. Strata stores only the variable name, not the secret.")
+        else:
+            warnings.append("API key env is missing. Strata stores only the variable name, not the secret.")
 
     result = _result(
         status="needs_input" if normalized["base_url"] is None else "configured",
@@ -207,7 +207,6 @@ def setup_http(
             f"base_url={normalized['base_url'] if normalized['base_url'] is not None else 'null'}",
             f"model={normalized['model'] if normalized['model'] is not None else 'null'}",
             f"api_key_env={normalized['api_key_env'] if normalized['api_key_env'] is not None else 'null'}",
-            f"api_key={api_key_env_status}",
         ],
         warnings=warnings,
         next_steps=_next_steps(),
@@ -283,6 +282,13 @@ def setup_show(root: str = ".") -> dict:
 
 def write_setup_command(root: str = ".") -> int:
     return _run_interactive_setup(root)
+
+
+def write_setup_ai_command(root: str = ".", check: bool = False) -> int:
+    if check:
+        return _run_guided_ai_check(root)
+
+    return _run_guided_ai_setup(root)
 
 
 def write_setup_summary_command(root: str = ".") -> int:
@@ -475,6 +481,266 @@ def _run_interactive_setup(root: str) -> int:
     return 1
 
 
+def _run_guided_ai_setup(root: str) -> int:
+    try:
+        current = load_config(root)
+    except ValueError as error:
+        result = _error_result("prompt_file", "Setup failed.", [str(error)])
+        _print_setup_summary(root, {}, result, title="Setup error")
+        return 1
+
+    print_banner(compact=False)
+    print()
+    print(build_section("Guided AI setup"))
+    print(
+        "Strata keeps API keys out of your repo. It remembers only the environment variable name, "
+        "and it can help save the secret to your user environment when needed."
+    )
+    print()
+    print(
+        build_kv_table(
+            [
+                ("1. Ollama / local model", "No API key. Good for a local Ollama model."),
+                (
+                    "2. Generic HTTP provider",
+                    "For OpenAI-compatible servers. Strata stores only the env var name.",
+                ),
+                (
+                    "3. Command adapter",
+                    "Use a local CLI tool that reads .aidc/agent_prompt.md and writes a patch.",
+                ),
+                (
+                    "4. Manual / browser mode",
+                    "Use ChatGPT, Claude, Gemini, or Copilot Chat with copy/paste.",
+                ),
+                (
+                    "5. Anthropic / Claude",
+                    "Future placeholder for a dedicated provider.",
+                ),
+            ]
+        )
+    )
+
+    choice = _guided_ai_prompt_choice(_guided_ai_default_choice(current.get("adapter")))
+    if choice is None:
+        result = _result(
+            status="cancelled",
+            adapter=str(current.get("adapter", "") or "prompt_file"),
+            message="Setup cancelled.",
+            next_steps=_guided_ai_next_steps(),
+        )
+        _print_setup_summary(root, current, result, title="Setup cancelled")
+        return 1
+
+    if choice == "anthropic":
+        print()
+        print(
+            "Anthropic / Claude is not wired as a dedicated adapter yet. "
+            "Use Generic HTTP if your gateway is OpenAI-compatible, or choose Manual / browser mode."
+        )
+        print()
+        return _run_guided_ai_setup(root)
+
+    if choice == "manual":
+        result = setup_manual(root)
+        return 0 if result["status"] in {"configured", "needs_input"} else 1
+
+    if choice == "command":
+        print()
+        print(
+            "Strata does not manage the external tool's authentication. "
+            "It only stores the command you want it to run."
+        )
+        command = _prompt_text(
+            "Enter the command string used to write .aidc/agent_patch.diff",
+            default=_string_or_empty(current.get("command")),
+        )
+        if command is None:
+            result = _result(
+                status="cancelled",
+                adapter="command",
+                message="Setup cancelled.",
+                next_steps=_guided_ai_next_steps(),
+            )
+            _print_setup_summary(root, current, result, title="Setup cancelled")
+            return 1
+
+        result = setup_command(root, command=command or None)
+        return 0 if result["status"] in {"configured", "needs_input"} else 1
+
+    if choice == "ollama":
+        model = _prompt_text(
+            "Enter the Ollama model name",
+            default=_string_or_empty(current.get("model")) or DEFAULT_OLLAMA_MODEL,
+        )
+        if model is None:
+            result = _result(
+                status="cancelled",
+                adapter="ollama",
+                message="Setup cancelled.",
+                next_steps=_guided_ai_next_steps(),
+            )
+            _print_setup_summary(root, current, result, title="Setup cancelled")
+            return 1
+
+        base_url = _prompt_text(
+            "Enter the Ollama base URL",
+            default=_string_or_empty(current.get("base_url")) or DEFAULT_OLLAMA_BASE_URL,
+            examples=("http://localhost:11434", "http://localhost:11434/v1"),
+        )
+        if base_url is None:
+            result = _result(
+                status="cancelled",
+                adapter="ollama",
+                message="Setup cancelled.",
+                next_steps=_guided_ai_next_steps(),
+            )
+            _print_setup_summary(root, current, result, title="Setup cancelled")
+            return 1
+
+        result = setup_ollama(root, model=model or None, base_url=base_url or None)
+        return 0 if result["status"] in {"configured", "needs_input"} else 1
+
+    if choice == "http":
+        print()
+        print(
+            "Strata will not store this key in your repo. "
+            "It can help save it to your user environment. "
+            "Strata only remembers the environment variable name. "
+            "You can edit or remove it later."
+        )
+        base_url = _prompt_text(
+            "Enter the base URL",
+            default=_guided_http_base_url_default(current),
+            examples=("http://localhost:1234/v1", "https://api.example.com/v1"),
+        )
+        if base_url is None:
+            result = _result(
+                status="cancelled",
+                adapter="openai_compatible_http",
+                message="Setup cancelled.",
+                next_steps=_guided_ai_next_steps(),
+            )
+            _print_setup_summary(root, current, result, title="Setup cancelled")
+            return 1
+
+        if not base_url.strip():
+            result = _result(
+                status="error",
+                adapter="openai_compatible_http",
+                message="HTTP setup failed.",
+                errors=["Base URL is required for HTTP providers."],
+                next_steps=_guided_ai_next_steps(),
+            )
+            _print_setup_summary(root, current, result, title="Setup error")
+            return 1
+
+        model = _prompt_text(
+            "Enter the model name",
+            default=_string_or_empty(current.get("model")),
+        )
+        if model is None:
+            result = _result(
+                status="cancelled",
+                adapter="openai_compatible_http",
+                message="Setup cancelled.",
+                next_steps=_guided_ai_next_steps(),
+            )
+            _print_setup_summary(root, current, result, title="Setup cancelled")
+            return 1
+
+        api_key_env = _prompt_text(
+            "Enter the API key environment variable name",
+            default=_string_or_empty(current.get("api_key_env")) or "AI_API_KEY",
+        )
+        if api_key_env is None:
+            result = _result(
+                status="cancelled",
+                adapter="openai_compatible_http",
+                message="Setup cancelled.",
+                next_steps=_guided_ai_next_steps(),
+            )
+            _print_setup_summary(root, current, result, title="Setup cancelled")
+            return 1
+
+        if not validate_env_var_name(api_key_env):
+            result = _result(
+                status="error",
+                adapter="openai_compatible_http",
+                message="HTTP setup failed.",
+                errors=[
+                    "api_key_env must be a valid environment variable name such as OPENAI_API_KEY or ANTHROPIC_API_KEY."
+                ],
+                next_steps=_guided_ai_next_steps(),
+            )
+            _print_setup_summary(root, current, result, title="Setup error")
+            return 1
+
+        api_key_status = safe_env_status(api_key_env)
+        if api_key_status == "found":
+            print()
+            print("Key found in your environment. Strata will remember only the variable name.")
+        else:
+            print()
+            print("Key not found in your environment.")
+            save_secret = _prompt_yes_no(
+                "Would you like Strata to help save it to your user environment?",
+                default=False,
+            )
+            if save_secret:
+                secret = _prompt_hidden_secret("Enter the API key (input hidden)")
+                if secret is not None:
+                    saved = _save_user_environment_secret(api_key_env, secret)
+                    os.environ[api_key_env] = secret
+                    if saved:
+                        print("Saved to your user environment. Terminal or VS Code may need a restart.")
+                    else:
+                        print(
+                            "Strata could not save it automatically here. "
+                            "Please save the secret in your user environment, then run `strata doctor adapter`."
+                        )
+                else:
+                    print("Strata will remember only the variable name.")
+            else:
+                print("Strata will remember only the variable name.")
+
+        result = setup_http(
+            root,
+            base_url=base_url or None,
+            model=model or None,
+            api_key_env=api_key_env or None,
+        )
+        return 0 if result["status"] in {"configured", "needs_input"} else 1
+
+    result = _error_result(
+        "prompt_file",
+        "Unknown setup choice.",
+        [f"Unsupported choice: {choice}"],
+    )
+    _print_setup_summary(root, current, result, title="Setup error")
+    return 1
+
+
+def _run_guided_ai_check(root: str) -> int:
+    try:
+        config = load_config(root)
+    except ValueError as error:
+        result = _error_result("prompt_file", "Setup check failed.", [str(error)])
+        _print_setup_summary(root, {}, result, title="Setup check")
+        return 1
+
+    result = _result(
+        status="checking",
+        adapter=str(config.get("adapter", "") or "prompt_file"),
+        message="Guided AI setup check.",
+        next_steps=["Run `strata doctor adapter`."],
+    )
+    _print_setup_summary(root, config, result, title="Setup check")
+    from commands.doctor_command import write_doctor_command
+
+    return write_doctor_command("adapter", root)
+
+
 def _print_setup_summary(root: str, config: dict, result: dict, title: str) -> None:
     print_banner(compact=False)
     print()
@@ -590,6 +856,49 @@ def _prompt_choice(default_choice: str) -> str | None:
         )
 
 
+def _guided_ai_prompt_choice(default_choice: str) -> str | None:
+    prompt = (
+        "Choose a guided AI setup option "
+        f"[{default_choice} / 1 ollama / 2 http / 3 command / 4 manual / 5 anthropic, q to cancel]: "
+    )
+
+    while True:
+        raw = input(prompt)
+        normalized = raw.strip().lower()
+
+        if not normalized:
+            normalized = default_choice
+
+        if normalized in _CANCEL_CHOICES:
+            return None
+
+        choice = {
+            "1": "ollama",
+            "ollama": "ollama",
+            "local": "ollama",
+            "2": "http",
+            "http": "http",
+            "openai": "http",
+            "openai_compatible_http": "http",
+            "openai-compatible-http": "http",
+            "3": "command",
+            "command": "command",
+            "cli": "command",
+            "4": "manual",
+            "manual": "manual",
+            "browser": "manual",
+            "prompt_file": "manual",
+            "5": "anthropic",
+            "anthropic": "anthropic",
+            "claude": "anthropic",
+        }.get(normalized)
+
+        if choice is not None:
+            return choice
+
+        print(format_error("Invalid choice. Enter 1, 2, 3, 4, 5, ollama, http, command, manual, anthropic, or q."))
+
+
 def _prompt_text(prompt_text: str, *, default: str = "", examples: tuple[str, ...] = ()) -> str | None:
     if examples:
         print("Examples:")
@@ -609,6 +918,62 @@ def _prompt_text(prompt_text: str, *, default: str = "", examples: tuple[str, ..
     return normalized
 
 
+def _prompt_yes_no(prompt_text: str, *, default: bool) -> bool | None:
+    suffix = " [Y/n]" if default else " [y/N]"
+    raw = input(f"{prompt_text}{suffix}: ")
+    normalized = raw.strip().lower()
+
+    if not normalized:
+        return default
+
+    if normalized in _CANCEL_CHOICES:
+        return None
+
+    if normalized in {"y", "yes", "true", "1"}:
+        return True
+
+    if normalized in {"n", "no", "false", "0"}:
+        return False
+
+    print(format_error("Please answer yes or no."))
+    return _prompt_yes_no(prompt_text, default=default)
+
+
+def _prompt_hidden_secret(prompt_text: str) -> str | None:
+    try:
+        secret = getpass.getpass(f"{prompt_text}: ")
+    except (EOFError, KeyboardInterrupt):
+        return None
+
+    if not secret.strip():
+        return None
+
+    return secret
+
+
+def _save_user_environment_secret(env_name: str, value: str) -> bool:
+    if sys.platform != "win32":
+        return False
+
+    try:
+        import winreg
+    except ImportError:
+        return False
+
+    try:
+        with winreg.OpenKey(
+            winreg.HKEY_CURRENT_USER,
+            "Environment",
+            0,
+            winreg.KEY_SET_VALUE,
+        ) as key:
+            winreg.SetValueEx(key, env_name, 0, winreg.REG_SZ, value)
+    except OSError:
+        return False
+
+    return True
+
+
 def _default_choice(adapter: object) -> str:
     normalized = _string_or_empty(adapter).lower()
     if normalized in {"command", "openai_compatible_http", "ollama", "aider", "codex_cli"}:
@@ -620,6 +985,34 @@ def _default_choice(adapter: object) -> str:
             "codex_cli": "codex_cli",
         }[normalized]
     return "manual"
+
+
+def _guided_ai_default_choice(adapter: object) -> str:
+    normalized = _string_or_empty(adapter).lower()
+    if normalized == "openai_compatible_http":
+        return "http"
+    if normalized == "ollama":
+        return "ollama"
+    if normalized in {"command", "aider", "codex_cli"}:
+        return "command"
+    return "manual"
+
+
+def _guided_http_base_url_default(config: dict) -> str:
+    if _string_or_empty(config.get("adapter")) == "openai_compatible_http":
+        current_base_url = _string_or_empty(config.get("base_url"))
+        if current_base_url:
+            return current_base_url
+
+    return "https://api.openai.com/v1"
+
+
+def _guided_ai_next_steps() -> list[str]:
+    return [
+        "Run `strata doctor adapter`.",
+        'Run `strata run "your task"`.',
+        'Then run `strata ask "your task"` if you want a patch-first workflow.',
+    ]
 
 
 def _manual_mode(mode: object) -> str:
@@ -641,6 +1034,21 @@ def _resolve_optional_text(value: str | None, fallback: object) -> str | None:
 
     fallback_text = _string_or_empty(fallback)
     return fallback_text or None
+
+
+def _resolve_http_base_url(current: dict, base_url: str | None) -> str | None:
+    if isinstance(base_url, str):
+        normalized = base_url.strip()
+        if normalized:
+            return normalized
+        return None
+
+    if _string_or_empty(current.get("adapter")) == "openai_compatible_http":
+        fallback_base_url = _string_or_empty(current.get("base_url"))
+        if fallback_base_url:
+            return fallback_base_url
+
+    return None
 
 
 def _timeout_value(value: object, default: int) -> int:
@@ -668,6 +1076,8 @@ def _status_marker(status: str) -> str:
         return format_success("configured")
     if status == "needs_input":
         return format_warning("needs_input")
+    if status == "checking":
+        return format_warning("checking")
     if status == "cancelled":
         return format_warning("cancelled")
     return format_error(status)

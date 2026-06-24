@@ -418,6 +418,8 @@ def test_cli_help_prefers_strata_commands():
     assert "Connect AI" in output
     assert "New here?" not in output
     assert "strata setup" in output
+    assert "strata setup ai" in output
+    assert "strata setup ai --check" in output
     assert "strata setup --manual" in output
     assert "strata setup --ollama" in output
     assert "strata setup --http" in output
@@ -460,6 +462,8 @@ def test_cli_help_prefers_strata_commands():
     assert output.index("Connect AI") < output.index("Main workflow")
     assert "strata start" in output
     assert "strata setup" in output
+    assert "strata setup ai" in output
+    assert "strata setup ai --check" in output
     assert "strata run" in output
     assert "`strata setup --manual`" in output
     assert "`strata setup --ollama`" in output

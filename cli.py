@@ -27,6 +27,7 @@ from commands.run_command import write_run_command
 from commands.start_command import write_start_command
 from commands.setup_command import (
     setup_aider,
+    write_setup_ai_command,
     setup_codex_cli,
     setup_command,
     setup_http,
@@ -371,9 +372,25 @@ def _handle_execute_command(args: list[str]) -> int:
 def _handle_setup_command(args: list[str]) -> int:
     preset: str | None = None
     show = False
+    guided_ai = False
+    guided_ai_check = False
     positionals: list[str] = []
 
     for arg in args:
+        if arg == "--check":
+            if preset is not None or show:
+                print_usage()
+                return 1
+            guided_ai_check = True
+            continue
+
+        if arg == "ai":
+            if preset is not None or show or guided_ai or positionals:
+                print_usage()
+                return 1
+            guided_ai = True
+            continue
+
         if arg == "--manual":
             preset = _set_preset(preset, "manual")
             if preset is None:
@@ -431,6 +448,13 @@ def _handle_setup_command(args: list[str]) -> int:
 
     if show:
         return _setup_exit_code(setup_show(root))
+
+    if guided_ai_check and not guided_ai:
+        print_usage()
+        return 1
+
+    if guided_ai:
+        return write_setup_ai_command(root, check=guided_ai_check)
 
     if preset == "manual":
         return _setup_exit_code(setup_manual(root))

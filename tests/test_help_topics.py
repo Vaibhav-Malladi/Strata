@@ -46,6 +46,8 @@ def test_help_usage_mentions_all_ai_modes_and_beginner_topics():
         output,
         "connect ai",
         "strata setup",
+        "strata setup ai",
+        "strata setup ai --check",
         "strata setup --manual",
         "strata setup --ollama",
         "strata setup --http",
@@ -73,6 +75,8 @@ def test_help_setup_topic_is_beginner_friendly():
         "setup",
         "ai",
         "strata setup",
+        "strata setup ai",
+        "strata setup ai --check",
         "strata setup --manual",
         "strata setup --ollama",
         "strata setup --codex-cli",
@@ -81,6 +85,7 @@ def test_help_setup_topic_is_beginner_friendly():
         "strata setup --http",
         "strata setup --show",
         "strata doctor adapter",
+        "user environment",
     )
 
 
@@ -153,6 +158,8 @@ def test_help_http_topic_mentions_api_configuration():
     _assert_terms(
         output,
         "openai-compatible http api",
+        "strata setup ai",
+        "strata setup ai --check",
         "strata setup --http",
         "base_url",
         "api_key_env",
@@ -179,6 +186,8 @@ def test_help_doctor_topic_mentions_install_diagnostics():
         "-e",
         "py -m strata",
         "strata doctor adapter",
+        "found or missing",
+        "setup ai",
     )
 
 

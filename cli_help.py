@@ -11,7 +11,8 @@ def print_guided_entrypoint(root: str = ".") -> None:
     print(bold("New here?"))
     for line in [
         "1. Run `strata start`",
-        "2. Run `strata setup`",
+        "2. Run `strata setup ai`",
+        "   or `strata setup` for the legacy menu",
         '3. Run `strata run "your task"`',
         "If `strata` does not work in another terminal, run `strata doctor install`.",
     ]:
@@ -90,6 +91,8 @@ def _main_workflow_lines() -> list[tuple[str, str]]:
 def _connect_ai_overview_lines(include_help_hint: bool) -> list[str]:
     return [
         "Run `strata setup` to choose how Strata talks to AI.",
+        "Run `strata setup ai` for the guided setup flow.",
+        "Strata stores only environment variable names for API keys.",
         "`strata setup --manual`",
         "  Browser AI: use ChatGPT, Claude, Gemini, or Copilot Chat.",
         "  Strata writes `.aidc/agent_prompt.md`; you paste it into the AI and save the returned diff as `.aidc/agent_patch.diff`.",
@@ -103,7 +106,8 @@ def _connect_ai_overview_lines(include_help_hint: bool) -> list[str]:
         "  Use any custom CLI command that reads `.aidc/agent_prompt.md` and returns a patch.",
         "`strata setup --http`",
         "  Use an OpenAI-compatible HTTP API. Strata stores only the environment variable name for the key.",
-        'Then run `strata ask "fix bug"`, `strata review`, `strata apply --dry-run`, and `strata apply`.',
+        "  Strata can help save the key to your user environment on Windows.",
+        'Then run `strata doctor adapter`, `strata ask "fix bug"`, `strata review`, `strata apply --dry-run`, and `strata apply`.',
         *(
             [
                 "For step-by-step help, run `strata help setup`, `strata help ask`, or `strata help manual`.",
@@ -133,6 +137,8 @@ def _advanced_command_entries() -> list[tuple[str, str | None]]:
         ("strata gate", None),
         ("strata gate <root>", None),
         ("strata setup", None),
+        ("strata setup ai", None),
+        ("strata setup ai --check", None),
         ("strata setup --manual", None),
         ("strata setup --command", None),
         ("strata setup --aider", None),

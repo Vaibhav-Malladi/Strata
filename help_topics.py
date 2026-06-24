@@ -54,19 +54,22 @@ def _render_setup_help() -> None:
         "Quick picks",
         [
             "`strata setup` - recommended first time.",
+            "`strata setup ai` - guided setup with safe credential handling.",
+            "`strata setup ai --check` - guided readiness check without prompts.",
             "`strata setup --manual` - safest no-key browser AI path.",
             "`strata setup --ollama` - local model path.",
             "`strata setup --codex-cli` - Codex CLI through the command adapter.",
             "`strata setup --aider` - Aider through the command adapter.",
             "`strata setup --command` - any custom CLI command.",
             "`strata setup --http` - an OpenAI-compatible HTTP API; Strata stores only the environment variable name for the key.",
+            "Strata can help save the key to your user environment on Windows.",
         ],
     )
     _print_lines(
         "Check current setup",
         [
-            "`strata setup --show`",
             "`strata doctor adapter`",
+            "`strata setup --show`",
         ],
     )
 
@@ -151,6 +154,8 @@ def _render_http_help() -> None:
     _print_lines(
         "Do this",
         [
+            "`strata setup ai`",
+            "`strata setup ai --check`",
             "`strata setup --http`",
             "`strata config set base_url http://localhost:1234/v1`",
             "`strata config set api_key_env OPENAI_API_KEY`",
@@ -160,6 +165,7 @@ def _render_http_help() -> None:
     )
     _print_intro("Do not hardcode a real API key. Set `api_key_env` to the environment variable name instead.")
     _print_intro("Strata will check whether the variable is found or missing without showing the value.")
+    _print_intro("Strata stores only the variable name and can help save the key to your user environment on Windows.")
 
 
 def _render_ask_help() -> None:
@@ -251,6 +257,8 @@ def _render_doctor_help() -> None:
         "Adapter checks",
         [
             "`strata doctor adapter`",
+            "It shows whether the API key env is found or missing without printing the secret.",
+            "Run it after `strata setup ai` if you want a quick readiness check.",
         ],
     )
 

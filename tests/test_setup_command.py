@@ -18,6 +18,7 @@ from commands.setup_command import (
     setup_manual,
     setup_ollama,
     setup_show,
+    write_setup_ai_command,
     write_setup_command,
 )
 from tests.helpers import capture_output, change_directory
@@ -61,6 +62,23 @@ def _assert_terms(text: str, *terms: object) -> None:
             missing.append(value)
 
     assert not missing, f"Missing expected concept(s): {', '.join(missing)}"
+
+
+def _write_prompt(root: Path) -> None:
+    prompt_path = root / ".aidc" / "agent_prompt.md"
+    prompt_path.parent.mkdir(parents=True, exist_ok=True)
+    prompt_path.write_text("prompt", encoding="utf-8")
+
+
+def _create_repo(root: Path) -> None:
+    root.mkdir(parents=True, exist_ok=True)
+    (root / "main.py").write_text("print('hello')\n", encoding="utf-8")
+
+
+def _save_config(root: Path, **overrides) -> None:
+    config = default_config()
+    config.update(overrides)
+    save_config(config, root)
 
 def test_setup_manual_writes_prompt_file_adapter_and_clears_connection_fields():
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -380,6 +398,139 @@ def test_interactive_http_setup_explains_key_storage_and_reports_status():
         )
 
 
+def test_guided_http_setup_uses_existing_env_var_without_prompting_for_secret():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        original = os.environ.get("OPENAI_API_KEY")
+        os.environ["OPENAI_API_KEY"] = "sk-testsecret-123456"
+        try:
+            with mock.patch("getpass.getpass", side_effect=AssertionError("secret prompt should not run")):
+                with patched_input(["2", "http://localhost:1234/v1", "gpt-test", "OPENAI_API_KEY"]):
+                    with change_directory(root):
+                        result, output = capture_output(write_setup_ai_command, str(root))
+        finally:
+            if original is None:
+                os.environ.pop("OPENAI_API_KEY", None)
+            else:
+                os.environ["OPENAI_API_KEY"] = original
+
+        config = load_config(root)
+
+        assert result == 0
+        assert config["adapter"] == "openai_compatible_http"
+        assert config["api_key_env"] == "OPENAI_API_KEY"
+        assert config["base_url"] == "http://localhost:1234/v1"
+        assert config["model"] == "gpt-test"
+        _assert_terms(output, "guided ai setup", "key found", "api key env", "doctor adapter")
+        assert "sk-testsecret-123456" not in output
+
+
+def test_guided_http_setup_can_save_missing_key_to_user_environment_without_echoing_it():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        secret = "sk-testsecret-123456"
+        original = os.environ.get("OPENAI_API_KEY")
+        os.environ.pop("OPENAI_API_KEY", None)
+        try:
+            with mock.patch("commands.setup_command._save_user_environment_secret", return_value=True):
+                with mock.patch("getpass.getpass", return_value=secret):
+                    with patched_input(["2", "http://localhost:1234/v1", "gpt-test", "OPENAI_API_KEY", "y"]):
+                        with change_directory(root):
+                            result, output = capture_output(write_setup_ai_command, str(root))
+            assert os.environ.get("OPENAI_API_KEY") == secret
+        finally:
+            if original is None:
+                os.environ.pop("OPENAI_API_KEY", None)
+            else:
+                os.environ["OPENAI_API_KEY"] = original
+
+        config = load_config(root)
+
+        assert result == 0
+        assert config["adapter"] == "openai_compatible_http"
+        assert config["api_key_env"] == "OPENAI_API_KEY"
+        assert secret not in output
+        assert "api_key=<redacted>" not in output
+        _assert_terms(output, "store this key in your repo", "user environment", "saved to your user environment")
+
+
+def test_guided_http_setup_from_ollama_config_uses_openai_like_default_base_url():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _save_config(root, adapter="ollama", model="qwen2.5-coder")
+
+        with mock.patch("getpass.getpass", side_effect=AssertionError("api key prompt should not run")):
+            with patched_input(["2", "", "gpt-test", "STRATA_FAKE_API_KEY", "n"]):
+                with change_directory(root):
+                    result, output = capture_output(write_setup_ai_command, str(root))
+
+        config = load_config(root)
+
+        assert result == 0
+        assert config["adapter"] == "openai_compatible_http"
+        assert config["base_url"] == "https://api.openai.com/v1"
+        assert "http://localhost:11434" not in output
+        assert "api_key=<redacted>" not in output
+        _assert_terms(output, "api key env is missing", "environment variable name")
+
+
+def test_guided_ollama_setup_does_not_prompt_for_api_key():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+
+        with mock.patch("getpass.getpass", side_effect=AssertionError("api key prompt should not run")):
+            with patched_input(["1", "qwen2.5-coder", "http://localhost:11434"]):
+                with change_directory(root):
+                    result, output = capture_output(write_setup_ai_command, str(root))
+
+        config = load_config(root)
+
+        assert result == 0
+        assert config["adapter"] == "ollama"
+        assert config["model"] == "qwen2.5-coder"
+        assert config["api_key_env"] is None
+        _assert_terms(output, "guided ai setup", "ollama", "doctor adapter")
+
+
+def test_guided_command_adapter_setup_does_not_store_api_key():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+
+        with mock.patch("getpass.getpass", side_effect=AssertionError("api key prompt should not run")):
+            with patched_input(["3", "py fake_ai.py"]):
+                with change_directory(root):
+                    result, output = capture_output(write_setup_ai_command, str(root))
+
+        config = load_config(root)
+
+        assert result == 0
+        assert config["adapter"] == "command"
+        assert config["command"] == "py fake_ai.py"
+        assert config["api_key_env"] is None
+        _assert_terms(output, "does not manage the external tool's authentication", "command", "doctor adapter")
+
+
+def test_setup_ai_check_runs_doctor_adapter_after_setup():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _create_repo(root)
+        _write_prompt(root)
+        _save_config(
+            root,
+            adapter="openai_compatible_http",
+            base_url="http://localhost:1234/v1",
+            api_key_env="OPENAI_API_KEY",
+        )
+
+        with mock.patch("builtins.input", side_effect=AssertionError("setup check should not prompt")):
+            with change_directory(root):
+                result, output = capture_output(write_setup_ai_command, str(root), True)
+
+        assert result == 0
+        assert "choose a guided ai setup option" not in output.lower()
+        _assert_terms(output, "setup check", "adapter doctor", "ready", "api key")
+
+
 def test_setup_command_output_includes_summary():
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
@@ -453,10 +604,36 @@ def test_cli_routes_setup_codex_cli():
         _assert_terms(output, "codex cli", "setup summary")
 
 
+def test_cli_routes_setup_ai_check():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _write_prompt(root)
+        _save_config(
+            root,
+            adapter="openai_compatible_http",
+            base_url="http://localhost:1234/v1",
+            api_key_env="OPENAI_API_KEY",
+        )
+
+        with mock.patch("builtins.input", side_effect=AssertionError("setup check should not prompt")):
+            with change_directory(root):
+                with change_argv(["cli.py", "setup", "ai", "--check"]):
+                    exit_code, output = capture_output(cli_main)
+
+        config = load_config(root)
+
+        assert exit_code == 0
+        assert config["adapter"] == "openai_compatible_http"
+        assert "choose a guided ai setup option" not in output.lower()
+        _assert_terms(output, "setup check", "adapter doctor", "ready")
+
+
 def test_cli_help_includes_setup():
     _, output = capture_output(print_usage)
 
     assert "strata setup" in output
+    assert "strata setup ai" in output
+    assert "strata setup ai --check" in output
     assert "strata setup --manual" in output
     assert "strata setup --command" in output
     assert "strata setup --aider" in output
@@ -491,10 +668,16 @@ TESTS = [
     test_setup_functions_do_not_make_network_calls,
     test_setup_no_secret_value_is_required,
     test_interactive_http_setup_explains_key_storage_and_reports_status,
+    test_guided_http_setup_uses_existing_env_var_without_prompting_for_secret,
+    test_guided_http_setup_can_save_missing_key_to_user_environment_without_echoing_it,
+    test_guided_ollama_setup_does_not_prompt_for_api_key,
+    test_guided_command_adapter_setup_does_not_store_api_key,
+    test_setup_ai_check_runs_doctor_adapter_after_setup,
     test_setup_command_output_includes_summary,
     test_cli_routes_setup_manual,
     test_cli_routes_setup_ollama,
     test_cli_routes_setup_aider,
     test_cli_routes_setup_codex_cli,
+    test_cli_routes_setup_ai_check,
     test_cli_help_includes_setup,
 ]

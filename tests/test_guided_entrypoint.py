@@ -76,9 +76,11 @@ def test_cli_no_args_shows_guided_entrypoint_before_advanced_commands():
             "new here?",
             "strata start",
             "strata setup",
+            "strata setup ai",
             "strata run",
             "strata doctor install",
             "connect ai",
+            "strata setup ai",
             "strata setup --manual",
             "strata setup --ollama",
             "strata setup --http",
@@ -95,6 +97,7 @@ def test_cli_no_args_shows_guided_entrypoint_before_advanced_commands():
         )
         assert output.index("New here?") < output.index("Connect AI") < output.index("Main workflow") < output.index("Advanced:")
         assert output.index("strata setup") < output.index("strata ask")
+        assert output.index("strata setup ai") < output.index("strata run")
         assert "strata config set api_key_env OPENAI_API_KEY" not in output
         assert "strata run --type <task_type>" not in output
 
@@ -110,6 +113,7 @@ def test_cli_help_lists_main_workflow_first_and_keeps_advanced_reference():
         'strata ask "<task>" [path]',
         "strata start",
         "strata setup",
+        "strata setup ai",
         "strata run",
         "strata setup --manual",
         "strata setup --ollama",
