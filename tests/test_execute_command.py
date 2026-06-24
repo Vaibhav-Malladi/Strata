@@ -1,7 +1,6 @@
 import json
 import os
 import contextlib
-import socket
 import sys
 import tempfile
 import textwrap
@@ -13,6 +12,7 @@ from cli import main as cli_main
 from command_executor import execute_command_adapter
 from tests.helpers import capture_output, change_directory
 from test_http_executor import _valid_patch_text, run_http_server
+from test_ollama_adapter import run_ollama_server
 from workflow_config import default_config, save_config
 
 
@@ -115,7 +115,7 @@ def test_execute_command_ready_returns_zero_when_valid_patch_produced():
             from pathlib import Path
 
             Path(".aidc").mkdir(parents=True, exist_ok=True)
-            Path(".aidc/agent_patch.diff").write_text({ _valid_patch_text()!r }, encoding="utf-8")
+            Path(".aidc/agent_patch.diff").write_text({_valid_patch_text()!r}, encoding="utf-8")
             """,
         )
         command = _python_command(script_path)
@@ -163,7 +163,7 @@ def test_execute_command_output_includes_stdout_preview():
 
             print("stdout preview line")
             Path(".aidc").mkdir(parents=True, exist_ok=True)
-            Path(".aidc/agent_patch.diff").write_text({ _valid_patch_text()!r }, encoding="utf-8")
+            Path(".aidc/agent_patch.diff").write_text({_valid_patch_text()!r}, encoding="utf-8")
             """,
         )
         command = _python_command(script_path)
@@ -198,7 +198,7 @@ def test_execute_command_output_includes_stderr_preview():
 
             sys.stderr.write("stderr preview line\\n")
             Path(".aidc").mkdir(parents=True, exist_ok=True)
-            Path(".aidc/agent_patch.diff").write_text({ _valid_patch_text()!r }, encoding="utf-8")
+            Path(".aidc/agent_patch.diff").write_text({_valid_patch_text()!r}, encoding="utf-8")
             """,
         )
         command = _python_command(script_path)
@@ -233,7 +233,7 @@ def test_execute_command_output_truncates_long_stdout():
 
             print({long_stdout!r})
             Path(".aidc").mkdir(parents=True, exist_ok=True)
-            Path(".aidc/agent_patch.diff").write_text({ _valid_patch_text()!r }, encoding="utf-8")
+            Path(".aidc/agent_patch.diff").write_text({_valid_patch_text()!r}, encoding="utf-8")
             """,
         )
         command = _python_command(script_path)
@@ -268,7 +268,7 @@ def test_execute_command_output_does_not_print_full_patch_content():
 
             print({stdout_payload!r})
             Path(".aidc").mkdir(parents=True, exist_ok=True)
-            Path(".aidc/agent_patch.diff").write_text({ _valid_patch_text()!r }, encoding="utf-8")
+            Path(".aidc/agent_patch.diff").write_text({_valid_patch_text()!r}, encoding="utf-8")
             """,
         )
         command = _python_command(script_path)
@@ -301,7 +301,7 @@ def test_execute_command_output_shows_timeout_row():
             from pathlib import Path
 
             Path(".aidc").mkdir(parents=True, exist_ok=True)
-            Path(".aidc/agent_patch.diff").write_text({ _valid_patch_text()!r }, encoding="utf-8")
+            Path(".aidc/agent_patch.diff").write_text({_valid_patch_text()!r}, encoding="utf-8")
             """,
         )
         command = _python_command(script_path)
@@ -738,42 +738,109 @@ def test_execute_command_family_planned_adapters_do_not_execute():
         execute_command_module.execute_command_adapter = original_execute
 
 
-def test_execute_http_family_planned_adapters_do_not_execute():
-    original_execute = execute_command_module.execute_command_adapter
-    original_create_connection = socket.create_connection
+def test_execute_ollama_dry_run_returns_zero_when_prompt_exists_and_shows_default_base_url():
+    original_execute = execute_command_module.execute_ollama_adapter
 
     def _fail(*_args, **_kwargs):
-        raise AssertionError("network or command execution should not be called")
+        raise AssertionError("ollama execution should not run during dry-run")
 
-    execute_command_module.execute_command_adapter = _fail
-    socket.create_connection = _fail
+    execute_command_module.execute_ollama_adapter = _fail
     try:
-        for adapter in ("ollama",):
-            with tempfile.TemporaryDirectory() as temp_dir:
-                root = Path(temp_dir)
-                _create_repo(root)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            _create_repo(root)
+            _write_prompt(root)
+            _save_config(
+                root,
+                mode="hybrid",
+                agent="local",
+                adapter="ollama",
+                prompt_path=".aidc/agent_prompt.md",
+                model="qwen2.5-coder",
+            )
+
+            exit_code, output = _run_execute_cli(root, "--dry-run")
+
+            assert exit_code == 0
+            assert "dry-run" in output
+            assert "Adapter family" in output
+            assert "http" in output
+            assert "Base URL" in output
+            assert "http://localhost:11434" in output
+            assert "/api/generate" in output
+            assert "Model" in output
+            assert "qwen2.5-coder" in output
+            assert re.search(r"Executes HTTP\s+no", output)
+            assert re.search(r"Applies patch\s+no", output)
+            assert "Ollama request is ready. No HTTP request was made." in output
+    finally:
+        execute_command_module.execute_ollama_adapter = original_execute
+
+
+def test_execute_ollama_normal_execute_against_local_fake_server_returns_patch_ready():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _create_repo(root)
+        _write_prompt(root)
+        root.joinpath("main.py").write_text("print('old')\n", encoding="utf-8")
+        secret = "sk-test-secret-ollama"
+        original = os.environ.get("OLLAMA_API_KEY")
+        os.environ["OLLAMA_API_KEY"] = secret
+        try:
+            _save_config(
+                root,
+                mode="hybrid",
+                agent="local",
+                adapter="ollama",
+                prompt_path=".aidc/agent_prompt.md",
+                model="qwen2.5-coder",
+                http_timeout_seconds=150,
+            )
+
+            with run_ollama_server(
+                generate_body=json.dumps(
+                    {
+                        "response": _valid_patch_text(),
+                    }
+                ),
+                generate_headers={"Content-Type": "application/json"},
+            ) as (server, base_url):
                 _save_config(
                     root,
                     mode="hybrid",
                     agent="local",
-                    adapter=adapter,
+                    adapter="ollama",
                     prompt_path=".aidc/agent_prompt.md",
-                    base_url="http://localhost:11434" if adapter == "ollama" else "http://localhost:1234/v1",
-                    api_key_env="OPENAI_API_KEY" if adapter == "openai_compatible_http" else None,
-                    http_timeout_seconds=180,
+                    base_url=base_url,
+                    model="qwen2.5-coder",
+                    http_timeout_seconds=150,
                 )
 
                 exit_code, output = _run_execute_cli(root)
 
-                assert exit_code == 1
-                assert "not_implemented" in output
-                assert "HTTP adapter execution is not implemented yet." in output
-                assert adapter in output
-                assert "URL" in output
-                assert "HTTP timeout seconds" in output
-    finally:
-        execute_command_module.execute_command_adapter = original_execute
-        socket.create_connection = original_create_connection
+            assert exit_code == 0
+            assert "patch_ready" in output
+            assert "HTTP status" in output
+            assert "Patch valid" in output
+            assert "Targets" in output
+            assert "main.py" in output
+            assert "Next" in output
+            assert "strata patch" in output
+            assert "print(\"hello\")" not in output
+            assert _valid_patch_text().strip() not in output
+            assert "Applies patch" in output
+            assert re.search(r"Applies patch\s+no", output)
+            assert secret not in output
+            assert server.last_request is not None
+            assert server.last_request["path"] == "/api/generate"
+            assert server.last_request["method"] == "POST"
+            assert "Return only a unified diff patch." in server.last_request["body"]
+            assert root.joinpath("main.py").read_text(encoding="utf-8") == "print('old')\n"
+        finally:
+            if original is None:
+                os.environ.pop("OLLAMA_API_KEY", None)
+            else:
+                os.environ["OLLAMA_API_KEY"] = original
 
 
 def test_execute_output_includes_expected_rows():
@@ -819,7 +886,7 @@ def test_execute_command_captures_stdout_and_stderr_and_does_not_apply_patch():
             sys.stdout.write("stdout-line\\n")
             sys.stderr.write("stderr-line\\n")
             Path(".aidc").mkdir(parents=True, exist_ok=True)
-            Path(".aidc/agent_patch.diff").write_text({ _valid_patch_text()!r }, encoding="utf-8")
+            Path(".aidc/agent_patch.diff").write_text({_valid_patch_text()!r}, encoding="utf-8")
             """,
         )
         command = _python_command(script_path)
@@ -859,7 +926,9 @@ TESTS = [
     test_execute_http_dry_run_returns_zero_and_makes_no_network_call,
     test_execute_http_normal_execute_against_local_fake_server_returns_patch_ready,
     test_execute_http_missing_base_url_returns_nonzero,
-    test_execute_http_family_planned_adapters_do_not_execute,
+    test_execute_command_family_planned_adapters_do_not_execute,
+    test_execute_ollama_dry_run_returns_zero_when_prompt_exists_and_shows_default_base_url,
+    test_execute_ollama_normal_execute_against_local_fake_server_returns_patch_ready,
     test_execute_output_includes_expected_rows,
     test_execute_command_captures_stdout_and_stderr_and_does_not_apply_patch,
 ]

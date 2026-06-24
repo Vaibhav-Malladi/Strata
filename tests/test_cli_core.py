@@ -388,6 +388,9 @@ def test_cli_help_prefers_strata_commands():
 
     assert "strata scan [path]" in output
     assert "strata gate <root>" in output
+    assert "strata setup" in output
+    assert "strata setup --manual" in output
+    assert "strata setup --ollama" in output
     assert "strata config [root]" in output
     assert "strata config init [root]" in output
     assert "strata config set <key> <value> [root]" in output
@@ -413,6 +416,15 @@ def test_cli_help_prefers_strata_commands():
     assert "Build a workflow plan, prepare artifacts, and route through the configured adapter without executing commands automatically." in output
     assert "Legacy fallback: use `py cli.py ...`" in output
     assert "py cli.py scan [path]" not in output
+
+
+def test_cli_setup_rejects_conflicting_flags():
+    with change_argv(["cli.py", "setup", "--manual", "--ollama"]):
+        exit_code, output = capture_output(cli_main)
+
+    assert exit_code == 1
+    assert "Usage:" in output
+    assert "strata setup --manual" in output
 
 
 def test_editable_install_imports_command_executor_from_clean_cwd():
@@ -489,6 +501,7 @@ TESTS = [
     test_cli_apply_dry_run_command_smoke,
     test_cli_run_command_smoke,
     test_cli_help_prefers_strata_commands,
+    test_cli_setup_rejects_conflicting_flags,
     test_editable_install_imports_command_executor_from_clean_cwd,
     test_cli_doctor_adapter_dispatches,
 ]

@@ -103,7 +103,7 @@ def test_doctor_adapter_not_ready_returns_nonzero():
         assert "Command timeout" in output
 
 
-def test_doctor_http_planned_adapter_shows_family_and_not_ready():
+def test_doctor_http_adapter_shows_ollama_defaults_and_ready():
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
         _create_repo(root)
@@ -114,15 +114,17 @@ def test_doctor_http_planned_adapter_shows_family_and_not_ready():
             with change_argv(["cli.py", "doctor", "adapter"]):
                 exit_code, output = capture_output(cli_main)
 
-        assert exit_code == 1
-        assert "not_ready" in output
+        assert exit_code == 0
+        assert "ready" in output
         assert "Adapter family" in output
         assert "http" in output
-        assert "Command timeout" in output
+        assert "Base URL" in output
+        assert "http://localhost:11434" in output
+        assert "Model" in output
+        assert "qwen2.5-coder" in output
         assert "HTTP timeout seconds" in output
         assert "180" in output
-        assert "Ollama adapter is not ready yet." in output
-        assert "http://localhost:11434" in output
+        assert "Ollama adapter appears ready. Runtime availability is checked during execute." in output
 
 
 def test_doctor_http_adapter_shows_base_url_api_key_env_and_http_timeout():
@@ -255,7 +257,7 @@ TESTS = [
     test_doctor_unknown_target_returns_nonzero_and_shows_usage,
     test_doctor_output_includes_status_adapter_prompt_patch_message,
     test_doctor_command_does_not_execute_configured_command,
-    test_doctor_http_planned_adapter_shows_family_and_not_ready,
+    test_doctor_http_adapter_shows_ollama_defaults_and_ready,
     test_doctor_http_adapter_shows_base_url_api_key_env_and_http_timeout,
     test_doctor_command_does_not_create_aidc,
 ]

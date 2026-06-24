@@ -23,6 +23,14 @@ from commands.prepare_command import write_prepare_command
 from commands.review_command import write_review_command
 from commands.preflight_command import write_preflight
 from commands.run_command import write_run_command
+from commands.setup_command import (
+    setup_command,
+    setup_http,
+    setup_manual,
+    setup_ollama,
+    setup_show,
+    write_setup_command,
+)
 from commands.snapshot_command import write_snapshot_command
 from commands.verify_command import write_verify_command
 from commands.routes_command import write_routes
@@ -135,6 +143,9 @@ def main() -> int:
             return _exit_code(write_review_command(args[1]))
         print_usage()
         return 1
+
+    if command == "setup":
+        return _exit_code(_handle_setup_command(args[1:]))
 
     if command == "config":
         if len(args) == 1:
@@ -301,6 +312,93 @@ def _handle_execute_command(args: list[str]) -> int:
 
     root = positionals[0] if positionals else "."
     return write_execute_command(root, dry_run=dry_run)
+
+
+def _handle_setup_command(args: list[str]) -> int:
+    preset: str | None = None
+    show = False
+    positionals: list[str] = []
+
+    for arg in args:
+        if arg == "--manual":
+            preset = _set_preset(preset, "manual")
+            if preset is None:
+                return 1
+            continue
+
+        if arg == "--command":
+            preset = _set_preset(preset, "command")
+            if preset is None:
+                return 1
+            continue
+
+        if arg == "--http":
+            preset = _set_preset(preset, "http")
+            if preset is None:
+                return 1
+            continue
+
+        if arg == "--ollama":
+            preset = _set_preset(preset, "ollama")
+            if preset is None:
+                return 1
+            continue
+
+        if arg == "--show":
+            if preset is not None:
+                print_usage()
+                return 1
+            show = True
+            continue
+
+        if arg.startswith("-"):
+            print_usage()
+            return 1
+
+        positionals.append(arg)
+
+    if len(positionals) > 1:
+        print_usage()
+        return 1
+
+    root = positionals[0] if positionals else "."
+
+    if show:
+        return _setup_exit_code(setup_show(root))
+
+    if preset == "manual":
+        return _setup_exit_code(setup_manual(root))
+
+    if preset == "command":
+        return _setup_exit_code(setup_command(root))
+
+    if preset == "http":
+        return _setup_exit_code(setup_http(root))
+
+    if preset == "ollama":
+        return _setup_exit_code(setup_ollama(root))
+
+    return write_setup_command(root)
+
+
+def _set_preset(current: str | None, next_preset: str) -> str | None:
+    if current is None:
+        return next_preset
+
+    if current == next_preset:
+        return current
+
+    print_usage()
+    return None
+
+
+def _setup_exit_code(result: dict) -> int:
+    status = str(result.get("status", "")).lower()
+
+    if status in {"configured", "needs_input"}:
+        return 0
+
+    return 1
 
 
 if __name__ == "__main__":

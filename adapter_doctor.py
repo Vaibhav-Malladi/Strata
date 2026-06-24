@@ -11,10 +11,11 @@ from agent_adapters import (
     supported_adapters,
 )
 from http_adapter_contract import build_http_contract_summary
+from ollama_adapter import DEFAULT_OLLAMA_BASE_URL, normalize_ollama_base_url
 from workflow_config import load_config
 
 _PLANNED_COMMAND_ADAPTERS = {"aider", "codex_cli"}
-_PLANNED_HTTP_ADAPTERS = {"ollama"}
+_PLANNED_HTTP_ADAPTERS: set[str] = set()
 _PLANNED_ADAPTERS = _PLANNED_COMMAND_ADAPTERS | _PLANNED_HTTP_ADAPTERS
 _ALL_SUPPORTED_ADAPTERS = supported_adapters()
 
@@ -71,8 +72,8 @@ def check_adapter(root: str | Path = ".") -> dict[str, Any]:
     if adapter == "openai_compatible_http":
         return _check_http(root_path, config, mode, agent, adapter)
 
-    if adapter in _PLANNED_HTTP_ADAPTERS:
-        return _check_http(root_path, config, mode, agent, adapter)
+    if adapter == "ollama":
+        return _check_ollama(root_path, config, mode, agent)
 
     if adapter in _PLANNED_COMMAND_ADAPTERS:
         prompt_display = _display_prompt(prompt_config)
@@ -90,6 +91,7 @@ def check_adapter(root: str | Path = ".") -> dict[str, Any]:
             command="-",
             command_timeout_seconds=None,
             base_url=None,
+            model=None,
             api_key_env=None,
             http_timeout_seconds=None,
             message=check_message,
@@ -120,6 +122,7 @@ def check_adapter(root: str | Path = ".") -> dict[str, Any]:
         command=_display_command(command_config),
         command_timeout_seconds=None,
         base_url=None,
+        model=None,
         api_key_env=None,
         http_timeout_seconds=None,
     )
@@ -309,10 +312,7 @@ def _check_http(root_path: Path, config: dict[str, Any], mode: str, agent: str, 
                 _check("api_key_env", "info", "API key environment variable name is configured.")
             )
 
-        message = (
-            "Ollama adapter is not ready yet. "
-            "If the endpoint is OpenAI-compatible, use `openai_compatible_http`; otherwise wait for the Ollama adapter."
-        )
+        message = "HTTP adapter is not ready for execution."
 
     ready = adapter == "openai_compatible_http" and base_url is not None and prompt_exists
     status = "ready" if ready else "not_ready"
@@ -339,6 +339,105 @@ def _check_http(root_path: Path, config: dict[str, Any], mode: str, agent: str, 
     )
 
 
+def _check_ollama(root_path: Path, config: dict[str, Any], mode: str, agent: str) -> dict[str, Any]:
+    prompt_config = config.get("prompt_path")
+    prompt_display = _display_prompt(prompt_config)
+    patch_display = _display_patch()
+    resolved_prompt_path = prompt_path(root_path, prompt_config)
+    base_url_value = config.get("base_url")
+    timeout_display = _display_timeout(config.get("http_timeout_seconds"))
+    model = _display_model(config.get("model"))
+    checks = [
+        _check("config", "pass", "Workflow config loaded."),
+        _check("adapter", "pass", "Adapter is supported."),
+    ]
+
+    try:
+        base_url = normalize_ollama_base_url(base_url_value)
+    except ValueError as error_message:
+        checks.append(_check("base_url", "fail", "Base URL is invalid."))
+        checks.append(_check("model", "pass", "Model is configured or defaulted."))
+        checks.append(
+            _check(
+                "prompt",
+                "pass" if resolved_prompt_path.exists() else "fail",
+                "Prompt file exists." if resolved_prompt_path.exists() else "Prompt file is missing.",
+            )
+        )
+        checks.append(_check("timeout", "info", "HTTP timeout is configured."))
+        return _build_invalid_result(
+            message="Adapter configuration is invalid.",
+            errors=[str(error_message)],
+            adapter="ollama",
+            adapter_family="http",
+            mode=mode,
+            agent=agent,
+            prompt=prompt_display,
+            patch=patch_display,
+            command="-",
+            command_timeout_seconds=None,
+            base_url=_display_raw_base_url(base_url_value),
+            model=model,
+            api_key_env=None,
+            http_timeout_seconds=timeout_display,
+            checks=checks,
+        )
+
+    if base_url_value is None:
+        checks.append(_check("base_url", "pass", f"Base URL defaulted to {DEFAULT_OLLAMA_BASE_URL}."))
+    else:
+        checks.append(_check("base_url", "pass", "Base URL is configured."))
+
+    checks.append(_check("model", "pass", "Model is configured or defaulted."))
+
+    if resolved_prompt_path.exists():
+        checks.append(_check("prompt", "pass", "Prompt file exists."))
+    else:
+        checks.append(_check("prompt", "fail", "Prompt file is missing."))
+
+    checks.append(_check("timeout", "info", "HTTP timeout is configured."))
+
+    if not resolved_prompt_path.exists():
+        return _build_result(
+            status="not_ready",
+            ready=False,
+            adapter="ollama",
+            adapter_family="http",
+            mode=mode,
+            agent=agent,
+            prompt=prompt_display,
+            patch=patch_display,
+            command="-",
+            command_timeout_seconds=None,
+            base_url=base_url,
+            model=model,
+            api_key_env=None,
+            http_timeout_seconds=timeout_display,
+            message="Adapter configuration is not ready.",
+            checks=checks,
+            errors=[f"Prompt file not found: {prompt_display}"],
+        )
+
+    return _build_result(
+        status="ready",
+        ready=True,
+        adapter="ollama",
+        adapter_family="http",
+        mode=mode,
+        agent=agent,
+        prompt=prompt_display,
+        patch=patch_display,
+        command="-",
+        command_timeout_seconds=None,
+        base_url=base_url,
+        model=model,
+        api_key_env=None,
+        http_timeout_seconds=timeout_display,
+        message="Ollama adapter appears ready. Runtime availability is checked during execute.",
+        checks=checks,
+    )
+
+
 def _build_invalid_result(
     *,
     message: str,
@@ -351,6 +450,7 @@ def _build_invalid_result(
     command: str | None = None,
     command_timeout_seconds: int | None = None,
     base_url: str | None = None,
+    model: str | None = None,
     api_key_env: str | None = None,
     http_timeout_seconds: int | None = None,
     adapter_family: str | None = None,
@@ -368,6 +468,7 @@ def _build_invalid_result(
         command=command,
         command_timeout_seconds=command_timeout_seconds,
         base_url=base_url,
+        model=model,
         api_key_env=api_key_env,
         http_timeout_seconds=http_timeout_seconds,
         message=message,
@@ -392,6 +493,7 @@ def _build_result(
     command: str | None,
     command_timeout_seconds: int | None,
     base_url: str | None,
+    model: str | None = None,
     api_key_env: str | None,
     http_timeout_seconds: int | None,
     message: str,
@@ -411,6 +513,7 @@ def _build_result(
         "command": command,
         "command_timeout_seconds": command_timeout_seconds,
         "base_url": base_url,
+        "model": model,
         "api_key_env": api_key_env,
         "http_timeout_seconds": http_timeout_seconds,
         "checks": [dict(check) for check in checks],
@@ -451,6 +554,13 @@ def _display_optional_string(configured_value: object) -> str | None:
         return configured_value
 
     return None
+
+
+def _display_model(configured_value: object) -> str | None:
+    if isinstance(configured_value, str) and configured_value:
+        return configured_value
+
+    return "qwen2.5-coder"
 
 
 def _display_timeout(configured_timeout: object) -> int | None:

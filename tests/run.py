@@ -42,6 +42,7 @@ import test_execute_command
 import test_adapter_doctor
 import test_http_executor
 import test_http_adapter_contract
+import test_ollama_adapter
 import test_doctor_command
 import test_patch_applier
 import test_workflow_config
@@ -65,6 +66,7 @@ import test_verify_command
 import test_diff_command
 import test_review_command
 import test_scan_command
+import test_setup_command
 from tests import test_languages
 from tests import test_javascript_parser
 from tests import test_typescript_parser
@@ -100,6 +102,7 @@ TEST_MODULES = [
     test_adapter_doctor,
     test_http_executor,
     test_http_adapter_contract,
+    test_ollama_adapter,
     test_doctor_command,
     test_patch_applier,
     test_workflow_config,
@@ -123,6 +126,7 @@ TEST_MODULES = [
     test_diff_command,
     test_review_command,
     test_scan_command,
+    test_setup_command,
     test_languages,
     test_javascript_parser,
     test_typescript_parser,

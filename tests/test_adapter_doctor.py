@@ -5,6 +5,7 @@ import tempfile
 from pathlib import Path
 
 from adapter_doctor import check_adapter
+from ollama_adapter import DEFAULT_OLLAMA_BASE_URL, DEFAULT_OLLAMA_MODEL
 from workflow_config import default_config, save_config
 
 
@@ -161,35 +162,54 @@ def test_adapter_doctor_http_planned_adapters_return_not_ready_with_family():
                 "pass",
                 "info",
             ]
+    finally:
+        subprocess.run = original_run
+        socket.create_connection = original_create_connection
 
+
+def test_adapter_doctor_ollama_ready_uses_default_base_url_without_network_calls():
+    original_run = subprocess.run
+    original_create_connection = socket.create_connection
+
+    def _fail(*_args, **_kwargs):
+        raise AssertionError("network or subprocess calls should not be made")
+
+    subprocess.run = _fail
+    socket.create_connection = _fail
+    try:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             _write_prompt(root)
-            _save_config(root, adapter="ollama", http_timeout_seconds=150)
+            _save_config(
+                root,
+                adapter="ollama",
+                base_url=None,
+                model=None,
+                http_timeout_seconds=150,
+            )
 
             result = check_adapter(root)
 
-            assert result["status"] == "not_ready"
-            assert result["ready"] is False
+            assert result["status"] == "ready"
+            assert result["ready"] is True
             assert result["adapter"] == "ollama"
             assert result["adapter_family"] == "http"
-            assert result["base_url"] is None
+            assert result["base_url"] == DEFAULT_OLLAMA_BASE_URL
+            assert result["model"] == DEFAULT_OLLAMA_MODEL
+            assert result["api_key_env"] is None
             assert result["http_timeout_seconds"] == 150
-            assert (
-                result["message"]
-                == "Ollama adapter is not ready yet. "
-                "If the endpoint is OpenAI-compatible, use `openai_compatible_http`; otherwise wait for the Ollama adapter."
+            assert result["message"] == (
+                "Ollama adapter appears ready. Runtime availability is checked during execute."
             )
             assert result["errors"] == []
-            assert result["warnings"] == [
-                "Base URL is not configured. Ollama commonly uses http://localhost:11434."
-            ]
+            assert result["warnings"] == []
             assert [check["status"] for check in result["checks"]] == [
                 "pass",
                 "pass",
-                "info",
-                "info",
                 "pass",
+                "pass",
+                "pass",
+                "info",
             ]
     finally:
         subprocess.run = original_run
@@ -342,6 +362,7 @@ TESTS = [
     test_adapter_doctor_command_not_ready_when_command_missing,
     test_adapter_doctor_command_not_ready_when_prompt_missing,
     test_adapter_doctor_http_planned_adapters_return_not_ready_with_family,
+    test_adapter_doctor_ollama_ready_uses_default_base_url_without_network_calls,
     test_adapter_doctor_openai_http_reports_configured_base_url_and_api_key_env,
     test_adapter_doctor_openai_http_does_not_read_api_key_value,
     test_adapter_doctor_command_family_planned_adapters_return_not_ready_with_family,

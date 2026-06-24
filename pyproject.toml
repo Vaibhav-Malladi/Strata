@@ -63,6 +63,7 @@ py-modules = [
     "patch_validator",
     "command_executor",
     "http_executor",
+    "ollama_adapter",
     "languages",
     "map_writer",
     "preflight",

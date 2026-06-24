@@ -11,7 +11,7 @@ Strata does **not** edit source files by itself. Strata does **not** call cloud 
 ## Status
 
 ```text
-v0.5.1 / HTTP execution foundation
+v0.5.2 / Ollama adapter support
 ```
 
 ## Terminal UI
@@ -62,6 +62,31 @@ py cli.py help
 ```
 
 Use the fallback if the `strata` console script is not available yet in your shell.
+
+## First-Time Setup
+
+Use the setup wizard to configure Strata without editing config keys by hand:
+
+```powershell
+strata setup
+```
+
+Presets:
+
+```powershell
+strata setup --manual
+strata setup --command
+strata setup --http
+strata setup --ollama
+strata setup --show
+```
+
+Recommended choices:
+
+- Manual if you copy prompts into ChatGPT, Claude, or Copilot.
+- Command if a local CLI writes `.aidc/agent_patch.diff`.
+- HTTP if you use an OpenAI-compatible local or cloud endpoint.
+- Ollama if you want a local Qwen/Ollama workflow.
 
 ---
 
@@ -219,10 +244,41 @@ del .aidc\agent_patch.diff
 |---|---|---|---|
 | `prompt_file` | `prompt_file` | Implemented | Writes/uses `.aidc/agent_prompt.md`; user pastes it into an AI tool manually. |
 | `command` | `command` | Implemented | Runs the configured command adapter and writes `.aidc/agent_patch.diff`. |
-| `ollama` | `http` | Planned | Future local model adapter; doctor validates config only and execution is not implemented yet. |
+| `ollama` | `http` | Implemented | Uses Ollama's native `/api/generate` endpoint, writes `.aidc/agent_patch.diff`, and does not apply patches automatically. |
 | `openai_compatible_http` | `http` | Experimental | OpenAI-compatible HTTP execution writes `.aidc/agent_patch.diff`, validates the patch, and still does not apply it automatically. |
 | `aider` | `command` | Planned | Future Aider preset on the command family. |
 | `codex_cli` | `command` | Planned | Future Codex CLI preset on the command family. |
+
+## Native Ollama Workflow
+
+Ollama defaults to `http://localhost:11434` and uses the native `/api/generate`
+endpoint. Strata asks Ollama for a unified diff patch, writes the result to
+`.aidc/agent_patch.diff`, and still leaves patch application to `strata apply`.
+
+Recommended local models:
+
+- `qwen2.5-coder`
+- `qwen2.5-coder:7b` if you already have it installed
+
+Example:
+
+```powershell
+strata config set adapter ollama
+strata config set model qwen2.5-coder
+strata config set base_url null
+strata run "fix helper bug"
+strata doctor adapter
+strata execute --dry-run
+strata execute
+strata patch
+strata apply --dry-run
+strata apply
+strata review
+```
+
+If you want to point Strata at a different local Ollama server, set
+`base_url` to that server's root URL. The adapter still expects unified diff
+output and does not apply patches automatically.
 
 Manual safety loop:
 

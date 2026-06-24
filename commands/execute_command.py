@@ -6,6 +6,7 @@ from adapter_doctor import check_adapter
 from command_executor import DEFAULT_TIMEOUT_SECONDS, execute_command_adapter
 from http_adapter_contract import build_http_contract_summary
 from http_executor import execute_openai_compatible_http_adapter
+from ollama_adapter import execute_ollama_adapter
 from workflow_config import load_config
 from ui import (
     format_error,
@@ -21,7 +22,7 @@ from ui import (
 )
 
 _PLANNED_COMMAND_ADAPTERS = {"aider", "codex_cli"}
-_PLANNED_HTTP_ADAPTERS = {"ollama"}
+_PLANNED_HTTP_ADAPTERS: set[str] = set()
 _PLANNED_ADAPTERS = _PLANNED_COMMAND_ADAPTERS | _PLANNED_HTTP_ADAPTERS
 
 
@@ -87,6 +88,20 @@ def write_execute_command(root_path: str = ".", dry_run: bool = False) -> int:
             if execution_result.get("status") == "patch_ready":
                 next_step = "Run `strata patch`, then `strata apply --dry-run`, then `strata apply`."
 
+        if ready and adapter == "ollama":
+            with status_spinner(render_step("Executing adapter", "running")) as spinner:
+                execution_result = execute_ollama_adapter(root_path, config=config or {})
+                spinner.update(render_step("Inspecting patch", "running"))
+            display_status = _format_execution_status(str(execution_result.get("status", "failed")).lower())
+            message = str(execution_result.get("message", ""))
+            executes_http = "yes" if execution_result.get("executed") else "no"
+            http_status = _format_return_code(execution_result.get("http_status"))
+            patch_status = _format_patch_status(execution_result.get("patch_status"))
+            patch_valid = _format_yes_no(bool(execution_result.get("patch_valid")))
+            targets = _format_targets(execution_result.get("targets", []))
+            if execution_result.get("status") == "patch_ready":
+                next_step = "Run `strata patch`, then `strata apply --dry-run`, then `strata apply`."
+
         if ready and adapter == "openai_compatible_http":
             with status_spinner(render_step("Executing adapter", "running")) as spinner:
                 execution_result = execute_openai_compatible_http_adapter(root_path, config=config or {})
@@ -101,7 +116,18 @@ def write_execute_command(root_path: str = ".", dry_run: bool = False) -> int:
             if execution_result.get("status") == "patch_ready":
                 next_step = "Run `strata patch`, then `strata apply --dry-run`, then `strata apply`."
 
-    if adapter_family == "http":
+    if adapter == "ollama":
+        rows = _build_ollama_rows(
+            result=result,
+            message=message,
+            executes_http=executes_http,
+            applies_patch=applies_patch,
+            http_status=http_status,
+            patch_status=patch_status,
+            patch_valid=patch_valid,
+            targets=targets,
+        )
+    elif adapter_family == "http":
         rows = _build_http_rows(
             result=result,
             http_contract=http_contract,
@@ -187,6 +213,9 @@ def _build_display_status_and_message(result: dict[str, object]) -> tuple[str, s
 
     if ready and adapter == "openai_compatible_http":
         return format_success("ready"), "HTTP adapter appears ready for execution."
+
+    if ready and adapter == "ollama":
+        return format_success("ready"), "Ollama adapter appears ready. Runtime availability is checked during execute."
 
     if adapter in _PLANNED_ADAPTERS:
         if adapter_family == "command":
@@ -302,6 +331,40 @@ def _format_notes(notes: object) -> str:
     return "; ".join(str(note) for note in notes)
 
 
+def _build_ollama_rows(
+    *,
+    result: dict[str, object],
+    message: str,
+    executes_http: str,
+    applies_patch: str,
+    http_status: str,
+    patch_status: str,
+    patch_valid: str,
+    targets: str,
+) -> list[tuple[str, object]]:
+    rows = [
+        ("Mode", _format_value(result.get("mode"))),
+        ("Agent", _format_value(result.get("agent"))),
+        ("Adapter", _format_value(result.get("adapter"))),
+        ("Adapter family", _format_value(result.get("adapter_family"))),
+        ("Prompt", _format_path_or_dash(result.get("prompt"))),
+        ("Patch", _format_path_or_dash(result.get("patch"))),
+        ("Base URL", _format_value(result.get("base_url"))),
+        ("URL", "/api/generate"),
+        ("Model", _format_value(result.get("model"))),
+        ("HTTP timeout seconds", _format_value(result.get("http_timeout_seconds"))),
+        ("Executes HTTP", executes_http),
+        ("Applies patch", applies_patch),
+        ("HTTP status", http_status),
+        ("Patch status", patch_status),
+        ("Patch valid", patch_valid),
+        ("Targets", targets),
+        ("Message", message),
+    ]
+
+    return rows
+
+
 def _build_http_rows(
     *,
     result: dict[str, object],
@@ -340,6 +403,9 @@ def _build_http_rows(
 
 
 def _dry_run_message(adapter: str, adapter_family: str) -> str:
+    if adapter == "ollama":
+        return "Ollama request is ready. No HTTP request was made."
+
     if adapter_family == "http":
         return "Dry run only. No HTTP request was made."
 

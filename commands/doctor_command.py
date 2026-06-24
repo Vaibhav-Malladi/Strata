@@ -50,6 +50,7 @@ def _print_adapter_result(result: dict[str, object]) -> None:
         ("Command", _format_value(result.get("command"))),
         ("Command timeout", _format_value(result.get("command_timeout_seconds"))),
         ("Base URL", _format_value(result.get("base_url"))),
+        ("Model", _format_value(result.get("model"))),
         ("API key env", _format_value(result.get("api_key_env"))),
         ("HTTP timeout seconds", _format_value(result.get("http_timeout_seconds"))),
         ("Message", _format_value(result.get("message"))),
