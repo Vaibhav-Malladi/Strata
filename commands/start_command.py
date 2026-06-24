@@ -76,6 +76,22 @@ def write_start_command(root_path: str = ".") -> int:
         status=status,
     )
 
+    if not repo_ready:
+        print()
+        print(build_section("Connect AI"))
+        print(
+            build_kv_table(
+                [
+                    ("Setup", 'Run `strata setup` to choose an AI mode.'),
+                    (
+                        "Manual/browser AI",
+                        "Run `strata setup --manual` for browser AI with no API key or local model.",
+                    ),
+                    ("Ask", 'Then run `strata ask "your task"` after setup.'),
+                ]
+            )
+        )
+
     intelligence_rows = build_repo_intelligence_rows(repo_summary)
     if intelligence_rows:
         print()
@@ -131,10 +147,10 @@ def _display_repo_readiness(config_exists: bool, adapter_result: dict | None) ->
 
 def _next_step(config_exists: bool, adapter_result: dict | None) -> str:
     if not config_exists:
-        return 'Run `strata setup`, then `strata ask "your task"`.'
+        return 'Run `strata setup` or `strata setup --manual`, then `strata ask "your task"`.'
 
     if adapter_result is not None and not adapter_result.get("ready"):
-        return 'Run `strata ask "your task"` after the adapter is ready.'
+        return 'Run `strata setup` or `strata setup --manual`, then `strata ask "your task"` after setup is ready.'
 
     return 'Run `strata ask "your task"`.'
 

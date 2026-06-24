@@ -84,6 +84,10 @@ def test_ask_prompt_file_manual_mode_stays_manual_and_recommends_review():
         assert not (root / ".aidc" / "agent_patch.diff").exists()
         assert "Prompt" in output
         assert "Open `.aidc/agent_prompt.md`" in output
+        assert "ChatGPT" in output
+        assert "Claude" in output
+        assert "Gemini" in output
+        assert ".aidc/agent_patch.diff" in output
         assert "Save it to `.aidc/agent_patch.diff`" in output
         assert "Inline review" not in output
         assert "Patch status" not in output
@@ -252,10 +256,38 @@ def test_ask_invalid_patch_shows_fix_and_next_guidance():
         assert 'Run `strata ask "your task"` again' in output
 
 
+def test_ask_missing_command_adapter_shows_setup_guidance_and_returns_nonzero():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _create_repo(root)
+        _save_config(
+            root,
+            mode="hybrid",
+            agent="codex",
+            adapter="command",
+            command=None,
+            prompt_path=".aidc/agent_prompt.md",
+        )
+
+        exit_code, output = _run_cli(root, "ask", "fix the login bug")
+
+        assert exit_code == 1
+        assert "No AI adapter is configured yet." in output
+        assert "Connect AI" in output
+        assert "strata setup" in output
+        assert "strata setup --manual" in output
+        assert "ChatGPT" in output
+        assert ".aidc/agent_prompt.md" in output
+        assert ".aidc/agent_patch.diff" in output
+        assert "strata review" in output
+        assert "strata apply --dry-run" in output
+
+
 TESTS = [
     test_ask_prompt_file_manual_mode_stays_manual_and_recommends_review,
     test_ask_ready_patch_shows_inline_review_fields_and_warning,
     test_ask_does_not_apply_the_patch,
     test_ask_missing_patch_shows_fix_and_next_guidance,
     test_ask_invalid_patch_shows_fix_and_next_guidance,
+    test_ask_missing_command_adapter_shows_setup_guidance_and_returns_nonzero,
 ]

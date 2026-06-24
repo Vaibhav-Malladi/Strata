@@ -258,11 +258,14 @@ def setup_show(root: str = ".") -> dict:
         _print_setup_summary(root, {}, result, title="Setup summary")
         return result
 
+    config_exists = config_path(root).exists()
+    next_steps = _setup_show_next_steps(config, config_exists)
+
     result = _result(
-        status="configured",
+        status="configured" if config_exists else "not configured",
         adapter=str(config.get("adapter", "") or "prompt_file"),
-        message="Current setup summary.",
-        next_steps=_next_steps(),
+        message="Current setup summary." if config_exists else "No workflow config saved yet.",
+        next_steps=next_steps,
     )
     _print_setup_summary(root, config, result, title="Current setup")
     return result
@@ -291,7 +294,10 @@ def _run_interactive_setup(root: str) -> int:
     print(
         build_kv_table(
             [
-                ("1. Manual / prompt file", "Best when copying prompts into ChatGPT, Claude, or Copilot."),
+                (
+                    "1. Manual / browser AI",
+                    "Best for first-time users. No API key or local model required.",
+                ),
                 (
                     "2. Command adapter",
                     "Best when a local AI CLI reads .aidc/agent_prompt.md and writes .aidc/agent_patch.diff.",
@@ -458,7 +464,53 @@ def _print_setup_summary(root: str, config: dict, result: dict, title: str) -> N
         print()
         for error in result["errors"]:
             print(format_error(error))
-    print_next_steps(result["next_steps"])
+    print()
+    if _uses_manual_browser_flow(config, result):
+        print(build_section("Manual/browser AI"))
+        print(
+            "No API key or local model required. Strata creates `.aidc/agent_prompt.md`, "
+            "you paste it into ChatGPT, Claude, Gemini, or Copilot Chat, and save the returned "
+            "unified diff as `.aidc/agent_patch.diff`."
+        )
+        print_next_steps(
+            [
+                "Run `strata setup` if you want to choose a different AI mode.",
+                'Open `.aidc/agent_prompt.md` and ask for a unified diff.',
+                "Save the returned diff to `.aidc/agent_patch.diff`.",
+                'Then run `strata review`, then `strata apply --dry-run`.',
+            ]
+        )
+    else:
+        print_next_steps(result["next_steps"])
+
+
+def _uses_manual_browser_flow(config: dict, result: dict) -> bool:
+    if result.get("status") == "not configured":
+        return True
+
+    adapter = str(config.get("adapter", "") or "").strip()
+    return adapter == "prompt_file"
+
+
+def _setup_show_next_steps(config: dict, config_exists: bool) -> list[str]:
+    adapter = str(config.get("adapter", "") or "").strip()
+
+    if not config_exists:
+        return [
+            "Run `strata setup` to choose an AI mode.",
+            "Or run `strata setup --manual` for browser/manual AI.",
+            'Then run `strata ask "your task"`.',
+        ]
+
+    if adapter == "prompt_file":
+        return [
+            "Open `.aidc/agent_prompt.md`.",
+            "Paste it into ChatGPT, Claude, Gemini, or Copilot Chat.",
+            "Save the returned unified diff to `.aidc/agent_patch.diff`.",
+            'Then run `strata review`, then `strata apply --dry-run`.',
+        ]
+
+    return _next_steps()
 
 
 def _build_summary_rows(root: str, config: dict, result: dict) -> list[tuple[str, object]]:

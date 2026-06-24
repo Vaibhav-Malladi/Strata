@@ -386,6 +386,16 @@ def test_cli_run_command_smoke():
 def test_cli_help_prefers_strata_commands():
     _, output = capture_output(print_usage)
 
+    assert "Connect AI" in output
+    assert "strata setup" in output
+    assert "strata setup --manual" in output
+    assert "strata setup --ollama" in output
+    assert "strata setup --http" in output
+    assert "strata setup --command" in output
+    assert "strata setup --codex-cli" in output
+    assert "strata setup --aider" in output
+    assert 'strata ask "fix bug"' in output
+    assert "For step-by-step help, run `strata help setup`, `strata help ask`, or `strata help manual`." in output
     assert "strata scan [path]" in output
     assert "strata gate <root>" in output
     assert "strata setup" in output
@@ -414,7 +424,13 @@ def test_cli_help_prefers_strata_commands():
     assert "strata doctor adapter <root>" in output
     assert "strata review" in output
     assert "strata review <root>" in output
-    assert "Run the configured command adapter and produce .aidc/agent_patch.diff." in output
+    assert output.index("Connect AI") < output.index("Main workflow")
+    assert "Run `strata setup` to choose how Strata talks to AI." in output
+    assert "`strata setup --manual`" in output
+    assert "`strata setup --ollama`" in output
+    assert "`strata setup --http`" in output
+    assert "Then run `strata ask \"fix bug\"`, `strata review`, `strata apply --dry-run`, and `strata apply`." in output
+    assert "For step-by-step help, run `strata help setup`, `strata help ask`, or `strata help manual`." in output
     assert "Build a workflow plan, prepare artifacts, and route through the configured adapter without executing commands automatically." in output
     assert "Legacy fallback: use `py cli.py ...`" in output
     assert "py cli.py scan [path]" not in output

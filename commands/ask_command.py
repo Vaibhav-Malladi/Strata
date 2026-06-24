@@ -21,6 +21,7 @@ from ui import (
     format_warning,
     print_banner,
     print_command_header,
+    print_error,
     print_success,
     print_status_card,
     render_step,
@@ -84,7 +85,29 @@ def write_ask_command(root_path: str = ".", *args: str) -> int:
         _read_text_chars(Path(CONTEXT_PACK_FILE)),
     )
 
-    if adapter == "prompt_file" or not ready:
+    if not ready:
+        _print_prepared_summary(
+            task=task,
+            config=prepare_result["config"],
+            adapter=adapter,
+            adapter_result=adapter_result,
+            prompt_path=prompt_path,
+            snapshot_display=snapshot_display,
+            warnings=warnings,
+            ready=ready,
+        )
+        print_status_card("Context Efficiency", context_efficiency_rows)
+        for line in _not_ready_next_steps():
+            print(line)
+        print_status_card(
+            "Connect AI",
+            _ask_setup_rows(adapter_result, ready),
+            status=format_warning("setup required"),
+        )
+        print_error('Fix: Run `strata setup` or `strata setup --manual`, then run `strata ask` again.')
+        return 1
+
+    if adapter == "prompt_file":
         _print_prepared_summary(
             task=task,
             config=prepare_result["config"],
@@ -97,16 +120,10 @@ def write_ask_command(root_path: str = ".", *args: str) -> int:
         )
         print_status_card("Context Efficiency", context_efficiency_rows)
 
-        if adapter == "prompt_file":
-            for line in _manual_next_steps():
-                print(line)
-            print_success('Next: Save the AI patch to `.aidc/agent_patch.diff`, then run `strata review`.')
-            return 0
-
-        for line in _not_ready_next_steps():
+        for line in _manual_next_steps():
             print(line)
-        print_error('Fix: Fix the adapter setup and run `strata ask` again.')
-        return 1
+        print_success('Next: Save the AI patch to `.aidc/agent_patch.diff`, then run `strata review`.')
+        return 0
 
     if adapter_family == "command":
         _print_direct_edit_warning()
@@ -565,18 +582,37 @@ def _print_direct_edit_detected(report_path: Path) -> None:
 
 def _manual_next_steps() -> list[str]:
     return [
-        "1. Open `.aidc/agent_prompt.md`",
-        "2. Paste it into the AI tool",
-        "3. Ask for a unified diff",
-        "4. Save it to `.aidc/agent_patch.diff`",
-        "5. Run `strata review`",
+        "1. Open `.aidc/agent_prompt.md`.",
+        "2. Paste it into ChatGPT, Claude, Gemini, or Copilot Chat.",
+        "3. Ask for a unified diff.",
+        "4. Save it to `.aidc/agent_patch.diff`.",
+        "5. Run `strata review`, then `strata apply --dry-run`.",
     ]
 
 
 def _not_ready_next_steps() -> list[str]:
     return [
-        "Run `strata doctor adapter`.",
-        "Fix the adapter setup, then run `strata ask` again.",
+        "No AI adapter is configured yet.",
+        "Run `strata setup` to choose an AI mode.",
+        "For browser AI, run `strata setup --manual`.",
+        "Then paste `.aidc/agent_prompt.md` into ChatGPT, Claude, Gemini, or Copilot Chat.",
+        "Save the returned unified diff to `.aidc/agent_patch.diff`.",
+        "Run `strata review`, then `strata apply --dry-run`.",
+    ]
+
+
+def _ask_setup_rows(adapter_result: dict, ready: bool) -> list[tuple[str, object]]:
+    adapter = str(adapter_result.get("adapter") or "prompt_file")
+    prompt = str(adapter_result.get("prompt") or ".aidc/agent_prompt.md")
+    return [
+        ("Adapter", adapter),
+        ("Ready", "yes" if ready else "no"),
+        ("Prompt", format_path(Path(prompt)) if prompt else ".aidc/agent_prompt.md"),
+        ("Browser AI", "No API key or local model required."),
+        (
+            "Next",
+            "Run `strata setup` to choose an AI mode, or `strata setup --manual` for browser AI.",
+        ),
     ]
 
 

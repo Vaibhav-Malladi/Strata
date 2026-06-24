@@ -8,6 +8,11 @@ def print_guided_entrypoint(root: str = ".") -> None:
     print_banner(compact=False)
     print()
 
+    print(bold("Connect AI:"))
+    for line in _connect_ai_overview_lines(include_help_hint=False):
+        print(f"  {line}")
+    print()
+
     print(bold("Main workflow:"))
     for index, (command, description) in enumerate(_main_workflow_lines(), start=1):
         print(f"  {index}. {command}")
@@ -28,6 +33,11 @@ def print_guided_entrypoint(root: str = ".") -> None:
 
 def print_usage() -> None:
     print_banner(compact=False)
+    print()
+
+    print("Connect AI:")
+    for line in _connect_ai_overview_lines(include_help_hint=True):
+        print(f"  {line}")
     print()
 
     print("Main workflow:")
@@ -61,9 +71,36 @@ def print_usage() -> None:
 def _main_workflow_lines() -> list[tuple[str, str]]:
     return [
         ("strata start [path]", "Set up Strata and understand this project."),
-        ('strata ask "<task>" [path]', "Prepare context, ask AI, and collect a safe patch."),
+        ('strata ask "<task>" [path]', "Prepare context for your configured AI mode and collect a safe patch."),
         ("strata review [path]", "Inspect and validate the patch before applying."),
         ("strata apply [--yes] [--dry-run] [path]", "Validate or apply the generated patch."),
+    ]
+
+
+def _connect_ai_overview_lines(include_help_hint: bool) -> list[str]:
+    return [
+        "Run `strata setup` to choose how Strata talks to AI.",
+        "`strata setup --manual`",
+        "  Browser AI: use ChatGPT, Claude, Gemini, or Copilot Chat.",
+        "  Strata writes `.aidc/agent_prompt.md`; you paste it into the AI and save the returned diff as `.aidc/agent_patch.diff`.",
+        "`strata setup --ollama`",
+        "  Local AI with Ollama. Requires Ollama running and an installed model.",
+        "`strata setup --codex-cli`",
+        "  Use Codex CLI through Strata's command adapter.",
+        "`strata setup --aider`",
+        "  Use Aider through Strata's command adapter.",
+        "`strata setup --command`",
+        "  Use any custom CLI command that reads `.aidc/agent_prompt.md` and returns a patch.",
+        "`strata setup --http`",
+        "  Use an OpenAI-compatible HTTP API.",
+        'Then run `strata ask "fix bug"`, `strata review`, `strata apply --dry-run`, and `strata apply`.',
+        *(
+            [
+                "For step-by-step help, run `strata help setup`, `strata help ask`, or `strata help manual`.",
+            ]
+            if include_help_hint
+            else []
+        ),
     ]
 
 

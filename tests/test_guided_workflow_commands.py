@@ -65,11 +65,21 @@ def _run_cli(root: Path, *args: str):
 def test_help_lists_main_workflow_before_advanced_commands():
     _, output = capture_output(print_usage)
 
+    assert "Connect AI" in output
     assert "Main workflow:" in output
     assert "Advanced commands:" in output
-    assert output.index("Main workflow:") < output.index("Advanced commands:")
+    assert output.index("Connect AI") < output.index("Main workflow:") < output.index("Advanced commands:")
     assert "strata start [path]" in output
     assert 'strata ask "<task>" [path]' in output
+    assert "Run `strata setup` to choose how Strata talks to AI." in output
+    assert "strata setup --manual" in output
+    assert "strata setup --ollama" in output
+    assert "strata setup --http" in output
+    assert "strata setup --command" in output
+    assert "strata setup --codex-cli" in output
+    assert "strata setup --aider" in output
+    assert 'Then run `strata ask "fix bug"`, `strata review`, `strata apply --dry-run`, and `strata apply`.' in output
+    assert "For step-by-step help, run `strata help setup`, `strata help ask`, or `strata help manual`." in output
     assert "strata review <root>" in output
     assert "strata apply --yes" in output
 
@@ -96,6 +106,21 @@ def test_start_reports_repo_readiness_and_intelligence():
         assert (root / ".aidc" / "graph.json").exists()
 
 
+def test_start_without_config_shows_connect_ai_guidance():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _create_repo(root)
+
+        exit_code, output = _run_cli(root, "start")
+
+        assert exit_code == 0
+        assert "Connect AI" in output
+        assert "strata setup" in output
+        assert "strata setup --manual" in output
+        assert "browser AI" in output
+        assert "strata ask \"your task\"" in output
+
+
 def test_ask_prompt_file_manual_mode_writes_prompt_and_recommends_review():
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
@@ -113,20 +138,34 @@ def test_ask_prompt_file_manual_mode_writes_prompt_and_recommends_review():
         assert not (root / ".aidc" / "agent_patch.diff").exists()
         assert "Ask prepared" in output
         assert "Open `.aidc/agent_prompt.md`" in output
+        assert "ChatGPT" in output
+        assert ".aidc/agent_patch.diff" in output
         assert "Run `strata review`" in output
-        assert "strata apply" not in output
+        assert "strata apply --dry-run" in output
 
 
-def test_ask_recommends_review_not_apply():
+def test_ask_command_missing_adapter_shows_setup_guidance():
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
         _create_repo(root)
 
+        _save_config(
+            root,
+            adapter="command",
+            command=None,
+            prompt_path=".aidc/agent_prompt.md",
+        )
+
         exit_code, output = _run_cli(root, "ask", "fix the login bug")
 
-        assert exit_code == 0
+        assert exit_code == 1
+        assert "No AI adapter is configured yet." in output
+        assert "Connect AI" in output
+        assert "strata setup" in output
+        assert "strata setup --manual" in output
+        assert "ChatGPT" in output
+        assert ".aidc/agent_patch.diff" in output
         assert "strata review" in output
-        assert "strata apply" not in output
 
 
 def test_review_without_patch_gives_clear_next_step():
@@ -238,8 +277,9 @@ def test_apply_defaults_to_no_without_yes_flag():
 TESTS = [
     test_help_lists_main_workflow_before_advanced_commands,
     test_start_reports_repo_readiness_and_intelligence,
+    test_start_without_config_shows_connect_ai_guidance,
     test_ask_prompt_file_manual_mode_writes_prompt_and_recommends_review,
-    test_ask_recommends_review_not_apply,
+    test_ask_command_missing_adapter_shows_setup_guidance,
     test_review_without_patch_gives_clear_next_step,
     test_apply_dry_run_still_works,
     test_existing_advanced_commands_still_route,

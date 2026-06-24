@@ -54,6 +54,17 @@ def test_cli_no_args_shows_guided_entrypoint_before_advanced_commands():
         assert exit_code == 0
         assert "Strata" in output
         assert output.count("Local-first repository intelligence for AI-assisted coding") == 1
+        assert "Connect AI" in output
+        assert "strata setup" in output
+        assert "strata setup --manual" in output
+        assert "strata setup --ollama" in output
+        assert "strata setup --http" in output
+        assert "strata setup --command" in output
+        assert "strata setup --codex-cli" in output
+        assert "strata setup --aider" in output
+        assert 'Then run `strata ask "fix bug"`, `strata review`, `strata apply --dry-run`, and `strata apply`.' in output
+        assert output.index("Connect AI") < output.index("Main workflow") < output.index("Advanced:")
+        assert output.index("strata setup") < output.index("strata ask")
         assert "Main workflow" in output
         assert "Current state" in output
         assert "Next:" in output
@@ -70,26 +81,31 @@ def test_cli_no_args_shows_guided_entrypoint_before_advanced_commands():
 def test_cli_help_lists_main_workflow_first_and_keeps_advanced_reference():
     _, output = capture_output(print_usage)
 
+    assert "Connect AI" in output
     assert "Main workflow" in output
     assert "Usage:" in output
     assert "Advanced commands" in output
     assert "Legacy / fallback" in output
-    assert output.index("Main workflow") < output.index("Advanced commands") < output.index("Legacy / fallback")
+    assert output.index("Connect AI") < output.index("Main workflow") < output.index("Advanced commands") < output.index("Legacy / fallback")
     assert "strata start [path]" in output
     assert 'strata ask "<task>" [path]' in output
+    assert "Run `strata setup` to choose how Strata talks to AI." in output
+    assert "strata setup --manual" in output
+    assert "strata setup --ollama" in output
+    assert "strata setup --http" in output
+    assert "For step-by-step help, run `strata help setup`, `strata help ask`, or `strata help manual`." in output
     assert "strata review [path]" in output
     assert "strata apply [--yes] [--dry-run] [path]" in output
-    assert "strata setup --aider" in output
-    assert "strata setup --codex-cli" in output
     assert "strata config set http_timeout 120" in output
     assert "strata apply --dry-run <root>" in output
     assert "Legacy fallback: use `py cli.py ...`" in output
-    assert "Run the configured command adapter and produce .aidc/agent_patch.diff." in output
+    assert "Then run `strata ask \"fix bug\"`, `strata review`, `strata apply --dry-run`, and `strata apply`." in output
     assert (
         "Build a workflow plan, prepare artifacts, and route through the configured adapter without executing commands automatically."
         in output
     )
-    assert "Run the configured command adapter and produce .aidc/agent_patch.diff.\n  Build" not in output
+    assert "Browser AI: use ChatGPT, Claude, Gemini, or Copilot Chat." in output
+    assert "Strata writes `.aidc/agent_prompt.md`" in output
     assert "Build a workflow plan, prepare artifacts, and route through the configured adapter without executing commands automatically.\nLegacy" not in output
 
 

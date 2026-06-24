@@ -42,6 +42,7 @@ from commands.scan_command import write_graph
 from commands.show_command import show_file, show_graph_summary
 from commands.status_command import show_status
 from commands.tests_for_command import show_tests_for
+from help_topics import print_help_topic
 
 
 def main() -> int:
@@ -53,7 +54,16 @@ def main() -> int:
 
     command = args[0]
 
-    if command in {"help", "-h", "--help"}:
+    if command == "help":
+        if len(args) == 1:
+            print_usage()
+            return 0
+        if len(args) == 2:
+            return _exit_code(print_help_topic(args[1]))
+        print_usage()
+        return 1
+
+    if command in {"-h", "--help"}:
         print_usage()
         return 0
 

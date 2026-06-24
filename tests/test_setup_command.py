@@ -20,7 +20,7 @@ from commands.setup_command import (
     write_setup_command,
 )
 from tests.helpers import capture_output, change_directory
-from workflow_config import default_config, load_config, save_config
+from workflow_config import config_path, default_config, load_config, save_config
 
 
 @contextlib.contextmanager
@@ -60,6 +60,9 @@ def test_setup_manual_writes_prompt_file_adapter_and_clears_connection_fields():
         assert config["agent"] == "codex"
         assert "Setup summary" in output
         assert "prompt_file" in output
+        assert "Manual/browser AI" in output
+        assert "ChatGPT" in output
+        assert ".aidc/agent_patch.diff" in output
 
 
 def test_setup_command_writes_adapter_and_saves_command_string():
@@ -210,6 +213,24 @@ def test_setup_show_returns_current_config_summary():
         assert "py fake_ai.py" in output
 
 
+def test_setup_show_without_config_points_to_setup_and_manual_browser_workflow():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+
+        result, output = capture_output(setup_show, str(root))
+
+        assert result["status"] == "not configured"
+        assert result["adapter"] == "prompt_file"
+        assert "No workflow config saved yet." in output
+        assert "Setup summary" in output
+        assert "strata setup" in output
+        assert "strata setup --manual" in output
+        assert "Manual/browser AI" in output
+        assert "ChatGPT" in output
+        assert ".aidc/agent_prompt.md" in output
+        assert ".aidc/agent_patch.diff" in output
+
+
 def test_cancelled_interactive_setup_does_not_modify_config():
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
@@ -310,8 +331,9 @@ def test_setup_command_output_includes_summary():
         _, output = capture_output(setup_manual, str(root))
 
         assert "Setup summary" in output
+        assert "Manual/browser AI" in output
+        assert "ChatGPT" in output
         assert "Next steps" in output
-        assert "strata doctor adapter" in output
 
 
 def test_cli_routes_setup_manual():
@@ -388,6 +410,10 @@ def test_cli_help_includes_setup():
     assert "strata setup --http" in output
     assert "strata setup --ollama" in output
     assert "strata setup --show" in output
+    assert 'strata ask "fix bug"' in output
+    assert 'strata review' in output
+    assert 'strata apply --dry-run' in output
+    assert 'For step-by-step help, run `strata help setup`, `strata help ask`, or `strata help manual`.' in output
 
 
 TESTS = [
