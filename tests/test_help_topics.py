@@ -36,6 +36,7 @@ def test_help_usage_mentions_all_ai_modes_and_beginner_topics():
     assert 'strata review' in output
     assert 'strata apply --dry-run' in output
     assert 'strata apply' in output
+    assert 'strata run "<task>"' in output
     assert 'strata help setup' in output
     assert 'strata help ask' in output
     assert 'strata help manual' in output
@@ -158,6 +159,17 @@ def test_help_apply_topic_mentions_dry_run_tests_and_gate():
     assert "Do not commit until tests pass" in output
 
 
+def test_help_run_topic_mentions_fast_confirmation():
+    exit_code, output = _run_cli("help", "run")
+
+    assert exit_code == 0
+    assert "Run is the guided one-command flow" in output
+    assert "strata run \"fix bug\"" in output
+    assert "strata apply" in output
+    assert "strata run --fast \"fix bug\"" in output
+    assert "Strata never commits or pushes automatically" in output
+
+
 def test_help_gate_topic_mentions_reports_and_tests():
     exit_code, output = _run_cli("help", "gate")
 
@@ -205,6 +217,7 @@ TESTS = [
     test_help_ask_topic_mentions_setup_and_next_steps,
     test_help_review_topic_mentions_patch_validation,
     test_help_apply_topic_mentions_dry_run_tests_and_gate,
+    test_help_run_topic_mentions_fast_confirmation,
     test_help_gate_topic_mentions_reports_and_tests,
     test_help_start_topic_mentions_beginner_entrypoint,
     test_help_browser_alias_routes_to_manual,

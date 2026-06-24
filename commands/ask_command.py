@@ -181,7 +181,7 @@ def _execute_adapter(root: str, adapter: str, config: dict) -> dict:
     return execution_result
 
 
-def _build_inline_review_result(root: str) -> dict:
+def _build_inline_review_result(root: str, *, mode: str = "ask") -> dict:
     patch_summary = inspect_patch(root)
     summary_status = str(patch_summary.get("status", "missing")).lower()
     validation = None
@@ -198,8 +198,8 @@ def _build_inline_review_result(root: str) -> dict:
     dry_run_status = _inline_dry_run_status(validation, validation_error)
     files_changed = _inline_files_changed(validation)
     targets = _inline_targets(validation)
-    fix = _inline_fix(summary_status, validation, validation_error)
-    next_step = _inline_next_step(summary_status, validation, validation_error)
+    fix = _inline_fix(mode, summary_status, validation, validation_error)
+    next_step = _inline_next_step(mode, summary_status, validation, validation_error)
 
     rows: list[tuple[str, object]] = [
         ("Patch status", _format_inline_value(patch_status)),
@@ -327,7 +327,31 @@ def _inline_targets(validation: dict | None) -> object:
     return ", ".join(str(target) for target in targets) if targets else "-"
 
 
-def _inline_fix(summary_status: str, validation: dict | None, validation_error: str | None) -> str | None:
+def _inline_fix(
+    mode: str,
+    summary_status: str,
+    validation: dict | None,
+    validation_error: str | None,
+) -> str | None:
+    normalized_mode = str(mode or "ask").strip().lower()
+
+    if normalized_mode == "run":
+        if validation_error is not None:
+            return "Inspect `.aidc/agent_patch.diff`, then run `strata review`."
+
+        if summary_status == "missing":
+            return "Inspect `.aidc/agent_patch.diff`, then run `strata review`."
+
+        if validation is None:
+            return "Inspect `.aidc/agent_patch.diff`, then run `strata review`."
+
+        status = str(validation.get("status", summary_status or "missing")).lower()
+
+        if status in {"invalid", "empty"}:
+            return "Inspect `.aidc/agent_patch.diff`, then run `strata review`."
+
+        return None
+
     if validation_error is not None:
         return "Review the adapter output and save a valid unified diff."
 
@@ -345,7 +369,28 @@ def _inline_fix(summary_status: str, validation: dict | None, validation_error: 
     return None
 
 
-def _inline_next_step(summary_status: str, validation: dict | None, validation_error: str | None) -> str:
+def _inline_next_step(
+    mode: str,
+    summary_status: str,
+    validation: dict | None,
+    validation_error: str | None,
+) -> str:
+    normalized_mode = str(mode or "ask").strip().lower()
+
+    if normalized_mode == "run":
+        if validation_error is not None or summary_status == "missing":
+            return "Run `strata review`."
+
+        if validation is None:
+            return "Run `strata review`."
+
+        status = str(validation.get("status", summary_status or "missing")).lower()
+
+        if status == "valid":
+            return "Run `strata apply`."
+
+        return "Run `strata review`."
+
     if validation_error is not None:
         return "Run `strata review`."
 

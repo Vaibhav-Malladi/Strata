@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from builtins import input as input
 from pathlib import Path
 from typing import Any, Sequence
 
 from agent_adapters import run_adapter
+from commands.apply_command import write_apply_command
+from commands.ask_command import _build_inline_review_result, _execute_adapter
 from commands.prepare_command import prepare_workflow
 from ui import (
     format_error,
@@ -19,13 +22,13 @@ from ui import (
 from workflow_config import load_config
 from workflow_planner import build_step_plan
 
-RUN_USAGE = 'Usage: strata run [--dry-run] [--type <task_type>] "<task>" [root]'
+RUN_USAGE = 'Usage: strata run [--dry-run] [--fast] [--type <task_type>] "<task>" [root]'
 
 
 def write_run_command(root_path: str, *args: str) -> int:
     try:
         parsed = _parse_run_args(args)
-    except ValueError as error:
+    except ValueError:
         _print_usage()
         return 1
 
@@ -33,6 +36,7 @@ def write_run_command(root_path: str, *args: str) -> int:
     task = parsed["task"]
     task_type = parsed["task_type"]
     dry_run = parsed["dry_run"]
+    fast = parsed["fast"]
 
     if not _validate_root(root):
         return 1
@@ -73,9 +77,9 @@ def write_run_command(root_path: str, *args: str) -> int:
         return 0
 
     try:
-        with status_spinner(render_step("Preparing workflow", "running")) as spinner:
+        with status_spinner(render_step("Preparing context", "running")) as spinner:
             prepare_result = prepare_workflow(root, task, config)
-            spinner.update(render_step("Routing adapter", "running"))
+            spinner.update(render_step("Requesting patch", "running"))
     except ValueError as error:
         _print_error("Run failed", str(error))
         return 1
@@ -83,49 +87,50 @@ def write_run_command(root_path: str, *args: str) -> int:
     if prepare_result is None:
         return 1
 
-    adapter_result = run_adapter(config["adapter"], root, config)
-    status = str(adapter_result.get("status", "not_implemented"))
-    prompt_path = str(adapter_result.get("prompt_path") or "")
-    next_message = adapter_result.get("message") or "Adapter finished."
+    if str(config.get("adapter", "")).strip().lower() != "prompt_file":
+        try:
+            with status_spinner(render_step("Collecting patch", "running")) as spinner:
+                _execute_adapter(root, str(config["adapter"]), prepare_result["config"])
+                spinner.update(render_step("Reviewing patch", "running"))
+        except ValueError as error:
+            _print_error("Run failed", str(error))
+            return 1
 
-    if status == "ready":
-        if adapter_result.get("adapter") == "command":
-            next_message = str(
-                next_message
-                or "Command adapter is configured. Run `strata doctor adapter`, then `strata execute` to produce `.aidc/agent_patch.diff`."
-            )
-        else:
-            next_message = _prompt_next_step(config["agent"], prompt_path)
-        status_text = format_success("ready")
-        exit_code = 0
-    elif status == "not_implemented":
-        status_text = format_warning("not implemented")
-        exit_code = 1
-    else:
-        _print_error("Run failed", str(next_message))
-        return 1
-
+    review_result = _build_inline_review_result(root, mode="run")
     snapshot_result = prepare_result["snapshot_result"]
     snapshot_display = (
         format_path(Path(snapshot_result["latest_path"]))
         if snapshot_result is not None
         else "skipped"
     )
+    prompt_path = str(prepare_result["config"].get("prompt_path") or ".aidc/agent_prompt.md")
 
-    _print_plan(
-        title="Run prepared",
-        status=status_text,
-        plan=plan,
-        config=config,
-        rows=[
-            ("Prompt", format_path(Path(prompt_path)) if prompt_path else "skipped"),
-            ("Snapshot", snapshot_display),
-            ("Automation", "not executed"),
-            ("Next", next_message),
-        ],
+    _print_guided_summary(
+        task=task,
+        config=prepare_result["config"],
+        prompt_path=prompt_path,
+        snapshot_display=snapshot_display,
+        review_result=review_result,
     )
 
-    return exit_code
+    if review_result["ready"] and fast:
+        if _confirm_apply():
+            apply_exit = write_apply_command(root, yes=True)
+            if apply_exit != 0:
+                return apply_exit
+
+            _print_block("Next", ["run your project tests", "strata gate"])
+            return 0
+
+        _print_block("Next", ["strata apply"])
+        return 0
+
+    if review_result["ready"]:
+        _print_block("Next", ["strata apply"])
+        return 0
+
+    _print_block("Fix", ["inspect .aidc/agent_patch.diff", "run strata review"])
+    return 1
 
 
 def _build_dry_run_rows(adapter_result: dict[str, object]) -> list[tuple[str, object]]:
@@ -158,6 +163,7 @@ def _build_dry_run_rows(adapter_result: dict[str, object]) -> list[tuple[str, ob
 
 def _parse_run_args(args: Sequence[str]) -> dict[str, Any]:
     dry_run = False
+    fast = False
     task_type = None
     positionals: list[str] = []
     index = 0
@@ -167,6 +173,8 @@ def _parse_run_args(args: Sequence[str]) -> dict[str, Any]:
 
         if arg == "--dry-run":
             dry_run = True
+        elif arg == "--fast":
+            fast = True
         elif arg == "--type":
             index += 1
             if index >= len(args):
@@ -190,6 +198,7 @@ def _parse_run_args(args: Sequence[str]) -> dict[str, Any]:
 
     return {
         "dry_run": dry_run,
+        "fast": fast,
         "root": root,
         "task": task,
         "task_type": task_type,
@@ -235,17 +244,46 @@ def _print_plan(
     print_status_card(title, table_rows, status=status)
 
 
-def _prompt_next_step(agent: str, prompt_path: str) -> str:
-    prompt_display = format_path(Path(prompt_path))
-    normalized_agent = agent.strip().lower()
+def _print_guided_summary(
+    *,
+    task: str,
+    config: dict,
+    prompt_path: str,
+    snapshot_display: str,
+    review_result: dict,
+) -> None:
+    rows = [
+        ("Task", task),
+        ("Mode", config["mode"]),
+        ("Agent", config["agent"]),
+        ("Adapter", config["adapter"]),
+        ("Prompt", format_path(Path(prompt_path)) if prompt_path else "skipped"),
+        ("Snapshot", snapshot_display),
+    ]
+    rows.extend(review_result["rows"])
 
-    if normalized_agent == "codex":
-        return f"Paste {prompt_display} into Codex, then run `strata review`."
+    print_banner()
+    print_command_header("Run", "Guided patch-first workflow", mode="compact")
+    print_status_card(
+        "Run summary",
+        rows,
+        status=format_success("ready") if review_result["ready"] else format_warning("needs attention"),
+    )
 
-    if normalized_agent == "aider":
-        return f"Paste {prompt_display} into Aider, then run `strata review`."
 
-    return f"Paste {prompt_display} into your AI coding tool, then run `strata review`."
+def _print_block(title: str, lines: list[str]) -> None:
+    print(f"{title}:")
+    for line in lines:
+        print(f"  {line}")
+
+
+def _confirm_apply() -> bool:
+    try:
+        response = input("Apply this patch now? [y/N]: ")
+    except EOFError:
+        return False
+
+    return response.strip().lower() in {"y", "yes"}
 
 
 def _print_error(title: str, message: str) -> None:

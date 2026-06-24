@@ -25,6 +25,7 @@ _HELP_TOPIC_ALIASES = {
     "openai": "http",
     "review": "review",
     "apply": "apply",
+    "run": "run",
     "gate": "gate",
     "start": "start",
 }
@@ -205,6 +206,24 @@ def _render_apply_help() -> None:
     )
 
 
+def _render_run_help() -> None:
+    _print_intro("Run is the guided one-command flow for prepare, review, and safe apply handoff.")
+    _print_lines(
+        "Default",
+        [
+            "Run `strata run \"fix bug\"` to prepare context, ask the adapter for a patch, and review it without applying automatically.",
+            "The final next step is `strata apply`.",
+        ],
+    )
+    _print_lines(
+        "Fast mode",
+        [
+            "Run `strata run --fast \"fix bug\"` to ask for one final confirmation before applying a validated patch.",
+            "Strata never commits or pushes automatically.",
+        ],
+    )
+
+
 def _render_gate_help() -> None:
     _print_intro("Gate is the final validation summary.")
     _print_lines(
@@ -263,6 +282,7 @@ _HELP_TOPIC_RENDERERS = {
     "ask": _render_ask_help,
     "review": _render_review_help,
     "apply": _render_apply_help,
+    "run": _render_run_help,
     "gate": _render_gate_help,
     "start": _render_start_help,
 }

@@ -101,12 +101,15 @@ def test_cli_help_lists_main_workflow_first_and_keeps_advanced_reference():
     assert "Legacy fallback: use `py cli.py ...`" in output
     assert "Then run `strata ask \"fix bug\"`, `strata review`, `strata apply --dry-run`, and `strata apply`." in output
     assert (
-        "Build a workflow plan, prepare artifacts, and route through the configured adapter without executing commands automatically."
+        "Prepare context, request a patch, review it, and end with `strata apply` as the next step."
         in output
     )
     assert "Browser AI: use ChatGPT, Claude, Gemini, or Copilot Chat." in output
     assert "Strata writes `.aidc/agent_prompt.md`" in output
-    assert "Build a workflow plan, prepare artifacts, and route through the configured adapter without executing commands automatically.\nLegacy" not in output
+    assert (
+        "Prepare context, request a patch, review it, and end with `strata apply` as the next step.\nLegacy"
+        not in output
+    )
 
 
 def test_review_missing_patch_includes_fix_line():

@@ -431,7 +431,10 @@ def test_cli_help_prefers_strata_commands():
     assert "`strata setup --http`" in output
     assert "Then run `strata ask \"fix bug\"`, `strata review`, `strata apply --dry-run`, and `strata apply`." in output
     assert "For step-by-step help, run `strata help setup`, `strata help ask`, or `strata help manual`." in output
-    assert "Build a workflow plan, prepare artifacts, and route through the configured adapter without executing commands automatically." in output
+    assert (
+        "Prepare context, request a patch, review it, and end with `strata apply` as the next step."
+        in output
+    )
     assert "Legacy fallback: use `py cli.py ...`" in output
     assert "py cli.py scan [path]" not in output
 
