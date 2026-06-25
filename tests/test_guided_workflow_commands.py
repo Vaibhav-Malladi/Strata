@@ -315,7 +315,7 @@ def test_ask_outside_repo_selected_file_is_rejected_with_friendly_error():
         root = Path(temp_dir)
         _create_repo(root)
 
-        exit_code, output = _run_cli(root, "ask", "--file", "..\\outside.py", "fix the greeting")
+        exit_code, output = _run_cli(root, "ask", "--file", str(Path("..") / "outside.py"), "fix the greeting")
 
         assert exit_code == 1
         lowered = output.lower()
