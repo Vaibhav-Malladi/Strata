@@ -8,6 +8,7 @@ from selected_context import build_selected_file_entries
 from test_mapping import collect_test_hints
 from symbol_slicing import build_symbol_snippets, collect_symbol_hints
 from framework_hints import collect_angular_hints, collect_react_hints
+from javascript_project import collect_javascript_project_hints
 from typescript_project import collect_declaration_hints, collect_typescript_project_hints
 
 
@@ -138,9 +139,10 @@ def build_budget_report(
         selected_paths=selected_paths or [],
     )
     typescript_project_hints = collect_typescript_project_hints(graph)
+    javascript_project_hints = collect_javascript_project_hints(graph)
     declaration_hints = collect_declaration_hints(graph, task)
     react_hints = collect_react_hints(graph, task, included)
-    angular_hints = collect_angular_hints(graph, included)
+    angular_hints = collect_angular_hints(graph, included, task)
 
     return {
         "budget": budget,
@@ -167,6 +169,9 @@ def build_budget_report(
         "test_hints_skipped_count": int(test_hints.get("skipped_count", 0) or 0),
         "typescript_project_hints": typescript_project_hints,
         "typescript_alias_count": int(typescript_project_hints.get("alias_count", 0) or 0),
+        "javascript_project_hints": javascript_project_hints,
+        "javascript_project_found": bool(javascript_project_hints.get("package_path")),
+        "javascript_script_count": int(javascript_project_hints.get("script_count", 0) or 0),
         "declaration_hints": declaration_hints,
         "declaration_hints_count": len(declaration_hints),
         "react_hints": react_hints,
@@ -223,9 +228,29 @@ def build_budget_summary_rows(report: dict) -> list[tuple[str, object]]:
         rows.append(("Test hints", value))
 
     alias_count = int(report.get("typescript_alias_count", 0) or 0)
-    if alias_count:
+    javascript_project = report.get("javascript_project_hints") or {}
+    javascript_project_found = bool(
+        report.get("javascript_project_found", javascript_project.get("package_path"))
+    )
+    if alias_count and javascript_project_found:
+        alias_label = "alias" if alias_count == 1 else "aliases"
+        rows.append(("Project hints", f"{alias_count} {alias_label}, package.json found"))
+    elif alias_count:
         alias_label = "alias" if alias_count == 1 else "aliases"
         rows.append(("Project hints", f"{alias_count} {alias_label} found"))
+    elif javascript_project_found:
+        summary = [
+            str(javascript_project.get("package_manager") or "unknown"),
+            *list(javascript_project.get("framework_tooling", []) or [])[:2],
+        ]
+        script_count = int(
+            report.get("javascript_script_count", javascript_project.get("script_count", 0)) or 0
+        )
+        value = ", ".join(summary)
+        if script_count:
+            script_label = "script" if script_count == 1 else "scripts"
+            value += f"; {script_count} {script_label} found"
+        rows.append(("JS project hints", value))
 
     declaration_count = int(report.get("declaration_hints_count", 0) or 0)
     if declaration_count:

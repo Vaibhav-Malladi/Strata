@@ -64,6 +64,7 @@ import test_context_budget
 import test_test_mapping
 import test_symbol_slicing
 import test_typescript_project
+import test_javascript_project
 import test_framework_hints
 import test_selected_context
 import test_snapshot
@@ -144,6 +145,7 @@ TEST_MODULES = [
     test_test_mapping,
     test_symbol_slicing,
     test_typescript_project,
+    test_javascript_project,
     test_framework_hints,
     test_selected_context,
     test_snapshot,

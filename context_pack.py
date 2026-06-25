@@ -46,6 +46,7 @@ from context_budget import (
 from test_mapping import build_test_hints_section
 from symbol_slicing import build_symbol_hints_section, build_symbol_snippets_section
 from framework_hints import build_angular_hints_section, build_react_hints_section
+from javascript_project import build_javascript_project_hints_section
 from typescript_project import (
     build_declaration_hints_section,
     build_typescript_project_hints_section,
@@ -248,6 +249,7 @@ def build_context_pack(
     lines.extend(build_symbol_snippets_section(budget_report.get("symbol_snippets")))
     lines.extend(build_test_hints_section(budget_report.get("test_hints")))
     lines.extend(build_typescript_project_hints_section(budget_report.get("typescript_project_hints")))
+    lines.extend(build_javascript_project_hints_section(budget_report.get("javascript_project_hints")))
     lines.extend(build_declaration_hints_section(budget_report.get("declaration_hints")))
     lines.extend(build_react_hints_section(budget_report.get("react_hints")))
     lines.extend(build_angular_hints_section(budget_report.get("angular_hints")))

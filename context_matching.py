@@ -33,6 +33,9 @@ TASK_HINT_TERMS = {
     "data_model": {
         "database", "db", "migration", "model", "schema",
     },
+    "styles": {
+        "css", "layout", "less", "sass", "scss", "style", "styles", "styling",
+    },
 }
 
 TASK_SYNONYMS = {
@@ -238,12 +241,14 @@ def detect_task_hints(task: str) -> dict:
     backend = matches("backend_api")
     tests = matches("tests") or "failing test" in task_text
     data_model = matches("data_model")
+    styles = matches("styles")
 
     return {
         "frontend_ui": frontend,
         "backend_api": backend,
         "tests": tests,
         "data_model": data_model,
+        "styles": styles,
     }
 
 
@@ -295,7 +300,11 @@ def score_file_for_task(
         if phrase in file_term_text:
             score += 4 + len(phrase.split())
 
-        if any(phrase in text for text in [path_text, basename_text, *routes]):
+        compact_phrase = phrase.replace(" ", "")
+        if any(
+            phrase in text or compact_phrase in text.replace(" ", "")
+            for text in [path_text, basename_text, *routes]
+        ):
             score += 5
 
     shared_terms = [term for term in expanded_task_terms if term in file_terms]
@@ -303,6 +312,10 @@ def score_file_for_task(
         score += len(shared_terms) * 2
     elif shared_terms:
         score += 1
+
+    direct_shared_terms = [term for term in task_terms if term in file_terms]
+    if direct_shared_terms:
+        score += len(direct_shared_terms) * 4
 
     if "page" in roles and hints.get("frontend_ui"):
         score += 6
@@ -325,6 +338,9 @@ def score_file_for_task(
     if "test" in roles and hints.get("tests"):
         score += 6
 
+    if "style" in roles and hints.get("styles"):
+        score += 6
+
     if "model" in roles and hints.get("data_model"):
         score += 5
 
@@ -333,6 +349,9 @@ def score_file_for_task(
 
     if "test" in roles and not hints.get("tests"):
         score = max(score - 15, 1)
+
+    if _is_framework_support_file(path) and not (hints.get("tests") or hints.get("styles")):
+        score = max(score - 12, 1)
 
     return score
 
@@ -493,6 +512,23 @@ def _is_test_file(normalized_path: str, basename: str) -> bool:
         or basename_stem.endswith(".spec")
         or ".test." in normalized_path
         or ".spec." in normalized_path
+    )
+
+
+def _is_framework_support_file(path: str) -> bool:
+    normalized = _normalize_path(path).lower()
+    return normalized.endswith(
+        (
+            ".component.html",
+            ".component.css",
+            ".component.scss",
+            ".component.sass",
+            ".component.less",
+            ".module.css",
+            ".module.scss",
+            ".module.sass",
+            ".module.less",
+        )
     )
 
 

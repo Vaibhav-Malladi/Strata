@@ -4,7 +4,12 @@ from pathlib import Path
 from agent_export import generate_agent_prompt
 from context_budget import build_budget_report
 from context_pack import build_context_pack, rank_relevant_files
-from framework_hints import collect_angular_hints, collect_react_hints
+from framework_hints import (
+    build_angular_hints_section,
+    build_react_hints_section,
+    collect_angular_hints,
+    collect_react_hints,
+)
 
 
 def _write(path: Path, text: str = "") -> None:
@@ -37,7 +42,10 @@ def test_react_starting_file_ranking_prefers_direct_component_and_hook_matches()
         "root": ".",
         "files": [
             _file("src/components/LoginButton.tsx", functions=[{"name": "LoginButton"}]),
+            _file("src/components/login-button.tsx", functions=[{"name": "LoginButton"}]),
+            _file("src/components/LoginButton.test.tsx", functions=[{"name": "LoginButton"}]),
             _file("src/components/LoginForm.tsx", functions=[{"name": "LoginForm"}]),
+            _file("src/hooks/useAuth.ts", functions=[{"name": "useAuth"}]),
             _file("src/hooks/useLogin.ts", functions=[{"name": "useLogin"}]),
             _file("src/services/auth.service.ts", classes=[{"name": "AuthService"}]),
         ],
@@ -48,7 +56,44 @@ def test_react_starting_file_ranking_prefers_direct_component_and_hook_matches()
     hook_ranked = rank_relevant_files(graph, "update auth hook state handling")
 
     assert login_ranked[0]["file"]["path"] == "src/components/LoginButton.tsx"
-    assert hook_ranked[0]["file"]["path"] == "src/hooks/useLogin.ts"
+    assert login_ranked.index(next(item for item in login_ranked if item["file"]["path"].endswith("LoginButton.tsx"))) < login_ranked.index(
+        next(item for item in login_ranked if item["file"]["path"].endswith("LoginButton.test.tsx"))
+    )
+    assert hook_ranked[0]["file"]["path"] == "src/hooks/useAuth.ts"
+
+
+def test_react_component_family_includes_tests_styles_and_tailwind_without_test_component():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        paths = [
+            "src/components/LoginButton.tsx",
+            "src/components/LoginButton.test.tsx",
+            "src/components/LoginButton.module.css",
+            "src/hooks/useLogin.ts",
+        ]
+        _write(
+            root / paths[0],
+            'export function LoginButton() { return <button className="flex rounded bg-blue-600">Login</button>; }\n',
+        )
+        for path in paths[1:]:
+            _write(root / path, "")
+
+        graph = {
+            "root": str(root),
+            "files": [_file(paths[0]), _file(paths[1]), _file(paths[3])],
+            "edges": [],
+        }
+        relevant = [{"file": file_info} for file_info in graph["files"]]
+        hints = collect_react_hints(graph, "fix login button not disabling", relevant)
+        section = "\n".join(build_react_hints_section(hints))
+
+        assert [hint["path"] for hint in hints] == ["src/components/LoginButton.tsx"]
+        assert hints[0]["tests"] == ["src/components/LoginButton.test.tsx"]
+        assert hints[0]["styles"] == ["src/components/LoginButton.module.css"]
+        assert hints[0]["hooks"] == ["src/hooks/useLogin.ts"]
+        assert hints[0]["styling"] == "Tailwind (detected via class usage)"
+        assert "LoginButton.test.tsx` - component" not in section
+        assert "medium confidence (convention)" in section
 
 
 def test_react_hints_exclude_test_and_spec_components():
@@ -67,6 +112,19 @@ def test_react_hints_exclude_test_and_spec_components():
     assert [hint["path"] for hint in hints] == ["src/LoginButton.tsx"]
 
 
+def test_react_hints_are_capped_for_many_components():
+    files = [
+        _file(f"src/components/LoginButton{index}.tsx")
+        for index in range(8)
+    ]
+    graph = {"root": ".", "files": files, "edges": []}
+    relevant = [{"file": file_info} for file_info in files]
+
+    hints = collect_react_hints(graph, "fix login button", relevant)
+
+    assert len(hints) == 4
+
+
 def test_angular_file_family_and_generated_sections_only_appear_when_found():
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
@@ -78,10 +136,10 @@ def test_angular_file_family_and_generated_sections_only_appear_when_found():
         ]
         for path in paths:
             _write(root / path, "export class UserProfileComponent {}\n")
-        graph = {"root": str(root), "files": [_file(path) for path in paths], "edges": []}
+        graph = {"root": str(root), "files": [_file(paths[0])], "edges": []}
         relevant = [{"file": graph["files"][0]}]
 
-        hints = collect_angular_hints(graph, relevant)
+        hints = collect_angular_hints(graph, relevant, "update user profile component")
         report = build_budget_report(graph, "update user profile component", budget_value="small")
         context = build_context_pack(graph, "update user profile component", budget_value="small")
         prompt = generate_agent_prompt(graph, "update user profile component", budget_value="small")
@@ -96,8 +154,83 @@ def test_angular_file_family_and_generated_sections_only_appear_when_found():
         assert "## Declaration Hints" not in context
 
 
+def test_angular_service_guard_relationships_and_compact_output_cap():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        source_paths = [
+            "src/app/auth/auth.service.ts",
+            "src/app/auth/auth.guard.ts",
+        ]
+        component_paths = [
+            f"src/app/item-{index}/item-{index}.component.ts"
+            for index in range(8)
+        ]
+        for path in [
+            *source_paths,
+            "src/app/auth/auth.service.spec.ts",
+            "src/app/auth/auth.guard.spec.ts",
+            *component_paths,
+        ]:
+            _write(root / path, "")
+
+        graph = {
+            "root": str(root),
+            "files": [_file(path) for path in [*source_paths, *component_paths]],
+            "edges": [],
+        }
+        relevant = [{"file": file_info} for file_info in graph["files"]]
+
+        hints = collect_angular_hints(graph, relevant, "update auth access")
+        section = "\n".join(build_angular_hints_section(hints))
+
+        assert len(hints) == 5
+        service = next(hint for hint in hints if hint["kind"] == "service")
+        guard = next(hint for hint in hints if hint["kind"] == "guard")
+        assert service["tests"] == ["src/app/auth/auth.service.spec.ts"]
+        assert guard["tests"] == ["src/app/auth/auth.guard.spec.ts"]
+        assert "medium confidence (convention); matched `auth`" in section
+
+
+def test_angular_component_source_ranks_above_template_and_style():
+    graph = {
+        "root": ".",
+        "files": [
+            _file("src/app/profile/profile.component.ts"),
+            _file("src/app/profile/profile.component.html", language="html"),
+            _file("src/app/profile/profile.component.scss", language="scss"),
+        ],
+        "edges": [],
+    }
+
+    ranked = rank_relevant_files(graph, "fix profile component validation")
+
+    assert ranked[0]["file"]["path"] == "src/app/profile/profile.component.ts"
+
+
+def test_react_component_source_ranks_above_style_unless_style_is_requested():
+    graph = {
+        "root": ".",
+        "files": [
+            _file("src/components/LoginButton.tsx"),
+            _file("src/components/LoginButton.module.css", language="css"),
+        ],
+        "edges": [],
+    }
+
+    normal_ranked = rank_relevant_files(graph, "fix login button not disabling")
+    style_ranked = rank_relevant_files(graph, "fix login button styles")
+
+    assert normal_ranked[0]["file"]["path"] == "src/components/LoginButton.tsx"
+    assert style_ranked[0]["file"]["path"] == "src/components/LoginButton.module.css"
+
+
 TESTS = [
     test_react_starting_file_ranking_prefers_direct_component_and_hook_matches,
+    test_react_component_family_includes_tests_styles_and_tailwind_without_test_component,
     test_react_hints_exclude_test_and_spec_components,
+    test_react_hints_are_capped_for_many_components,
     test_angular_file_family_and_generated_sections_only_appear_when_found,
+    test_angular_service_guard_relationships_and_compact_output_cap,
+    test_angular_component_source_ranks_above_template_and_style,
+    test_react_component_source_ranks_above_style_unless_style_is_requested,
 ]
