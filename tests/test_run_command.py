@@ -225,6 +225,7 @@ def test_run_dry_run_with_budget_shows_budget_summary():
         assert "Budget summary" in output
         assert "Budget preset" in output
         assert "Budget mode" in output
+        assert "Budgeted generated content estimate" in output
         assert "Files included" in output
         assert "Files skipped by budget" in output
 

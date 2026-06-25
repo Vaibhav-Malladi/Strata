@@ -132,11 +132,17 @@ def build_budget_summary_rows(report: dict) -> list[tuple[str, object]]:
     target_tokens = budget.get("target_tokens")
     included_entries = list(report.get("included_entries", []) or [])
     excluded_entries = list(report.get("excluded_entries", []) or [])
+    budgeted_context_tokens = report.get("budgeted_context_tokens")
+    if budgeted_context_tokens is None:
+        budgeted_context_tokens = report.get("estimated_context_tokens", 0)
+        budgeted_context_label = "Budgeted context section estimate"
+    else:
+        budgeted_context_label = "Budgeted generated content estimate"
 
     rows: list[tuple[str, object]] = [
         ("Budget preset", budget_label(budget)),
         ("Target estimated tokens", _format_budget_target(target_tokens)),
-        ("Estimated context tokens", f"~{int(report.get('estimated_context_tokens', 0)):,}"),
+        (budgeted_context_label, f"~{int(budgeted_context_tokens):,}"),
         ("Files included", _format_file_list(included_entries, total_count=len(included_entries))),
         (
             "Files skipped by budget",
@@ -184,11 +190,17 @@ def build_change_boundary_section(selected_paths: list[str], report: dict) -> li
 def build_context_budget_section(report: dict) -> list[str]:
     budget = report.get("budget", {})
     target_tokens = budget.get("target_tokens")
+    budgeted_context_tokens = report.get("budgeted_context_tokens")
+    if budgeted_context_tokens is None:
+        budgeted_context_tokens = report.get("estimated_context_tokens", 0)
+        budgeted_context_label = "Budgeted context section estimate"
+    else:
+        budgeted_context_label = "Budgeted generated content estimate"
     lines = ["## Context Budget", ""]
     lines.append(f"- Budget mode: {report.get('budget_mode') or 'best effort'}")
     lines.append(f"- Budget preset: {budget_label(budget)}")
     lines.append(f"- Target estimated tokens: {_format_budget_target(target_tokens)}")
-    lines.append(f"- Estimated context tokens: ~{int(report.get('estimated_context_tokens', 0)):,}")
+    lines.append(f"- {budgeted_context_label}: ~{int(budgeted_context_tokens):,}")
     lines.append(
         f"- Budget exceeded by selected files: {_format_yes_no(bool(report.get('selected_over_budget')))}"
     )

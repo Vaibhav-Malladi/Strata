@@ -34,7 +34,7 @@ from ui import (
 from workflow_config import load_config
 from workflow_planner import build_step_plan
 
-RUN_USAGE = 'Usage: strata run [--file <reference>]... [--dry-run] [--fast] [--type <task_type>] "<task>" [root]'
+RUN_USAGE = 'Usage: strata run [--file <reference>]... [--budget <preset|tokens>] [--dry-run] [--fast] [--type <task_type>] "<task>" [root]'
 
 
 def write_run_command(root_path: str, *args: str) -> int:

@@ -67,10 +67,16 @@ def test_help_usage_mentions_all_ai_modes_and_beginner_topics():
         "strata help manual",
         "strata help scan",
         "strata help status",
+        "strata help context",
+        "strata help prepare",
         "Selected-file examples",
         'strata ask --file LoginForm "fix validation"',
         'strata run --file run_command "fix dry run output" --dry-run',
         'strata ask --file run_command --file ask_command "compare these flows"',
+        'strata ask --budget small "fix validation"',
+        'strata run --budget small --dry-run "fix validation"',
+        'strata context --budget 3000 "fix validation"',
+        'strata prepare --budget small "fix validation"',
     )
 
 
@@ -225,6 +231,8 @@ def test_help_ask_topic_mentions_setup_and_next_steps():
         "--file LoginForm",
         "run_command",
         "ask_command",
+        "--budget small",
+        "--budget 3000",
     )
 
 
@@ -259,8 +267,37 @@ def test_help_run_topic_mentions_fast_confirmation():
         "selected-file context",
         "--file loginform",
         "run_command",
+        "--budget small",
     )
     _assert_terms(output, ("confirm", "confirmation"))
+
+
+def test_help_context_topic_mentions_budget_examples():
+    exit_code, output = _run_cli("help", "context")
+
+    assert exit_code == 0
+    _assert_terms(
+        output,
+        "context",
+        "budgeted summary",
+        "--budget 3000",
+        "--budget small",
+        ".aidc/context_pack.md",
+    )
+
+
+def test_help_prepare_topic_mentions_budget_examples():
+    exit_code, output = _run_cli("help", "prepare")
+
+    assert exit_code == 0
+    _assert_terms(
+        output,
+        "prepare",
+        ".aidc/context_pack.md",
+        ".aidc/agent_prompt.md",
+        "--budget small",
+        "generated prompt content estimate",
+    )
 
 
 def test_help_gate_topic_mentions_reports_and_tests():
@@ -338,6 +375,8 @@ TESTS = [
     test_help_review_topic_mentions_patch_validation,
     test_help_apply_topic_mentions_dry_run_tests_and_gate,
     test_help_run_topic_mentions_fast_confirmation,
+    test_help_context_topic_mentions_budget_examples,
+    test_help_prepare_topic_mentions_budget_examples,
     test_help_gate_topic_mentions_reports_and_tests,
     test_help_start_topic_mentions_beginner_entrypoint,
     test_help_scan_topic_mentions_scan_states_and_force,

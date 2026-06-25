@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from cli_ui import bold
 from ui import print_banner
 
@@ -66,6 +68,13 @@ def print_usage() -> None:
     print('  strata ask --file LoginForm "fix validation"')
     print('  strata run --file run_command "fix dry run output" --dry-run')
     print('  strata ask --file run_command --file ask_command "compare these flows"')
+    print()
+
+    print("Budgeted context examples:")
+    print('  strata ask --budget small "fix validation"')
+    print('  strata run --budget small --dry-run "fix validation"')
+    print('  strata context --budget 3000 "fix validation"')
+    print('  strata prepare --budget small "fix validation"')
     print()
 
     print("Usage:")
@@ -195,6 +204,8 @@ def _advanced_command_entries() -> list[tuple[str, str | None]]:
         ("strata status [path]", "Show generated files and full repo scan freshness."),
         ("strata help scan", "Explain scan freshness, interrupted scans, and `--force`."),
         ("strata help status", "Explain generated-file status and full repo readiness."),
+        ("strata help context", "Explain budgeted context generation and the prompt estimate."),
+        ("strata help prepare", "Explain prompt preparation and the budgeted content estimate."),
         ("strata help", None),
         ("strata apply --dry-run", None),
         ("strata apply --dry-run <root>", None),

@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from agent_export import write_agent_prompt
+from agent_export import generate_agent_prompt, write_agent_prompt
 from cli_core import CONTEXT_PACK_FILE, OUTPUT_FILE, PREFLIGHT_FILE, build_graph, save_graph
 from context_pack import build_context_pack
 from context_budget import build_budget_report, build_budget_summary_rows, BudgetParseError, parse_budget_value
+from context_efficiency import estimate_tokens
 from preflight import write_preflight_report
 from routes import collect_routes
 from snapshot import write_snapshot
@@ -138,6 +139,8 @@ def prepare_workflow(
 
         routes_data = collect_routes(graph)
         full_scan_state = load_full_scan_cache(root_path)
+        agent_prompt_content = _build_agent_prompt_content(graph, task, config["agent"], selected_paths, budget_value)
+        budget_report["budgeted_context_tokens"] = estimate_tokens(agent_prompt_content)
 
         if write_outputs:
             before_snapshot = capture_repo_snapshot(root_path)
@@ -173,19 +176,18 @@ def _write_context_pack(
     routes_data: list[dict],
     selected_paths: list[str],
     budget_value: str | None,
-) -> None:
+) -> str:
     output_path = Path(CONTEXT_PACK_FILE)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(
-        build_context_pack(
-            graph,
-            task,
-            routes_data,
-            selected_paths=selected_paths,
-            budget_value=budget_value,
-        ),
-        encoding="utf-8",
+    content = build_context_pack(
+        graph,
+        task,
+        routes_data,
+        selected_paths=selected_paths,
+        budget_value=budget_value,
     )
+    output_path.write_text(content, encoding="utf-8")
+    return content
 
 
 def _write_agent_prompt(
@@ -194,13 +196,31 @@ def _write_agent_prompt(
     agent: str,
     selected_paths: list[str],
     budget_value: str | None,
-) -> None:
+) -> str:
     resolved_agent = _resolve_prompt_agent(agent)
-    write_agent_prompt(
+    prompt = write_agent_prompt(
         graph,
         task,
         resolved_agent,
         AGENT_PROMPT_FILE,
+        selected_paths=selected_paths,
+        budget_value=budget_value,
+    )
+    return prompt
+
+
+def _build_agent_prompt_content(
+    graph: dict,
+    task: str,
+    agent: str,
+    selected_paths: list[str],
+    budget_value: str | None,
+) -> str:
+    resolved_agent = _resolve_prompt_agent(agent)
+    return generate_agent_prompt(
+        graph,
+        task,
+        resolved_agent,
         selected_paths=selected_paths,
         budget_value=budget_value,
     )
@@ -210,6 +230,9 @@ def _resolve_prompt_agent(agent: str) -> str:
     normalized = agent.strip().lower()
 
     if normalized in {"manual", "codex"}:
+        return "generic"
+
+    if normalized not in {"generic", "local", "aider", "chatgpt"}:
         return "generic"
 
     return normalized

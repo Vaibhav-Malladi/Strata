@@ -167,6 +167,7 @@ def test_prepare_reports_budget_summary_when_budget_is_tight():
         assert "Budget preset" in output
         assert "Budget Summary" in output
         assert "Budget mode" in output
+        assert "Budgeted generated content estimate" in output
         assert "Files included" in output
         assert "Files skipped by budget" in output
 
@@ -176,6 +177,7 @@ def test_help_mentions_prepare():
 
     assert 'strata prepare "<task>"' in output
     assert 'strata prepare "<task>" <root>' in output
+    assert 'strata prepare --budget small "fix validation"' in output
 
 
 TESTS = [

@@ -1,6 +1,7 @@
 from agent_export import generate_agent_prompt
-from context_budget import BudgetParseError, build_budget_report, parse_budget_value
+from context_budget import BudgetParseError, build_budget_report, build_budget_summary_rows, parse_budget_value
 from context_pack import build_context_pack
+from context_efficiency import estimate_tokens
 
 
 def make_file(path: str, **overrides) -> dict:
@@ -131,10 +132,31 @@ def test_budget_sections_appear_and_excluded_context_is_reported():
     )
 
 
+def test_budget_summary_prefers_rendered_context_content_estimate():
+    graph = fake_graph()
+    content = build_context_pack(
+        graph,
+        "home page is broken",
+        budget_value="small",
+    )
+    report = build_budget_report(
+        graph,
+        "home page is broken",
+        budget_value="small",
+    )
+    report["budgeted_context_tokens"] = estimate_tokens(content)
+
+    rows = build_budget_summary_rows(report)
+
+    assert ("Budgeted generated content estimate", f"~{report['budgeted_context_tokens']:,}") in rows
+    assert report["budgeted_context_tokens"] > report["estimated_context_tokens"]
+
+
 TESTS = [
     test_parse_budget_value_supports_presets,
     test_parse_budget_value_supports_numeric_values,
     test_parse_budget_value_rejects_invalid_values,
     test_selected_file_remains_included_under_tiny_budget,
     test_budget_sections_appear_and_excluded_context_is_reported,
+    test_budget_summary_prefers_rendered_context_content_estimate,
 ]

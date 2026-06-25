@@ -760,7 +760,7 @@ def _validate_root(root: str) -> bool:
 
 
 def _print_usage() -> None:
-    print('Usage: strata ask [--file <reference>]... "<task>" [root]')
+    print('Usage: strata ask [--file <reference>]... [--budget <preset|tokens>] "<task>" [root]')
 
 
 def _print_error(title: str, message: str, details: list[str] | None = None) -> None:

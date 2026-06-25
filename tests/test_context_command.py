@@ -149,6 +149,7 @@ def test_write_context_reports_budget_summary_when_budget_is_tight():
         assert exit_code == 0
         assert "Budget Summary" in output
         assert "Budget mode" in output
+        assert "Budgeted generated content estimate" in output
         assert "Files included" in output
         assert "Files skipped by budget" in output
         assert "## Context Budget" in content

@@ -7,7 +7,7 @@ from context_budget import (
     build_budget_summary_rows,
     parse_budget_value,
 )
-from context_efficiency import compute_context_efficiency, estimate_graph_source_chars
+from context_efficiency import compute_context_efficiency, estimate_graph_source_chars, estimate_tokens
 from cli_core import (
     CONTEXT_PACK_FILE,
     OUTPUT_FILE,
@@ -44,6 +44,7 @@ def write_context(root_path: str = ".", *args: str) -> int:
     routes_data = _load_routes_data(graph)
     budget_report = build_budget_report(graph, task, budget_value=budget_value)
     content = build_context_pack(graph, task, routes_data, budget_value=budget_value)
+    budget_report["budgeted_context_tokens"] = estimate_tokens(content)
 
     output_dir = os.path.dirname(CONTEXT_PACK_FILE)
 

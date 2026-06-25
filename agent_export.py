@@ -100,7 +100,7 @@ def write_agent_prompt(
     max_files: int = 5,
     selected_paths: list[str] | None = None,
     budget_value: str | None = None,
-) -> None:
+) -> str:
     prompt = generate_agent_prompt(
         graph,
         task,
@@ -113,6 +113,7 @@ def write_agent_prompt(
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(redact_text(prompt), encoding="utf-8")
+    return prompt
 
 
 def _generate_generic_prompt(

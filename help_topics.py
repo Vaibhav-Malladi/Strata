@@ -26,6 +26,8 @@ _HELP_TOPIC_ALIASES = {
     "review": "review",
     "apply": "apply",
     "run": "run",
+    "context": "context",
+    "prepare": "prepare",
     "doctor": "doctor",
     "install": "doctor",
     "gate": "gate",
@@ -185,6 +187,8 @@ def _render_ask_help() -> None:
         [
             "If you already know the important file, anchor context with `--file LoginForm` or `--file run_command.py`.",
             "Use repeated `--file` flags for more than one file.",
+            "Add `--budget small` when you want a preset cap for the generated prompt content.",
+            "Add `--budget 3000` when you want a direct token target.",
             'Example: `strata ask --file run_command --file ask_command "compare these flows"`.',
         ],
     )
@@ -239,6 +243,7 @@ def _render_run_help() -> None:
         [
             "If you already know the file, run `strata run --file LoginForm \"fix bug\"` or `strata run --file run_command \"fix dry run output\" --dry-run`.",
             "Use repeated `--file` flags to anchor multiple files before the task.",
+            "Try `strata run --budget small --dry-run \"fix bug\"` when you want a budgeted preview.",
             'Example: `strata run --file app.py --file helper.py "refactor this flow"`.',
         ],
     )
@@ -247,6 +252,44 @@ def _render_run_help() -> None:
         [
             "Run `strata run --fast \"fix bug\"` to ask for one final confirmation before applying a validated patch.",
             "Strata never commits or pushes automatically.",
+        ],
+    )
+
+
+def _render_context_help() -> None:
+    _print_intro("Context builds focused repository context and shows the budgeted summary before you hand it to AI.")
+    _print_lines(
+        "Examples",
+        [
+            'Run `strata context --budget 3000 "fix the checkout discount bug"` for a direct token target.',
+            'Run `strata context --budget small "fix the checkout discount bug"` for a preset budget cap.',
+        ],
+    )
+    _print_lines(
+        "What to expect",
+        [
+            "Strata writes `.aidc/context_pack.md`.",
+            "The budget summary shows the generated prompt content estimate when it is available.",
+            "Actual AI token usage may still vary by adapter.",
+        ],
+    )
+
+
+def _render_prepare_help() -> None:
+    _print_intro("Prepare writes the repo graph, context pack, and agent prompt without running the AI adapter.")
+    _print_lines(
+        "Examples",
+        [
+            'Run `strata prepare --budget small "fix the checkout discount bug"` to cap the generated prompt content.',
+            'Run `strata prepare "fix the checkout discount bug"` if you do not need a budget preset.',
+        ],
+    )
+    _print_lines(
+        "What to expect",
+        [
+            "Strata writes `.aidc/context_pack.md` and `.aidc/agent_prompt.md`.",
+            "The budget summary matches the generated prompt content estimate when available.",
+            "Then paste `.aidc/agent_prompt.md` into your AI tool.",
         ],
     )
 
@@ -402,6 +445,8 @@ _HELP_TOPIC_RENDERERS = {
     "command": _render_command_help,
     "http": _render_http_help,
     "ask": _render_ask_help,
+    "context": _render_context_help,
+    "prepare": _render_prepare_help,
     "scan": _render_scan_help,
     "status": _render_status_help,
     "review": _render_review_help,
