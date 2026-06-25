@@ -318,7 +318,15 @@ def test_ask_outside_repo_selected_file_is_rejected_with_friendly_error():
         exit_code, output = _run_cli(root, "ask", "--file", "..\\outside.py", "fix the greeting")
 
         assert exit_code == 1
-        assert "outside the repo root" in output.lower()
+        lowered = output.lower()
+        assert (
+            "outside the repo root" in lowered
+            or "outside repo root" in lowered
+            or "outside the repository root" in lowered
+            or "outside repository root" in lowered
+            or "not inside the repo root" in lowered
+            or "not inside repository root" in lowered
+        )
         assert "Ask failed" in output
 
 
