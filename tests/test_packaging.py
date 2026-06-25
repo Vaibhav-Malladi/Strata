@@ -94,11 +94,18 @@ def test_compatibility_workflow_tests_source_without_publishing():
     assert "push:" in workflow
     assert "workflow_dispatch:" in workflow
     assert "python -m compileall -q ." in workflow
+
+    assert "Python 3.11 source grammar audit" in workflow
+    assert "feature_version=(3, 11)" in workflow
+    assert "if: matrix.python-version != '3.13'" in workflow
+
+    assert "python -m pip install -e ." in workflow
     assert "python tests.py" in workflow
     assert "python tests/run.py" in workflow
+    assert "if: matrix.python-version == '3.13'" in workflow
+
     assert "gh-action-pypi-publish" not in workflow
     assert "id-token: write" not in workflow
-
 
 TESTS = [
     test_distribution_name_and_console_script_are_distinct_and_correct,
