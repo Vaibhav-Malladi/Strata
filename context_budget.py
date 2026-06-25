@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import math
+from pathlib import Path
 
 from context_efficiency import estimate_tokens
 from context_matching import _normalize_path
 from selected_context import build_selected_file_entries
-from symbol_slicing import collect_symbol_hints
+from symbol_slicing import build_symbol_snippets, collect_symbol_hints
 
 
 BUDGET_PRESETS = {
@@ -117,6 +117,17 @@ def build_budget_report(
         included,
         selected_paths=selected_paths or [],
     )
+    snippet_budget_remaining = None
+    if target_tokens is not None and not selected_over_budget:
+        snippet_budget_remaining = max(0, target_tokens - included_tokens)
+
+    symbol_snippets = build_symbol_snippets(
+        Path(str((graph or {}).get("root") or ".")),
+        symbol_hints,
+        selected_paths=selected_paths or [],
+        budget_remaining=snippet_budget_remaining,
+    )
+    snippet_tokens = int(symbol_snippets.get("estimated_tokens", 0) or 0)
 
     return {
         "budget": budget,
@@ -128,11 +139,15 @@ def build_budget_report(
         "included_total_count": len(included),
         "selected_total_count": len(selected_entries),
         "selected_estimated_tokens": selected_tokens,
-        "estimated_context_tokens": included_tokens,
+        "estimated_context_tokens": included_tokens + snippet_tokens,
         "selected_over_budget": selected_over_budget,
         "budget_mode": budget["mode"],
         "symbol_hints": symbol_hints,
         "symbol_hints_count": len(symbol_hints),
+        "symbol_snippets": symbol_snippets,
+        "symbol_snippets_count": int(symbol_snippets.get("included_count", len(symbol_snippets.get("included", []) or [])) or 0),
+        "symbol_snippets_skipped_count": int(symbol_snippets.get("skipped_count", len(symbol_snippets.get("skipped", []) or [])) or 0),
+        "symbol_snippets_estimated_tokens": snippet_tokens,
     }
 
 
@@ -158,6 +173,19 @@ def build_budget_summary_rows(report: dict) -> list[tuple[str, object]]:
     symbol_hints_count = int(report.get("symbol_hints_count", len(report.get("symbol_hints", []) or [])) or 0)
     if symbol_hints_count:
         rows.append(("Symbol hints", f"{symbol_hints_count} matched"))
+
+    symbol_snippets_report = report.get("symbol_snippets") or {}
+    symbol_snippets_count = int(
+        report.get("symbol_snippets_count", len(symbol_snippets_report.get("included", []) or [])) or 0
+    )
+    symbol_snippets_skipped_count = int(
+        report.get("symbol_snippets_skipped_count", len(symbol_snippets_report.get("skipped", []) or [])) or 0
+    )
+    if symbol_snippets_count or symbol_snippets_skipped_count:
+        value = f"{symbol_snippets_count} included"
+        if symbol_snippets_skipped_count:
+            value += f", {symbol_snippets_skipped_count} skipped"
+        rows.append(("Symbol snippets", value))
 
     rows.extend(
         [

@@ -2,10 +2,15 @@ import ast
 from pathlib import Path
 
 from context_matching import extract_identifier_terms, extract_task_terms
+from context_efficiency import estimate_tokens
+from selected_context import is_generated_or_ignored_path, is_secret_like_path
 
 
 DEFAULT_SYMBOL_HINT_LIMIT = 8
 PER_FILE_SYMBOL_HINT_LIMIT = 4
+DEFAULT_SYMBOL_SNIPPET_LIMIT = 4
+DEFAULT_SYMBOL_SNIPPET_MAX_LINES = 80
+DEFAULT_SYMBOL_SNIPPET_MAX_CHARS = 2500
 WEAK_TASK_TERMS = {
     "bug",
     "change",
@@ -183,6 +188,177 @@ def build_symbol_hints_section(symbol_hints: list[dict] | None) -> list[str]:
         lines.append(f"- `{file_path}`::{symbol_name} - {kind}, {line_range}, {reason}")
 
     lines.append("")
+    return lines
+
+
+def build_symbol_snippets(
+    root: str | Path,
+    symbol_hints: list[dict] | None,
+    selected_paths: list[str] | None = None,
+    budget_remaining: int | None = None,
+    *,
+    max_snippets: int = DEFAULT_SYMBOL_SNIPPET_LIMIT,
+    max_lines_per_snippet: int = DEFAULT_SYMBOL_SNIPPET_MAX_LINES,
+    max_chars_per_snippet: int = DEFAULT_SYMBOL_SNIPPET_MAX_CHARS,
+) -> dict:
+    """Build short source snippets for non-selected matched symbols."""
+
+    root_path = Path(root).resolve()
+    hints = list(symbol_hints or [])
+    selected_set = {
+        _normalize_path(path)
+        for path in (selected_paths or [])
+        if str(path or "").strip()
+    }
+    included: list[dict] = []
+    skipped: list[dict] = []
+    seen: set[tuple[str, str, int, int]] = set()
+    used_tokens = 0
+    budget_limit = None if budget_remaining is None else max(0, int(budget_remaining))
+
+    for hint in hints:
+        if not isinstance(hint, dict):
+            continue
+
+        if len(included) >= max_snippets:
+            skipped.append(_build_symbol_snippet_skip(hint, "snippet limit reached"))
+            continue
+
+        file_path = _normalize_path(str(hint.get("file_path", "")))
+        symbol_name = str(hint.get("symbol_name") or hint.get("name") or "<unknown>")
+        kind = str(hint.get("kind") or "symbol")
+        start_line = _safe_int(hint.get("start_line"))
+        end_line = _safe_int(hint.get("end_line"))
+        reason = str(hint.get("reason") or "matched task context")
+
+        if not file_path:
+            skipped.append(_build_symbol_snippet_skip(hint, "missing file path"))
+            continue
+
+        if file_path in selected_set:
+            skipped.append(_build_symbol_snippet_skip(hint, "selected file"))
+            continue
+
+        if is_generated_or_ignored_path(file_path):
+            skipped.append(_build_symbol_snippet_skip(hint, "generated or ignored path"))
+            continue
+
+        if is_secret_like_path(file_path):
+            skipped.append(_build_symbol_snippet_skip(hint, "secret-looking path"))
+            continue
+
+        if not file_path.endswith(".py"):
+            skipped.append(_build_symbol_snippet_skip(hint, "unsupported file type"))
+            continue
+
+        file_path_obj = _resolve_repo_relative_path(root_path, file_path)
+        if file_path_obj is None:
+            skipped.append(_build_symbol_snippet_skip(hint, "file missing or outside repo root"))
+            continue
+
+        source_result = _read_symbol_snippet(
+            file_path_obj,
+            start_line,
+            end_line,
+            max_lines_per_snippet=max_lines_per_snippet,
+            max_chars_per_snippet=max_chars_per_snippet,
+        )
+        if source_result.get("status") != "ok":
+            skipped.append(
+                {
+                    "file_path": file_path,
+                    "symbol_name": symbol_name,
+                    "kind": kind,
+                    "start_line": start_line,
+                    "end_line": end_line,
+                    "reason": reason,
+                    "skip_reason": source_result.get("reason") or "snippet read failed",
+                }
+            )
+            continue
+
+        snippet_text = str(source_result.get("text") or "")
+        estimated_tokens = estimate_tokens(snippet_text)
+        if budget_limit is not None and used_tokens + estimated_tokens > budget_limit:
+            skipped.append(_build_symbol_snippet_skip(hint, "budget full"))
+            continue
+
+        record = {
+            "file_path": file_path,
+            "symbol_name": symbol_name,
+            "kind": kind,
+            "start_line": int(source_result.get("start_line") or start_line or 0),
+            "end_line": int(source_result.get("end_line") or end_line or 0),
+            "reason": reason,
+            "text": snippet_text,
+            "estimated_tokens": estimated_tokens,
+            "line_count": int(source_result.get("line_count") or 0),
+            "truncated": bool(source_result.get("truncated")),
+        }
+        key = (
+            record["file_path"],
+            record["symbol_name"],
+            record["start_line"],
+            record["end_line"],
+        )
+        if key in seen:
+            skipped.append(_build_symbol_snippet_skip(hint, "duplicate symbol range"))
+            continue
+
+        seen.add(key)
+        included.append(record)
+        used_tokens += estimated_tokens
+
+    return {
+        "included": included,
+        "included_count": len(included),
+        "skipped": skipped,
+        "skipped_count": len(skipped),
+        "estimated_tokens": used_tokens,
+        "budget_remaining": budget_limit,
+        "max_snippets": max_snippets,
+    }
+
+
+def build_symbol_snippets_section(snippet_report: dict | None) -> list[str]:
+    """Render the snippet section for context packs and prompts."""
+
+    lines = ["## Symbol Snippets", ""]
+    report = snippet_report or {}
+    snippets = list(report.get("included", []) or [])
+    skipped_count = int(report.get("skipped_count", 0) or 0)
+
+    if not snippets:
+        lines.append("No symbol snippets included.")
+        if skipped_count:
+            lines.append(f"{skipped_count} snippet candidates were skipped by budget or safety filters.")
+        lines.append("")
+        return lines
+
+    for snippet in snippets:
+        file_path = str(snippet.get("file_path", "<unknown>"))
+        symbol_name = str(snippet.get("symbol_name", "<unknown>"))
+        start_line = _safe_int(snippet.get("start_line"))
+        end_line = _safe_int(snippet.get("end_line"))
+        reason = str(snippet.get("reason", "matched task context"))
+        snippet_text = str(snippet.get("text", "")).rstrip()
+
+        lines.append(f"### `{file_path}`::`{symbol_name}`")
+        lines.append("")
+        lines.append(f"Lines {start_line}-{end_line}. Reason: {reason}.")
+        lines.append("")
+        lines.append("```python")
+        if snippet_text:
+            lines.extend(snippet_text.splitlines())
+        else:
+            lines.append("")
+        lines.append("```")
+        lines.append("")
+
+    if skipped_count:
+        lines.append(f"- ...and {skipped_count} more skipped by budget or safety filters")
+        lines.append("")
+
     return lines
 
 
@@ -399,6 +575,118 @@ def _safe_int(value: object) -> int:
         return int(value)
     except (TypeError, ValueError):
         return 0
+
+
+def _resolve_repo_relative_path(root: Path, relative_path: str) -> Path | None:
+    candidate = root / Path(relative_path)
+
+    try:
+        resolved_candidate = candidate.resolve(strict=False)
+    except OSError:
+        return None
+
+    try:
+        resolved_candidate.relative_to(root)
+    except ValueError:
+        return None
+
+    if not resolved_candidate.exists() or resolved_candidate.is_dir():
+        return None
+
+    return resolved_candidate
+
+
+def _read_symbol_snippet(
+    file_path: Path,
+    start_line: int,
+    end_line: int,
+    *,
+    max_lines_per_snippet: int,
+    max_chars_per_snippet: int,
+) -> dict:
+    try:
+        source_lines = file_path.read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeError) as error:
+        return {
+            "status": "read_error",
+            "reason": str(error),
+            "text": "",
+            "start_line": 0,
+            "end_line": 0,
+            "line_count": 0,
+            "truncated": False,
+        }
+
+    if not source_lines:
+        return {
+            "status": "empty",
+            "reason": "empty file",
+            "text": "",
+            "start_line": 0,
+            "end_line": 0,
+            "line_count": 0,
+            "truncated": False,
+        }
+
+    clamped_start = max(1, min(_safe_int(start_line) or 1, len(source_lines)))
+    clamped_end = max(clamped_start, min(_safe_int(end_line) or clamped_start, len(source_lines)))
+
+    snippet_lines = source_lines[clamped_start - 1 : clamped_end]
+    if not snippet_lines:
+        return {
+            "status": "empty",
+            "reason": "snippet range outside file",
+            "text": "",
+            "start_line": clamped_start,
+            "end_line": clamped_end,
+            "line_count": 0,
+            "truncated": False,
+        }
+
+    truncated = False
+    if len(snippet_lines) > max_lines_per_snippet:
+        snippet_lines = snippet_lines[:max_lines_per_snippet]
+        clamped_end = clamped_start + len(snippet_lines) - 1
+        truncated = True
+
+    snippet_text = "\n".join(snippet_lines)
+    marker = "# ... snippet truncated ..."
+    if len(snippet_text) > max_chars_per_snippet:
+        text_limit = max(0, max_chars_per_snippet - len(marker) - 1)
+        snippet_text = snippet_text[:text_limit].rstrip()
+        truncated = True
+        if snippet_text:
+            snippet_text = f"{snippet_text}\n{marker}"
+        else:
+            snippet_text = marker
+
+    if truncated and not snippet_text.rstrip().endswith(marker):
+        snippet_text = f"{snippet_text.rstrip()}\n{marker}"
+
+    return {
+        "status": "ok",
+        "reason": None,
+        "text": snippet_text,
+        "start_line": clamped_start,
+        "end_line": clamped_end,
+        "line_count": len(snippet_lines),
+        "truncated": truncated,
+    }
+
+
+def _build_symbol_snippet_skip(hint: dict, skip_reason: str) -> dict:
+    if not isinstance(hint, dict):
+        hint = {}
+
+    return {
+        "file_path": _normalize_path(str(hint.get("file_path", ""))),
+        "symbol_name": str(hint.get("symbol_name") or hint.get("name") or "<unknown>"),
+        "kind": str(hint.get("kind") or "symbol"),
+        "start_line": _safe_int(hint.get("start_line")),
+        "end_line": _safe_int(hint.get("end_line")),
+        "reason": str(hint.get("reason") or "matched task context"),
+        "skip_reason": skip_reason,
+    }
 
 
 def _normalize_path(path: str) -> str:

@@ -4,7 +4,7 @@ from pathlib import Path
 from agent_export import generate_agent_prompt
 from context_budget import build_budget_report, build_budget_summary_rows
 from context_pack import build_context_pack
-from symbol_slicing import collect_symbol_hints, extract_python_symbols
+from symbol_slicing import build_symbol_snippets, collect_symbol_hints, extract_python_symbols
 
 
 def _write_file(path: Path, content: str) -> None:
@@ -212,7 +212,7 @@ def test_symbol_hints_section_survives_tiny_budget_and_selected_files():
                     "path": "commands/run_command.py",
                     "language": "python",
                     "classes": [],
-                    "functions": [],
+                    "functions": [{"name": "write_run_command"}, {"name": "_build_dry_run_rows"}],
                     "interfaces": [],
                     "types": [],
                     "enums": [],
@@ -339,6 +339,257 @@ def test_collect_symbol_hints_caps_to_a_small_deterministic_set():
         assert any(hint["file_path"] == "commands/apply_command.py" for hint in hints_one[4:])
 
 
+def test_build_symbol_snippets_extracts_non_selected_snippets_and_clamps_ranges():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _write_file(
+            root / "commands" / "run_command.py",
+            (
+                "def write_run_command():\n"
+                "    return None\n"
+            ),
+        )
+        _write_file(
+            root / "commands" / "agent_adapters.py",
+            (
+                "def build_command_dry_run_result():\n"
+                "    return {'ok': True}\n"
+                "\n"
+                "def adapter_supports_dry_run():\n"
+                "    return True\n"
+            ),
+        )
+
+        hints = [
+            {
+                "file_path": "commands/run_command.py",
+                "symbol_name": "write_run_command",
+                "kind": "function",
+                "start_line": 1,
+                "end_line": 2,
+                "reason": "selected file symbol",
+            },
+            {
+                "file_path": "commands/agent_adapters.py",
+                "symbol_name": "build_command_dry_run_result",
+                "kind": "function",
+                "start_line": 1,
+                "end_line": 999,
+                "reason": 'matched task terms "dry", "run"',
+            },
+        ]
+
+        report = build_symbol_snippets(
+            root,
+            hints,
+            selected_paths=["commands/run_command.py"],
+            budget_remaining=5_000,
+        )
+
+        assert report["included_count"] == 1
+        assert report["skipped_count"] == 1
+        assert report["included"][0]["file_path"] == "commands/agent_adapters.py"
+        assert report["included"][0]["symbol_name"] == "build_command_dry_run_result"
+        assert report["included"][0]["start_line"] == 1
+        assert report["included"][0]["end_line"] == 5
+        assert "def build_command_dry_run_result" in report["included"][0]["text"]
+        assert "commands/run_command.py" not in {snippet["file_path"] for snippet in report["included"]}
+
+
+def test_build_symbol_snippets_truncates_long_snippets_with_marker():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        body = "\n".join(f"    line_{index} = {index}" for index in range(200))
+        _write_file(
+            root / "long_snippet.py",
+            (
+                "def render_long_snippet():\n"
+                f"{body}\n"
+                "    return line_0\n"
+            ),
+        )
+
+        report = build_symbol_snippets(
+            root,
+            [
+                {
+                    "file_path": "long_snippet.py",
+                    "symbol_name": "render_long_snippet",
+                    "kind": "function",
+                    "start_line": 1,
+                    "end_line": 210,
+                    "reason": "matched task terms \"render\"",
+                }
+            ],
+            budget_remaining=5_000,
+            max_chars_per_snippet=120,
+        )
+
+        snippet = report["included"][0]
+
+        assert report["included_count"] == 1
+        assert "# ... snippet truncated ..." in snippet["text"]
+        assert len(snippet["text"]) <= 160
+
+
+def test_build_symbol_snippets_skips_generated_secret_and_ignored_paths():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _write_file(
+            root / "src" / "real.py",
+            (
+                "def keep_me():\n"
+                "    return True\n"
+            ),
+        )
+
+        report = build_symbol_snippets(
+            root,
+            [
+                {
+                    "file_path": "src/real.py",
+                    "symbol_name": "keep_me",
+                    "kind": "function",
+                    "start_line": 1,
+                    "end_line": 2,
+                    "reason": "matched task terms \"keep\"",
+                },
+                {
+                    "file_path": ".aidc/temp.py",
+                    "symbol_name": "hidden_symbol",
+                    "kind": "function",
+                    "start_line": 1,
+                    "end_line": 2,
+                    "reason": "generated file",
+                },
+                {
+                    "file_path": "credentials.json",
+                    "symbol_name": "secret_symbol",
+                    "kind": "function",
+                    "start_line": 1,
+                    "end_line": 2,
+                    "reason": "secret file",
+                },
+                {
+                    "file_path": "dist/generated.py",
+                    "symbol_name": "generated_symbol",
+                    "kind": "function",
+                    "start_line": 1,
+                    "end_line": 2,
+                    "reason": "ignored file",
+                },
+            ],
+            budget_remaining=5_000,
+        )
+
+        skipped_reasons = {item["skip_reason"] for item in report["skipped"]}
+
+        assert report["included_count"] == 1
+        assert report["included"][0]["file_path"] == "src/real.py"
+        assert report["skipped_count"] == 3
+        assert "generated or ignored path" in skipped_reasons
+        assert "secret-looking path" in skipped_reasons
+
+
+def test_context_pack_and_agent_prompt_include_symbol_snippets_section():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _write_file(
+            root / "commands" / "run_command.py",
+            (
+                "def write_run_command():\n"
+                "    return None\n"
+            ),
+        )
+        _write_file(
+            root / "commands" / "agent_adapters.py",
+            (
+                "def build_command_dry_run_result():\n"
+                "    return {'ok': True}\n\n"
+                "def write_apply_dry_run_command():\n"
+                "    return None\n"
+            ),
+        )
+
+        graph = {
+            "schema_version": 1,
+            "root": str(root),
+            "files": [
+                {
+                    "path": "commands/run_command.py",
+                    "language": "python",
+                    "classes": [],
+                    "functions": [],
+                    "interfaces": [],
+                    "types": [],
+                    "enums": [],
+                    "exports": [],
+                    "imports": [],
+                    "external_imports": [],
+                    "unresolved_imports": [],
+                    "unresolved_import_details": [],
+                    "routes": [],
+                },
+                {
+                    "path": "commands/agent_adapters.py",
+                    "language": "python",
+                    "classes": [],
+                    "functions": [
+                        {"name": "build_command_dry_run_result"},
+                        {"name": "write_apply_dry_run_command"},
+                    ],
+                    "interfaces": [],
+                    "types": [],
+                    "enums": [],
+                    "exports": [],
+                    "imports": [],
+                    "external_imports": [],
+                    "unresolved_imports": [],
+                    "unresolved_import_details": [],
+                    "routes": [],
+                },
+            ],
+            "edges": [],
+        }
+
+        report = build_budget_report(
+            graph,
+            "fix dry run plan output",
+            selected_paths=["commands/run_command.py"],
+            budget_value="small",
+        )
+        content = build_context_pack(
+            graph,
+            "fix dry run plan output",
+            selected_paths=["commands/run_command.py"],
+            budget_value="small",
+        )
+        prompt = generate_agent_prompt(
+            graph,
+            "fix dry run plan output",
+            "generic",
+            selected_paths=["commands/run_command.py"],
+            budget_value="small",
+        )
+        rows = build_budget_summary_rows(report)
+
+        assert report["symbol_snippets_count"] >= 1
+        assert "commands/run_command.py" in content
+        assert "commands/run_command.py" in prompt
+        assert "## Symbol Snippets" in content
+        assert "## Symbol Snippets" in prompt
+        assert "commands/agent_adapters.py" in content
+        assert "commands/agent_adapters.py" in prompt
+        assert "build_command_dry_run_result" in content
+        assert "build_command_dry_run_result" in prompt
+        assert "```python" in content
+        assert "```python" in prompt
+        assert "Lines " in content
+        assert "Lines " in prompt
+        assert any(label == "Symbol snippets" for label, _ in rows)
+        assert any("included" in str(value) for label, value in rows if label == "Symbol snippets")
+
+
 TESTS = [
     test_extract_python_symbols_finds_functions_classes_and_methods,
     test_extract_python_symbols_returns_safe_error_for_syntax_error,
@@ -346,4 +597,8 @@ TESTS = [
     test_collect_symbol_hints_prioritizes_selected_files_over_adjacent_single_term_matches,
     test_symbol_hints_section_survives_tiny_budget_and_selected_files,
     test_collect_symbol_hints_caps_to_a_small_deterministic_set,
+    test_build_symbol_snippets_extracts_non_selected_snippets_and_clamps_ranges,
+    test_build_symbol_snippets_truncates_long_snippets_with_marker,
+    test_build_symbol_snippets_skips_generated_secret_and_ignored_paths,
+    test_context_pack_and_agent_prompt_include_symbol_snippets_section,
 ]

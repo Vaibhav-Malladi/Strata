@@ -43,7 +43,7 @@ from context_budget import (
     build_included_context_section,
     build_structured_intent_section,
 )
-from symbol_slicing import build_symbol_hints_section
+from symbol_slicing import build_symbol_hints_section, build_symbol_snippets_section
 
 
 MAX_RELEVANT_FILES = 10
@@ -239,6 +239,7 @@ def build_context_pack(
     lines.extend(build_included_context_section(budget_report))
     lines.extend(build_excluded_context_section(budget_report))
     lines.extend(build_symbol_hints_section(budget_report.get("symbol_hints")))
+    lines.extend(build_symbol_snippets_section(budget_report.get("symbol_snippets")))
     if frontend_frameworks:
         lines.append("## Repository Intelligence")
         lines.append("")
