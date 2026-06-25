@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import sys
 
 from cli_help import print_guided_entrypoint, print_usage
@@ -255,23 +257,13 @@ def main() -> int:
         return 1
 
     if command == "prepare":
-        if len(args) == 2:
-            return _exit_code(write_prepare_command(".", args[1]))
-        if len(args) == 3:
-            return _exit_code(write_prepare_command(args[2], args[1]))
-        print_usage()
-        return 1
+        return _exit_code(write_prepare_command(".", *args[1:]))
 
     if command == "run":
         return _exit_code(write_run_command(".", *args[1:]))
 
     if command == "context":
-        if len(args) == 2:
-            return _exit_code(write_context(".", args[1]))
-        if len(args) == 3:
-            return _exit_code(write_context(args[1], args[2]))
-        print_usage()
-        return 1
+        return _exit_code(write_context(".", *args[1:]))
 
     if command == "agent-prompt":
         if len(args) == 3:

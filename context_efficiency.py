@@ -66,4 +66,4 @@ def _estimate_tokens_from_chars(char_count: int) -> int:
     if char_count <= 0:
         return 0
 
-    return math.ceil(char_count / 4)
+    return math.ceil(char_count / 3.3)

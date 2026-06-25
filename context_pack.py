@@ -35,6 +35,14 @@ from context_matching import (
 )
 from repo_summary import collect_frontend_symbols, collect_framework_names, summarize_graph
 from selected_context import build_selected_file_entries, build_selected_file_section
+from context_budget import (
+    build_budget_report,
+    build_change_boundary_section,
+    build_context_budget_section,
+    build_excluded_context_section,
+    build_included_context_section,
+    build_structured_intent_section,
+)
 
 
 MAX_RELEVANT_FILES = 10
@@ -178,21 +186,21 @@ def build_context_pack(
     task: str,
     routes_data: dict | None = None,
     selected_paths: list[str] | None = None,
+    budget_value: str | None = None,
 ) -> str:
     """Build a compact deterministic Markdown context pack."""
 
     task = redact_text(task)
     selected_paths = selected_paths or []
-    relevant_files = rank_relevant_files(
+    budget_report = build_budget_report(
         graph,
         task,
-        limit=MAX_RELEVANT_FILES,
         selected_paths=selected_paths,
+        budget_value=budget_value,
+        max_candidates=MAX_RELEVANT_FILES,
     )
-    relevant_paths = [
-        item["file"].get("path", "")
-        for item in relevant_files
-    ]
+    relevant_files = budget_report["included_entries"]
+    relevant_paths = [item["file"].get("path", "") for item in relevant_files]
     task_terms = extract_task_terms(task)
     repo_summary = summarize_graph(graph)
     routes = _rank_relevant_routes(graph, task_terms, relevant_paths, routes_data)
@@ -224,6 +232,11 @@ def build_context_pack(
     lines.append(task)
     lines.append("")
     lines.extend(build_selected_file_section(selected_paths))
+    lines.extend(build_structured_intent_section(task))
+    lines.extend(build_change_boundary_section(selected_paths, budget_report))
+    lines.extend(build_context_budget_section(budget_report))
+    lines.extend(build_included_context_section(budget_report))
+    lines.extend(build_excluded_context_section(budget_report))
     if frontend_frameworks:
         lines.append("## Repository Intelligence")
         lines.append("")

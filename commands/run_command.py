@@ -8,6 +8,7 @@ from agent_adapters import run_adapter
 from commands.apply_command import write_apply_command
 from commands.ask_command import _build_inline_review_result, _execute_adapter
 from commands.prepare_command import prepare_workflow
+from context_budget import BudgetParseError, build_budget_summary_rows, parse_budget_value
 from full_scan import describe_full_scan_readiness, format_full_scan_status, load_full_scan_cache
 from selected_context import (
     context_mode_description,
@@ -39,6 +40,9 @@ RUN_USAGE = 'Usage: strata run [--file <reference>]... [--dry-run] [--fast] [--t
 def write_run_command(root_path: str, *args: str) -> int:
     try:
         parsed = _parse_run_args(args)
+    except BudgetParseError as error:
+        _print_error("Run failed", str(error))
+        return 1
     except ValueError:
         _print_usage()
         return 1
@@ -105,18 +109,39 @@ def write_run_command(root_path: str, *args: str) -> int:
             _print_error("Run failed", str(error))
             return 1
 
+        preview_result = prepare_workflow(
+            root,
+            task,
+            config,
+            selected_paths=selected_paths,
+            budget_value=parsed["budget"],
+            write_outputs=False,
+        )
+        if preview_result is None:
+            return 1
+
         _print_plan(
             title="Run plan",
             status=format_success("dry-run"),
             plan=plan,
             config=config,
-            rows=_build_dry_run_rows(adapter_result, selected_paths),
+            rows=_build_dry_run_rows(
+                adapter_result,
+                selected_paths,
+                preview_result.get("budget_report", {}),
+            ),
         )
         return 0
 
     try:
         with status_spinner(render_step("Preparing context", "running")) as spinner:
-            prepare_result = prepare_workflow(root, task, config, selected_paths=selected_paths)
+            prepare_result = prepare_workflow(
+                root,
+                task,
+                config,
+                selected_paths=selected_paths,
+                budget_value=parsed["budget"],
+            )
             spinner.update(render_step("Requesting patch", "running"))
     except ValueError as error:
         _print_error("Run failed", str(error))
@@ -160,6 +185,7 @@ def write_run_command(root_path: str, *args: str) -> int:
         review_result=review_result,
         selected_paths=prepare_result.get("selected_paths", selected_paths),
     )
+    print_status_card("Budget Summary", build_budget_summary_rows(prepare_result.get("budget_report", {})))
     _print_snapshot_cache_note(cache_result)
     _print_full_scan_note(full_scan_state, prepare_result.get("selected_paths", selected_paths))
 
@@ -186,6 +212,7 @@ def write_run_command(root_path: str, *args: str) -> int:
 def _build_dry_run_rows(
     adapter_result: dict[str, object],
     selected_paths: list[str],
+    budget_report: dict,
 ) -> list[tuple[str, object]]:
     rows: list[tuple[str, object]] = [
         ("Writes files", "no"),
@@ -215,6 +242,9 @@ def _build_dry_run_rows(
         rows.append(("Context mode", context_mode_label(selected_paths)))
         rows.append(("Selected files", format_selected_file_list(selected_paths)))
 
+    rows.append(("Budget summary", "see below"))
+    rows.extend(build_budget_summary_rows(budget_report))
+
     return rows
 
 
@@ -224,6 +254,7 @@ def _parse_run_args(args: Sequence[str]) -> dict[str, Any]:
     task_type = None
     positionals: list[str] = []
     selected_paths: list[str] = []
+    budget_value: str | None = None
     index = 0
 
     while index < len(args):
@@ -243,6 +274,15 @@ def _parse_run_args(args: Sequence[str]) -> dict[str, Any]:
             if index >= len(args):
                 raise ValueError("--type requires a task type")
             task_type = args[index]
+        elif arg == "--budget":
+            index += 1
+            if index >= len(args):
+                raise ValueError("--budget requires a preset or token count")
+            budget_value = args[index]
+        elif arg.startswith("--budget="):
+            budget_value = arg.split("=", 1)[1]
+            if not budget_value:
+                raise ValueError("--budget requires a preset or token count")
         elif arg.startswith("-"):
             raise ValueError(f"Unknown option: {arg}")
         else:
@@ -259,6 +299,9 @@ def _parse_run_args(args: Sequence[str]) -> dict[str, Any]:
     task = positionals[0]
     root = positionals[1] if len(positionals) == 2 else None
 
+    if budget_value is not None:
+        budget_value = parse_budget_value(budget_value).get("raw")
+
     return {
         "dry_run": dry_run,
         "fast": fast,
@@ -266,6 +309,7 @@ def _parse_run_args(args: Sequence[str]) -> dict[str, Any]:
         "task": task,
         "task_type": task_type,
         "selected_paths": selected_paths,
+        "budget": budget_value,
     }
 
 

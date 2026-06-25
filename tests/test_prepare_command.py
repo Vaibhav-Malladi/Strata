@@ -156,6 +156,21 @@ def test_prepare_does_not_stack_multiple_banners():
         assert "agent_prompt.md" in output
 
 
+def test_prepare_reports_budget_summary_when_budget_is_tight():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _create_prepare_repo(root)
+
+        exit_code, output = _run_prepare_cli(root, "--budget", "1", "fix helper bug")
+
+        assert exit_code == 0
+        assert "Budget preset" in output
+        assert "Budget Summary" in output
+        assert "Budget mode" in output
+        assert "Files included" in output
+        assert "Files skipped by budget" in output
+
+
 def test_help_mentions_prepare():
     _, output = capture_output(print_usage)
 
@@ -171,5 +186,6 @@ TESTS = [
     test_prepare_too_many_args_returns_nonzero,
     test_prepare_invalid_config_returns_nonzero,
     test_prepare_does_not_stack_multiple_banners,
+    test_prepare_reports_budget_summary_when_budget_is_tight,
     test_help_mentions_prepare,
 ]

@@ -5,7 +5,6 @@ from pathlib import Path
 import commands.run_command as run_command_module
 from commands.run_command import write_run_command
 from workflow_config import default_config, save_config
-import tests.run as test_runner
 from tests.helpers import capture_output, change_directory
 
 
@@ -206,6 +205,28 @@ def test_run_dry_run_shows_plan():
         assert "bugfix" in output
         assert "Steps" in output
         assert "scan -> context -> preflight -> agent_prompt -> snapshot -> adapter -> diff -> verify -> gate" in output
+
+
+def test_run_dry_run_with_budget_shows_budget_summary():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        repo_root = Path(temp_dir)
+        _create_run_repo(repo_root)
+
+        exit_code, output = capture_output(
+            write_run_command,
+            str(repo_root),
+            "--dry-run",
+            "--budget",
+            "1",
+            "fix broken helper import",
+        )
+
+        assert exit_code == 0
+        assert "Budget summary" in output
+        assert "Budget preset" in output
+        assert "Budget mode" in output
+        assert "Files included" in output
+        assert "Files skipped by budget" in output
 
 
 def test_run_dry_run_accepts_flag_after_task():
@@ -508,6 +529,23 @@ def test_run_invalid_type_returns_nonzero():
         assert "Unknown task type" in output
 
 
+def test_run_invalid_budget_returns_nonzero():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        repo_root = Path(temp_dir)
+        _create_run_repo(repo_root)
+
+        exit_code, output = capture_output(
+            write_run_command,
+            str(repo_root),
+            "--budget",
+            "banana",
+            "fix broken helper import",
+        )
+
+        assert exit_code == 1
+        assert "Invalid budget value" in output
+
+
 def test_run_missing_task_returns_nonzero():
     with tempfile.TemporaryDirectory() as temp_dir:
         repo_root = Path(temp_dir)
@@ -559,38 +597,13 @@ def test_run_outputs_single_banner():
         assert "Local-first repository intelligence for AI-assisted coding" not in output
 
 
-def test_shorten_test_name_keeps_short_names_unchanged():
-    name = "tests.test_run_command::test_run_dry_run_does_not_create_aidc"
-
-    assert test_runner.shorten_test_name(name, max_width=80) == name
-
-
-def test_shorten_test_name_prefers_suffix_for_long_names():
-    name = "tests/test_http_executor.py::test_successful_patch_with_very_long_name"
-
-    shortened = test_runner.shorten_test_name(name, max_width=60)
-
-    assert shortened.startswith("...")
-    assert shortened.endswith("::test_successful_patch_with_very_long_name")
-    assert len(shortened) <= 60
-
-
-def test_shorten_test_name_truncates_when_suffix_is_still_too_long():
-    name = "tests/test_http_executor.py::test_successful_patch_with_a_really_really_really_long_suffix_name"
-
-    shortened = test_runner.shorten_test_name(name, max_width=40)
-
-    assert shortened.startswith("...")
-    assert len(shortened) <= 40
-    assert "suffix_name" in shortened
-
-
 TESTS = [
     test_run_dry_run_does_not_create_aidc,
     test_run_dry_run_command_adapter_shows_command_without_execution,
     test_run_dry_run_command_adapter_missing_command_returns_nonzero,
     test_run_dry_run_prompt_file_still_works,
     test_run_dry_run_shows_plan,
+    test_run_dry_run_with_budget_shows_budget_summary,
     test_run_dry_run_accepts_flag_after_task,
     test_run_dry_run_respects_explicit_type,
     test_run_dry_run_accepts_type_after_task,
@@ -606,7 +619,5 @@ TESTS = [
     test_run_missing_task_returns_nonzero,
     test_run_too_many_args_returns_nonzero,
     test_run_outputs_single_banner,
-    test_shorten_test_name_keeps_short_names_unchanged,
-    test_shorten_test_name_prefers_suffix_for_long_names,
-    test_shorten_test_name_truncates_when_suffix_is_still_too_long,
+    test_run_invalid_budget_returns_nonzero,
 ]

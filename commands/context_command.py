@@ -1,6 +1,12 @@
 import json
 import os
 
+from context_budget import (
+    BudgetParseError,
+    build_budget_report,
+    build_budget_summary_rows,
+    parse_budget_value,
+)
 from context_efficiency import compute_context_efficiency, estimate_graph_source_chars
 from cli_core import (
     CONTEXT_PACK_FILE,
@@ -9,25 +15,35 @@ from cli_core import (
     build_graph,
     save_graph,
 )
-from context_pack import build_context_pack, rank_relevant_files
+from context_pack import build_context_pack
 from repo_summary import build_repo_intelligence_rows, summarize_graph
 from routes import collect_routes
-from ui import build_banner, build_kv_table, build_section, format_path, print_status_card
+from ui import build_banner, build_kv_table, build_section, format_error, format_path, print_status_card
 
 
-def write_context(root_path: str, task: str | None = None) -> int:
-    if not task:
+def write_context(root_path: str = ".", *args: str) -> int:
+    try:
+        parsed = _parse_context_args(args)
+    except BudgetParseError as error:
+        _print_error("Context failed", str(error))
+        return 1
+    except ValueError:
         _print_usage()
         return 1
 
-    graph = build_graph(root_path)
+    root = parsed["root"] or root_path
+    task = parsed["task"]
+    budget_value = parsed["budget"]
+
+    graph = build_graph(root)
 
     if graph is None:
         return 1
 
     save_graph(graph)
     routes_data = _load_routes_data(graph)
-    content = build_context_pack(graph, task, routes_data)
+    budget_report = build_budget_report(graph, task, budget_value=budget_value)
+    content = build_context_pack(graph, task, routes_data, budget_value=budget_value)
 
     output_dir = os.path.dirname(CONTEXT_PACK_FILE)
 
@@ -37,7 +53,7 @@ def write_context(root_path: str, task: str | None = None) -> int:
     with open(CONTEXT_PACK_FILE, "w", encoding="utf-8") as file:
         file.write(content)
 
-    relevant_files = rank_relevant_files(graph, task)
+    relevant_files = budget_report["included_entries"]
     routes_count = _count_routes(routes_data)
     symbols_count = _count_symbols(graph)
     repo_intelligence = summarize_graph(graph)
@@ -66,6 +82,7 @@ def write_context(root_path: str, task: str | None = None) -> int:
         "Context Efficiency",
         _build_context_efficiency_rows(graph, relevant_files, len(content)),
     )
+    print_status_card("Budget Summary", build_budget_summary_rows(budget_report))
 
     return 0
 
@@ -85,8 +102,7 @@ def _load_routes_data(graph: dict) -> dict:
 
 
 def _print_usage() -> None:
-    print('Usage: strata context "<task>"')
-    print('Usage: strata context <root> "<task>"')
+    print('Usage: strata context [--budget <preset|tokens>] "<task>" [root]')
 
 
 def _count_routes(routes_data: dict) -> int:
@@ -140,3 +156,53 @@ def _build_context_efficiency_rows(
         ("Estimated context reduction", f"~{efficiency['reduction_percent']:,}%"),
         ("Note", "Actual AI token usage may vary by adapter."),
     ]
+
+
+def _parse_context_args(args: list[str]) -> dict:
+    positionals: list[str] = []
+    budget_value: str | None = None
+    index = 0
+
+    while index < len(args):
+        arg = args[index]
+
+        if arg == "--budget":
+            index += 1
+            if index >= len(args):
+                raise ValueError("--budget requires a preset or token count")
+            budget_value = args[index]
+        elif arg.startswith("--budget="):
+            budget_value = arg.split("=", 1)[1]
+            if not budget_value:
+                raise ValueError("--budget requires a preset or token count")
+        elif arg.startswith("-"):
+            raise ValueError(f"Unknown option: {arg}")
+        else:
+            positionals.append(arg)
+
+        index += 1
+
+    if not positionals:
+        raise ValueError("context requires a task")
+
+    if len(positionals) > 2:
+        raise ValueError("context accepts a task and an optional root path")
+
+    task = positionals[0]
+    root = positionals[1] if len(positionals) == 2 else None
+
+    if budget_value is not None:
+        budget_value = parse_budget_value(budget_value).get("raw")
+
+    return {
+        "task": task,
+        "root": root,
+        "budget": budget_value,
+    }
+
+
+def _print_error(title: str, message: str) -> None:
+    print(build_banner())
+    print()
+    print(build_section(title))
+    print(format_error(message))

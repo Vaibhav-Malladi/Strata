@@ -60,6 +60,7 @@ import test_agent_adapters
 import test_status
 import test_context_matching
 import test_context_pack
+import test_context_budget
 import test_selected_context
 import test_snapshot
 import test_snapshot_command
@@ -135,6 +136,7 @@ TEST_MODULES = [
     test_status,
     test_context_matching,
     test_context_pack,
+    test_context_budget,
     test_selected_context,
     test_snapshot,
     test_snapshot_command,

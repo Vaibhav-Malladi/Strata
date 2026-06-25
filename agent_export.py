@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pathlib import Path
 
 from brief import score_relevant_files
@@ -5,6 +7,14 @@ from health import analyze_health
 from test_mapper import suggest_tests_for_file
 from secret_redaction import redact_text
 from selected_context import build_selected_file_entries, build_selected_file_section
+from context_budget import (
+    build_budget_report,
+    build_change_boundary_section,
+    build_context_budget_section,
+    build_excluded_context_section,
+    build_included_context_section,
+    build_structured_intent_section,
+)
 
 
 SUPPORTED_AGENTS = {"generic", "local", "aider", "chatgpt"}
@@ -26,26 +36,60 @@ def generate_agent_prompt(
     agent: str = "generic",
     max_files: int = 5,
     selected_paths: list[str] | None = None,
+    budget_value: str | None = None,
 ) -> str:
     agent = normalize_agent(agent)
     task = redact_text(task)
     selected_paths = selected_paths or []
-    selected_entries = build_selected_file_entries(graph, selected_paths)
-    scored_files = score_relevant_files(graph, task)
-    relevant_files = _merge_selected_files(selected_entries, scored_files, max_files)
+    budget_report = build_budget_report(
+        graph,
+        task,
+        selected_paths=selected_paths,
+        budget_value=budget_value,
+        max_candidates=max_files,
+    )
+    relevant_files = budget_report["included_entries"]
     selected_section = build_selected_file_section(selected_paths)
     health = analyze_health(graph)
 
     if agent == "local":
-        return _generate_local_prompt(graph, task, relevant_files, health, selected_section)
+        return _generate_local_prompt(
+            graph,
+            task,
+            relevant_files,
+            health,
+            selected_section,
+            budget_report,
+        )
 
     if agent == "aider":
-        return _generate_aider_prompt(graph, task, relevant_files, health, selected_section)
+        return _generate_aider_prompt(
+            graph,
+            task,
+            relevant_files,
+            health,
+            selected_section,
+            budget_report,
+        )
 
     if agent == "chatgpt":
-        return _generate_chatgpt_prompt(graph, task, relevant_files, health, selected_section)
+        return _generate_chatgpt_prompt(
+            graph,
+            task,
+            relevant_files,
+            health,
+            selected_section,
+            budget_report,
+        )
 
-    return _generate_generic_prompt(graph, task, relevant_files, health, selected_section)
+    return _generate_generic_prompt(
+        graph,
+        task,
+        relevant_files,
+        health,
+        selected_section,
+        budget_report,
+    )
 
 
 def write_agent_prompt(
@@ -55,6 +99,7 @@ def write_agent_prompt(
     output_path: str | Path,
     max_files: int = 5,
     selected_paths: list[str] | None = None,
+    budget_value: str | None = None,
 ) -> None:
     prompt = generate_agent_prompt(
         graph,
@@ -62,6 +107,7 @@ def write_agent_prompt(
         agent,
         max_files=max_files,
         selected_paths=selected_paths,
+        budget_value=budget_value,
     )
 
     output_path = Path(output_path)
@@ -75,6 +121,7 @@ def _generate_generic_prompt(
     relevant_files: list[dict],
     health: dict,
     selected_section: list[str],
+    budget_report: dict,
 ) -> str:
     lines = [
         "# Agent Prompt",
@@ -100,6 +147,11 @@ def _generate_generic_prompt(
     ]
 
     lines.extend(selected_section)
+    lines.extend(build_structured_intent_section(task))
+    lines.extend(build_change_boundary_section(selected_section_paths(selected_section), budget_report))
+    lines.extend(build_context_budget_section(budget_report))
+    lines.extend(build_included_context_section(budget_report))
+    lines.extend(build_excluded_context_section(budget_report))
     lines.extend(_format_health_summary(health))
     lines.extend(_format_relevant_files(relevant_files))
     lines.extend(_format_verification_plan(graph, relevant_files))
@@ -113,6 +165,7 @@ def _generate_local_prompt(
     relevant_files: list[dict],
     health: dict,
     selected_section: list[str],
+    budget_report: dict,
 ) -> str:
     lines = [
         "# Local Model Prompt",
@@ -133,6 +186,11 @@ def _generate_local_prompt(
     ]
 
     lines.extend(selected_section)
+    lines.extend(build_structured_intent_section(task))
+    lines.extend(build_change_boundary_section(selected_section_paths(selected_section), budget_report))
+    lines.extend(build_context_budget_section(budget_report))
+    lines.extend(build_included_context_section(budget_report))
+    lines.extend(build_excluded_context_section(budget_report))
     lines.extend(_format_compact_file_list(relevant_files))
     lines.extend(_format_compact_verification_plan(graph, relevant_files))
 
@@ -145,6 +203,7 @@ def _generate_aider_prompt(
     relevant_files: list[dict],
     health: dict,
     selected_section: list[str],
+    budget_report: dict,
 ) -> str:
     lines = [
         "# Aider Prompt",
@@ -162,6 +221,11 @@ def _generate_aider_prompt(
     ]
 
     lines.extend(selected_section)
+    lines.extend(build_structured_intent_section(task))
+    lines.extend(build_change_boundary_section(selected_section_paths(selected_section), budget_report))
+    lines.extend(build_context_budget_section(budget_report))
+    lines.extend(build_included_context_section(budget_report))
+    lines.extend(build_excluded_context_section(budget_report))
     lines.extend(_format_aider_file_section(relevant_files))
     lines.extend(_format_compact_verification_plan(graph, relevant_files))
 
@@ -174,6 +238,7 @@ def _generate_chatgpt_prompt(
     relevant_files: list[dict],
     health: dict,
     selected_section: list[str],
+    budget_report: dict,
 ) -> str:
     lines = [
         "# ChatGPT Coding Prompt",
@@ -200,6 +265,11 @@ def _generate_chatgpt_prompt(
     ]
 
     lines.extend(selected_section)
+    lines.extend(build_structured_intent_section(task))
+    lines.extend(build_change_boundary_section(selected_section_paths(selected_section), budget_report))
+    lines.extend(build_context_budget_section(budget_report))
+    lines.extend(build_included_context_section(budget_report))
+    lines.extend(build_excluded_context_section(budget_report))
     lines.extend(_format_health_summary(health))
     lines.extend(_format_relevant_files(relevant_files))
     lines.extend(_format_verification_plan(graph, relevant_files))
@@ -402,3 +472,14 @@ def _symbol_name(symbol: object) -> str:
         return str(symbol.get("name", "<unknown>"))
 
     return str(symbol)
+
+
+def selected_section_paths(selected_section: list[str]) -> list[str]:
+    paths: list[str] = []
+
+    for line in selected_section:
+        text = str(line).strip()
+        if text.startswith("- `") and text.endswith("`"):
+            paths.append(text[3:-1])
+
+    return paths

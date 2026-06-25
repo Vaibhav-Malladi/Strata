@@ -36,7 +36,7 @@ def test_estimate_tokens_returns_zero_for_empty_text():
 
 
 def test_estimate_tokens_rounds_up_for_exact_quarter_blocks():
-    assert estimate_tokens("abcd") == 1
+    assert estimate_tokens("abcd") == 2
 
 
 def test_estimate_tokens_rounds_up_for_partial_quarter_blocks():
@@ -47,24 +47,24 @@ def test_compute_context_efficiency_returns_zero_reduction_when_baseline_is_zero
     metrics = compute_context_efficiency(0, 12)
 
     assert metrics["full_source_tokens"] == 0
-    assert metrics["focused_context_tokens"] == 3
+    assert metrics["focused_context_tokens"] == 4
     assert metrics["reduction_percent"] == 0
 
 
 def test_compute_context_efficiency_returns_zero_reduction_when_focused_is_larger():
     metrics = compute_context_efficiency(8, 12)
 
-    assert metrics["full_source_tokens"] == 2
-    assert metrics["focused_context_tokens"] == 3
+    assert metrics["full_source_tokens"] == 3
+    assert metrics["focused_context_tokens"] == 4
     assert metrics["reduction_percent"] == 0
 
 
 def test_compute_context_efficiency_calculates_normal_reduction_percent():
     metrics = compute_context_efficiency(16, 8)
 
-    assert metrics["full_source_tokens"] == 4
-    assert metrics["focused_context_tokens"] == 2
-    assert metrics["reduction_percent"] == 50
+    assert metrics["full_source_tokens"] == 5
+    assert metrics["focused_context_tokens"] == 3
+    assert metrics["reduction_percent"] == 40
 
 
 def test_write_context_outputs_context_efficiency_section():

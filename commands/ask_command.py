@@ -6,6 +6,7 @@ from typing import Sequence
 from adapter_doctor import check_adapter
 from command_executor import DEFAULT_TIMEOUT_SECONDS, execute_command_adapter
 from cli_core import CONTEXT_PACK_FILE
+from context_budget import BudgetParseError, build_budget_summary_rows, parse_budget_value
 from commands.prepare_command import prepare_workflow
 from context_efficiency import compute_context_efficiency, estimate_graph_source_chars
 from context_pack import rank_relevant_files
@@ -52,6 +53,9 @@ _DIRECT_EDIT_WARNING_LINES = [
 def write_ask_command(root_path: str = ".", *args: str) -> int:
     try:
         parsed = _parse_ask_args(args)
+    except BudgetParseError as error:
+        _print_error("Ask failed", str(error))
+        return 1
     except ValueError:
         _print_usage()
         return 1
@@ -99,7 +103,13 @@ def write_ask_command(root_path: str = ".", *args: str) -> int:
 
     try:
         with status_spinner(render_step("Preparing prompt", "running")) as spinner:
-            prepare_result = prepare_workflow(root, task, config, selected_paths=selected_paths)
+            prepare_result = prepare_workflow(
+                root,
+                task,
+                config,
+                selected_paths=selected_paths,
+                budget_value=parsed["budget"],
+            )
             spinner.update(render_step("Checking adapter", "running"))
     except ValueError as error:
         _print_error("Ask failed", str(error))
@@ -132,6 +142,7 @@ def write_ask_command(root_path: str = ".", *args: str) -> int:
         _read_text_chars(Path(CONTEXT_PACK_FILE)),
         prepare_result.get("selected_paths", selected_paths),
     )
+    budget_report = prepare_result.get("budget_report") or {}
 
     if selected_paths:
         _print_selected_context_summary(prepare_result.get("selected_paths", selected_paths))
@@ -153,6 +164,7 @@ def write_ask_command(root_path: str = ".", *args: str) -> int:
             selected_paths=prepare_result.get("selected_paths", selected_paths),
         )
         print_status_card("Context Efficiency", context_efficiency_rows)
+        print_status_card("Budget Summary", build_budget_summary_rows(budget_report))
         _print_snapshot_cache_note(cache_result)
         _print_full_scan_note(full_scan_state, prepare_result.get("selected_paths", selected_paths))
         for line in _not_ready_next_steps():
@@ -182,6 +194,7 @@ def write_ask_command(root_path: str = ".", *args: str) -> int:
             selected_paths=prepare_result.get("selected_paths", selected_paths),
         )
         print_status_card("Context Efficiency", context_efficiency_rows)
+        print_status_card("Budget Summary", build_budget_summary_rows(budget_report))
         _print_snapshot_cache_note(cache_result)
         _print_full_scan_note(full_scan_state, prepare_result.get("selected_paths", selected_paths))
 
@@ -194,6 +207,7 @@ def write_ask_command(root_path: str = ".", *args: str) -> int:
         _print_direct_edit_warning()
 
     print_status_card("Context Efficiency", context_efficiency_rows)
+    print_status_card("Budget Summary", build_budget_summary_rows(budget_report))
     before_snapshot = snapshot_working_files(root) if adapter_family == "command" else None
     if before_snapshot is not None:
         (Path(root) / DIRECT_EDIT_REPORT_PATH).unlink(missing_ok=True)
@@ -684,6 +698,7 @@ def _merge_unique(existing: list[str], additions: Sequence[str]) -> list[str]:
 def _parse_ask_args(args: Sequence[str]) -> dict:
     positionals: list[str] = []
     selected_paths: list[str] = []
+    budget_value: str | None = None
     index = 0
 
     while index < len(args):
@@ -694,6 +709,15 @@ def _parse_ask_args(args: Sequence[str]) -> dict:
             if index >= len(args):
                 raise ValueError("--file requires a file reference")
             selected_paths.append(args[index])
+        elif arg == "--budget":
+            index += 1
+            if index >= len(args):
+                raise ValueError("--budget requires a preset or token count")
+            budget_value = args[index]
+        elif arg.startswith("--budget="):
+            budget_value = arg.split("=", 1)[1]
+            if not budget_value:
+                raise ValueError("--budget requires a preset or token count")
         elif arg.startswith("-"):
             raise ValueError(f"Unknown option: {arg}")
         else:
@@ -710,10 +734,14 @@ def _parse_ask_args(args: Sequence[str]) -> dict:
     task = positionals[0]
     root = positionals[1] if len(positionals) == 2 else None
 
+    if budget_value is not None:
+        budget_value = parse_budget_value(budget_value).get("raw")
+
     return {
         "task": task,
         "root": root,
         "selected_paths": selected_paths,
+        "budget": budget_value,
     }
 
 

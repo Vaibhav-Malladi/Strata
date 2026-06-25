@@ -127,8 +127,33 @@ def test_write_context_prints_usage_when_task_missing():
             exit_code, output = capture_output(write_context, str(root))
 
         assert exit_code == 1
-        assert 'Usage: strata context "<task>"' in output
-        assert 'Usage: strata context <root> "<task>"' in output
+        assert 'Usage: strata context [--budget <preset|tokens>] "<task>" [root]' in output
+
+
+def test_write_context_reports_budget_summary_when_budget_is_tight():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        create_context_repo(root)
+
+        with change_directory(root):
+            exit_code, output = capture_output(
+                write_context,
+                str(root),
+                "--budget",
+                "1",
+                "change user login API",
+            )
+
+        content = (root / ".aidc" / "context_pack.md").read_text(encoding="utf-8")
+
+        assert exit_code == 0
+        assert "Budget Summary" in output
+        assert "Budget mode" in output
+        assert "Files included" in output
+        assert "Files skipped by budget" in output
+        assert "## Context Budget" in content
+        assert "## Included Context" in content
+        assert "## Excluded Context" in content
 
 
 def test_write_context_still_works_when_routes_are_missing():
@@ -211,6 +236,7 @@ def test_write_context_reports_frontend_repo_intelligence():
 TESTS = [
     test_write_context_creates_context_pack_file,
     test_write_context_prints_usage_when_task_missing,
+    test_write_context_reports_budget_summary_when_budget_is_tight,
     test_write_context_still_works_when_routes_are_missing,
     test_write_context_reports_counts_for_simple_task_case,
     test_write_context_reports_frontend_repo_intelligence,
