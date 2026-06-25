@@ -5,6 +5,7 @@ from pathlib import Path
 from brief import score_relevant_files
 from health import analyze_health
 from test_mapper import suggest_tests_for_file
+from test_mapping import build_test_hints_section
 from secret_redaction import redact_text
 from selected_context import build_selected_file_entries, build_selected_file_section
 from context_budget import (
@@ -156,6 +157,7 @@ def _generate_generic_prompt(
     lines.extend(build_excluded_context_section(budget_report))
     lines.extend(build_symbol_hints_section(budget_report.get("symbol_hints")))
     lines.extend(build_symbol_snippets_section(budget_report.get("symbol_snippets")))
+    lines.extend(build_test_hints_section(budget_report.get("test_hints")))
     lines.extend(_format_health_summary(health))
     lines.extend(_format_relevant_files(relevant_files))
     lines.extend(_format_verification_plan(graph, relevant_files))
@@ -197,6 +199,7 @@ def _generate_local_prompt(
     lines.extend(build_excluded_context_section(budget_report))
     lines.extend(build_symbol_hints_section(budget_report.get("symbol_hints")))
     lines.extend(build_symbol_snippets_section(budget_report.get("symbol_snippets")))
+    lines.extend(build_test_hints_section(budget_report.get("test_hints")))
     lines.extend(_format_compact_file_list(relevant_files))
     lines.extend(_format_compact_verification_plan(graph, relevant_files))
 
@@ -234,6 +237,7 @@ def _generate_aider_prompt(
     lines.extend(build_excluded_context_section(budget_report))
     lines.extend(build_symbol_hints_section(budget_report.get("symbol_hints")))
     lines.extend(build_symbol_snippets_section(budget_report.get("symbol_snippets")))
+    lines.extend(build_test_hints_section(budget_report.get("test_hints")))
     lines.extend(_format_aider_file_section(relevant_files))
     lines.extend(_format_compact_verification_plan(graph, relevant_files))
 
@@ -280,6 +284,7 @@ def _generate_chatgpt_prompt(
     lines.extend(build_excluded_context_section(budget_report))
     lines.extend(build_symbol_hints_section(budget_report.get("symbol_hints")))
     lines.extend(build_symbol_snippets_section(budget_report.get("symbol_snippets")))
+    lines.extend(build_test_hints_section(budget_report.get("test_hints")))
     lines.extend(_format_health_summary(health))
     lines.extend(_format_relevant_files(relevant_files))
     lines.extend(_format_verification_plan(graph, relevant_files))

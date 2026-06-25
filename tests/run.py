@@ -61,6 +61,7 @@ import test_status
 import test_context_matching
 import test_context_pack
 import test_context_budget
+import test_test_mapping
 import test_symbol_slicing
 import test_selected_context
 import test_snapshot
@@ -138,6 +139,7 @@ TEST_MODULES = [
     test_context_matching,
     test_context_pack,
     test_context_budget,
+    test_test_mapping,
     test_symbol_slicing,
     test_selected_context,
     test_snapshot,

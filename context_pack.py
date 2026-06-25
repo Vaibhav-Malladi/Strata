@@ -43,6 +43,7 @@ from context_budget import (
     build_included_context_section,
     build_structured_intent_section,
 )
+from test_mapping import build_test_hints_section
 from symbol_slicing import build_symbol_hints_section, build_symbol_snippets_section
 
 
@@ -240,6 +241,7 @@ def build_context_pack(
     lines.extend(build_excluded_context_section(budget_report))
     lines.extend(build_symbol_hints_section(budget_report.get("symbol_hints")))
     lines.extend(build_symbol_snippets_section(budget_report.get("symbol_snippets")))
+    lines.extend(build_test_hints_section(budget_report.get("test_hints")))
     if frontend_frameworks:
         lines.append("## Repository Intelligence")
         lines.append("")
@@ -264,9 +266,7 @@ def build_context_pack(
     if selected_paths:
         lines.append("- User-selected files were anchored before scored matches.")
     lines.append("- This is deterministic repo context, not an LLM plan.")
-    lines.append(
-        "- Test suggestions were reused from `test_mapper.py` when available, with a conservative fallback."
-    )
+    lines.append("- Test hints were derived conservatively from test filenames, imports, and function names.")
     lines.append("")
     lines.append("## Likely Relevant Files")
     lines.append("")

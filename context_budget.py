@@ -5,6 +5,7 @@ from pathlib import Path
 from context_efficiency import estimate_tokens
 from context_matching import _normalize_path
 from selected_context import build_selected_file_entries
+from test_mapping import collect_test_hints
 from symbol_slicing import build_symbol_snippets, collect_symbol_hints
 
 
@@ -128,6 +129,12 @@ def build_budget_report(
         budget_remaining=snippet_budget_remaining,
     )
     snippet_tokens = int(symbol_snippets.get("estimated_tokens", 0) or 0)
+    test_hints = collect_test_hints(
+        graph,
+        task,
+        relevant_entries=included,
+        selected_paths=selected_paths or [],
+    )
 
     return {
         "budget": budget,
@@ -148,6 +155,10 @@ def build_budget_report(
         "symbol_snippets_count": int(symbol_snippets.get("included_count", len(symbol_snippets.get("included", []) or [])) or 0),
         "symbol_snippets_skipped_count": int(symbol_snippets.get("skipped_count", len(symbol_snippets.get("skipped", []) or [])) or 0),
         "symbol_snippets_estimated_tokens": snippet_tokens,
+        "test_hints": test_hints,
+        "test_hints_count": int(test_hints.get("included_count", len(test_hints.get("included", []) or [])) or 0),
+        "test_hints_function_count": int(test_hints.get("included_function_count", 0) or 0),
+        "test_hints_skipped_count": int(test_hints.get("skipped_count", 0) or 0),
     }
 
 
@@ -186,6 +197,16 @@ def build_budget_summary_rows(report: dict) -> list[tuple[str, object]]:
         if symbol_snippets_skipped_count:
             value += f", {symbol_snippets_skipped_count} skipped by budget/cap"
         rows.append(("Symbol snippets", value))
+
+    test_hints = report.get("test_hints") or {}
+    test_hint_files = int(report.get("test_hints_count", len(test_hints.get("included", []) or [])) or 0)
+    test_hint_functions = int(report.get("test_hints_function_count", test_hints.get("included_function_count", 0)) or 0)
+    test_hints_skipped_count = int(report.get("test_hints_skipped_count", test_hints.get("skipped_count", 0)) or 0)
+    if test_hint_files or test_hint_functions:
+        value = f"{_format_count(test_hint_functions, 'test')} / {_format_count(test_hint_files, 'file')}"
+        if test_hints_skipped_count:
+            value += f", {test_hints_skipped_count} skipped by cap"
+        rows.append(("Test hints", value))
 
     rows.extend(
         [
@@ -378,3 +399,7 @@ def _format_file_list(
 
 def _format_yes_no(value: bool) -> str:
     return "yes" if value else "no"
+
+
+def _format_count(count: int, singular: str) -> str:
+    return f"{count} {singular if count == 1 else singular + 's'}"
