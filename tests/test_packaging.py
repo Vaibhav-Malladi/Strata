@@ -78,10 +78,33 @@ def test_publish_workflow_checks_tag_tests_and_built_distribution():
     assert "python -m twine check dist/*" in workflow
 
 
+def test_compatibility_workflow_tests_source_without_publishing():
+    workflow_path = PROJECT_ROOT / ".github" / "workflows" / "tests.yml"
+
+    assert workflow_path.is_file()
+    workflow = workflow_path.read_text(encoding="utf-8")
+
+    for version in ('"3.11"', '"3.12"', '"3.13"'):
+        assert version in workflow
+
+    for os_name in ("ubuntu-latest", "windows-latest", "macos-latest"):
+        assert os_name in workflow
+
+    assert "pull_request:" in workflow
+    assert "push:" in workflow
+    assert "workflow_dispatch:" in workflow
+    assert "python -m compileall -q ." in workflow
+    assert "python tests.py" in workflow
+    assert "python tests/run.py" in workflow
+    assert "gh-action-pypi-publish" not in workflow
+    assert "id-token: write" not in workflow
+
+
 TESTS = [
     test_distribution_name_and_console_script_are_distinct_and_correct,
     test_all_runtime_top_level_modules_are_packaged,
     test_readme_python_and_generated_output_metadata_are_configured,
     test_public_docs_use_honest_install_runtime_and_support_wording,
     test_publish_workflow_checks_tag_tests_and_built_distribution,
+    test_compatibility_workflow_tests_source_without_publishing,
 ]
