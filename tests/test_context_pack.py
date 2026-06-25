@@ -280,7 +280,7 @@ def test_build_context_pack_shows_best_effort_note_when_matches_are_weak():
     assert "did not find strong direct file matches" in content or "best-effort hints" in content
     assert "Verification Plan" in content
     assert "py tests.py" in content
-    assert "py tests\\run.py" in content
+    assert "py tests/run.py" in content.replace("\\", "/")
 
 
 def test_build_context_pack_reports_no_files_when_everything_is_filtered_out():

@@ -11,9 +11,13 @@ def test_empty_diff_summary_produces_pass():
     assert report["failures"] == []
     assert report["warnings"] == []
     assert report["improvements"] == []
-    assert report["recommended_commands"] == [
+    recommended_commands = [
+        command.replace("\\", "/")
+        for command in report["recommended_commands"]
+    ]
+    assert recommended_commands == [
         "py tests.py",
-        "py tests\\run.py",
+        "py tests/run.py",
     ]
 
 

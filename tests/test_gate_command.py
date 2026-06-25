@@ -78,9 +78,13 @@ def test_gate_command_writes_reports_and_formats_terminal_output():
         assert payload["status"] == "PASS"
         assert payload["failures"] == []
         assert payload["warnings"] == []
-        assert payload["recommended_commands"] == [
+        recommended_commands = [
+            command.replace("\\", "/")
+            for command in payload["recommended_commands"]
+        ]
+        assert recommended_commands == [
             "py tests.py",
-            "py tests\\run.py",
+            "py tests/run.py",
         ]
 
 

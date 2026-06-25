@@ -346,7 +346,10 @@ def test_command_runs_with_cwd_root():
         result = execute_command_adapter(root, command=_python_command(script_path))
 
         assert result["status"] == "patch_ready"
-        assert (root / "cwd.txt").read_text(encoding="utf-8").strip() == str(root)
+        actual = Path(
+            (root / "cwd.txt").read_text(encoding="utf-8").strip()
+        ).resolve()
+        assert actual == root.resolve()
 
 
 def test_result_dict_uses_fresh_lists():
