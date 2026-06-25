@@ -4,7 +4,7 @@ from pathlib import Path
 from agent_export import generate_agent_prompt
 from context_budget import build_budget_report, build_budget_summary_rows
 from context_pack import build_context_pack
-from symbol_slicing import build_symbol_snippets, collect_symbol_hints, extract_python_symbols
+from symbol_slicing import build_symbol_snippets, build_symbol_snippets_section, collect_symbol_hints, extract_python_symbols
 
 
 def _write_file(path: Path, content: str) -> None:
@@ -428,8 +428,210 @@ def test_build_symbol_snippets_truncates_long_snippets_with_marker():
         snippet = report["included"][0]
 
         assert report["included_count"] == 1
-        assert "# ... snippet truncated ..." in snippet["text"]
+        assert "# ... snippet truncated to fit Strata budget ..." in snippet["text"]
         assert len(snippet["text"]) <= 160
+
+
+def test_build_symbol_snippets_reports_skipped_reasons_and_caps_list():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _write_file(
+            root / "commands" / "run_command.py",
+            (
+                "def write_run_command():\n"
+                "    return None\n"
+            ),
+        )
+        _write_file(
+            root / "commands" / "agent_adapters.py",
+            (
+                "def build_command_dry_run_result():\n"
+                "    return True\n\n"
+                "def adapter_supports_dry_run():\n"
+                "    return True\n\n"
+                "def run_adapter():\n"
+                "    return True\n\n"
+                "def _dry_run_message():\n"
+                "    return True\n\n"
+                "def execute_dry_run_command():\n"
+                "    return True\n\n"
+                "def write_apply_dry_run_command():\n"
+                "    return True\n"
+            ),
+        )
+
+        report = build_symbol_snippets(
+            root,
+            [
+                {
+                    "file_path": "commands/run_command.py",
+                    "symbol_name": "write_run_command",
+                    "kind": "function",
+                    "start_line": 1,
+                    "end_line": 2,
+                    "reason": "selected file symbol",
+                },
+                {
+                    "file_path": "commands/agent_adapters.py",
+                    "symbol_name": "build_command_dry_run_result",
+                    "kind": "function",
+                    "start_line": 1,
+                    "end_line": 2,
+                    "reason": 'matched task terms "dry", "run"',
+                    "priority": 0,
+                    "score": 500,
+                    "matched_term_count": 2,
+                },
+                {
+                    "file_path": "commands/agent_adapters.py",
+                    "symbol_name": "adapter_supports_dry_run",
+                    "kind": "function",
+                    "start_line": 4,
+                    "end_line": 5,
+                    "reason": 'matched task terms "dry", "run"',
+                    "priority": 1,
+                    "score": 450,
+                    "matched_term_count": 2,
+                },
+                {
+                    "file_path": "commands/agent_adapters.py",
+                    "symbol_name": "run_adapter",
+                    "kind": "function",
+                    "start_line": 7,
+                    "end_line": 8,
+                    "reason": 'matched task term "run"',
+                    "priority": 2,
+                    "score": 400,
+                    "matched_term_count": 1,
+                },
+                {
+                    "file_path": "commands/agent_adapters.py",
+                    "symbol_name": "_dry_run_message",
+                    "kind": "function",
+                    "start_line": 10,
+                    "end_line": 11,
+                    "reason": 'matched task terms "dry", "run"',
+                    "priority": 3,
+                    "score": 350,
+                    "matched_term_count": 2,
+                },
+                {
+                    "file_path": "commands/agent_adapters.py",
+                    "symbol_name": "execute_dry_run_command",
+                    "kind": "function",
+                    "start_line": 13,
+                    "end_line": 14,
+                    "reason": 'matched task terms "dry", "run"',
+                    "priority": 4,
+                    "score": 300,
+                    "matched_term_count": 2,
+                },
+                {
+                    "file_path": "commands/agent_adapters.py",
+                    "symbol_name": "write_apply_dry_run_command",
+                    "kind": "function",
+                    "start_line": 16,
+                    "end_line": 17,
+                    "reason": 'matched task terms "dry", "run"',
+                    "priority": 5,
+                    "score": 250,
+                    "matched_term_count": 2,
+                },
+            ],
+            selected_paths=["commands/run_command.py"],
+            budget_remaining=10_000,
+            max_snippets=2,
+        )
+
+        section = build_symbol_snippets_section(report)
+        text = "\n".join(section)
+
+        assert report["included_count"] == 2
+        assert report["skipped_count"] >= 4
+        assert "Skipped snippets:" in text
+        assert "selected file" in text
+        assert "cap reached" in text
+        assert "...and" in text
+        assert text.count("Skipped snippets:") >= 1
+
+
+def test_build_symbol_snippets_includes_fewer_snippets_under_tighter_budget():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _write_file(
+            root / "commands" / "run_command.py",
+            (
+                "def write_run_command():\n"
+                "    return None\n"
+            ),
+        )
+
+        body = "\n".join(f"    value_{index} = {index}" for index in range(80))
+        for name in [
+            "agent_adapters.py",
+            "execute_command.py",
+            "plan_command.py",
+            "workflow_command.py",
+        ]:
+            _write_file(
+                root / "commands" / name,
+                (
+                    "def build_command_dry_run_result():\n"
+                    f"{body}\n"
+                    "    return value_0\n"
+                ),
+            )
+
+        hints = [
+            {
+                "file_path": "commands/run_command.py",
+                "symbol_name": "write_run_command",
+                "kind": "function",
+                "start_line": 1,
+                "end_line": 2,
+                "reason": "selected file symbol",
+            },
+        ]
+
+        for index, name in enumerate(
+            [
+                "commands/agent_adapters.py",
+                "commands/execute_command.py",
+                "commands/plan_command.py",
+                "commands/workflow_command.py",
+            ],
+            start=1,
+        ):
+            hints.append(
+                {
+                    "file_path": name,
+                    "symbol_name": "build_command_dry_run_result",
+                    "kind": "function",
+                    "start_line": 1,
+                    "end_line": 82,
+                    "reason": 'matched task terms "dry", "run"',
+                    "priority": index,
+                    "score": 500 - 25 * index,
+                    "matched_term_count": 2,
+                }
+            )
+
+        small_report = build_symbol_snippets(
+            root,
+            hints,
+            selected_paths=["commands/run_command.py"],
+            budget_remaining=900,
+        )
+        large_report = build_symbol_snippets(
+            root,
+            hints,
+            selected_paths=["commands/run_command.py"],
+            budget_remaining=10_000,
+        )
+
+        assert small_report["included_count"] < large_report["included_count"]
+        assert all(snippet["file_path"] != "commands/run_command.py" for snippet in small_report["included"])
+        assert all(snippet["file_path"] != "commands/run_command.py" for snippet in large_report["included"])
 
 
 def test_build_symbol_snippets_skips_generated_secret_and_ignored_paths():

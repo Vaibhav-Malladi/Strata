@@ -11,6 +11,7 @@ PER_FILE_SYMBOL_HINT_LIMIT = 4
 DEFAULT_SYMBOL_SNIPPET_LIMIT = 4
 DEFAULT_SYMBOL_SNIPPET_MAX_LINES = 80
 DEFAULT_SYMBOL_SNIPPET_MAX_CHARS = 2500
+DEFAULT_SYMBOL_SNIPPET_SKIPPED_LIMIT = 4
 WEAK_TASK_TERMS = {
     "bug",
     "change",
@@ -204,7 +205,10 @@ def build_symbol_snippets(
     """Build short source snippets for non-selected matched symbols."""
 
     root_path = Path(root).resolve()
-    hints = list(symbol_hints or [])
+    hints = sorted(
+        [hint for hint in (symbol_hints or []) if isinstance(hint, dict)],
+        key=_symbol_snippet_sort_key,
+    )
     selected_set = {
         _normalize_path(path)
         for path in (selected_paths or [])
@@ -217,11 +221,8 @@ def build_symbol_snippets(
     budget_limit = None if budget_remaining is None else max(0, int(budget_remaining))
 
     for hint in hints:
-        if not isinstance(hint, dict):
-            continue
-
         if len(included) >= max_snippets:
-            skipped.append(_build_symbol_snippet_skip(hint, "snippet limit reached"))
+            skipped.append(_build_symbol_snippet_skip(hint, "cap reached"))
             continue
 
         file_path = _normalize_path(str(hint.get("file_path", "")))
@@ -280,7 +281,7 @@ def build_symbol_snippets(
         snippet_text = str(source_result.get("text") or "")
         estimated_tokens = estimate_tokens(snippet_text)
         if budget_limit is not None and used_tokens + estimated_tokens > budget_limit:
-            skipped.append(_build_symbol_snippet_skip(hint, "budget full"))
+            skipped.append(_build_symbol_snippet_skip(hint, "budget reached"))
             continue
 
         record = {
@@ -326,12 +327,15 @@ def build_symbol_snippets_section(snippet_report: dict | None) -> list[str]:
     lines = ["## Symbol Snippets", ""]
     report = snippet_report or {}
     snippets = list(report.get("included", []) or [])
+    skipped = list(report.get("skipped", []) or [])
     skipped_count = int(report.get("skipped_count", 0) or 0)
 
     if not snippets:
         lines.append("No symbol snippets included.")
         if skipped_count:
-            lines.append(f"{skipped_count} snippet candidates were skipped by budget or safety filters.")
+            lines.append(f"Skipped snippets: {skipped_count} skipped by budget/cap or safety filters.")
+            lines.append("")
+            _append_skipped_snippets(lines, skipped)
         lines.append("")
         return lines
 
@@ -356,7 +360,9 @@ def build_symbol_snippets_section(snippet_report: dict | None) -> list[str]:
         lines.append("")
 
     if skipped_count:
-        lines.append(f"- ...and {skipped_count} more skipped by budget or safety filters")
+        lines.append(f"Skipped snippets: {skipped_count} skipped by budget/cap or safety filters.")
+        lines.append("")
+        _append_skipped_snippets(lines, skipped)
         lines.append("")
 
     return lines
@@ -650,7 +656,7 @@ def _read_symbol_snippet(
         truncated = True
 
     snippet_text = "\n".join(snippet_lines)
-    marker = "# ... snippet truncated ..."
+    marker = "# ... snippet truncated to fit Strata budget ..."
     if len(snippet_text) > max_chars_per_snippet:
         text_limit = max(0, max_chars_per_snippet - len(marker) - 1)
         snippet_text = snippet_text[:text_limit].rstrip()
@@ -687,6 +693,32 @@ def _build_symbol_snippet_skip(hint: dict, skip_reason: str) -> dict:
         "reason": str(hint.get("reason") or "matched task context"),
         "skip_reason": skip_reason,
     }
+
+
+def _append_skipped_snippets(lines: list[str], skipped: list[dict], *, max_items: int = DEFAULT_SYMBOL_SNIPPET_SKIPPED_LIMIT) -> None:
+    if not skipped:
+        return
+
+    for skipped_item in skipped[:max_items]:
+        file_path = str(skipped_item.get("file_path", "<unknown>"))
+        symbol_name = str(skipped_item.get("symbol_name", "<unknown>"))
+        skip_reason = str(skipped_item.get("skip_reason", "skipped"))
+        lines.append(f"- `{file_path}`::{symbol_name} - {skip_reason}")
+
+    if len(skipped) > max_items:
+        lines.append(f"- ...and {len(skipped) - max_items} more")
+
+
+def _symbol_snippet_sort_key(hint: dict) -> tuple:
+    return (
+        int(hint.get("priority", 99)),
+        -int(hint.get("score", 0)),
+        -int(hint.get("matched_term_count", 0)),
+        _normalize_path(str(hint.get("file_path", ""))),
+        str(hint.get("symbol_name") or hint.get("name") or "<unknown>"),
+        int(hint.get("start_line", 0) or 0),
+        int(hint.get("end_line", 0) or 0),
+    )
 
 
 def _normalize_path(path: str) -> str:

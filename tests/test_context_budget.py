@@ -1,3 +1,6 @@
+import tempfile
+from pathlib import Path
+
 from agent_export import generate_agent_prompt
 from context_budget import BudgetParseError, build_budget_report, build_budget_summary_rows, parse_budget_value
 from context_pack import build_context_pack
@@ -152,6 +155,87 @@ def test_budget_summary_prefers_rendered_context_content_estimate():
     assert report["budgeted_context_tokens"] > report["estimated_context_tokens"]
 
 
+def test_budget_summary_reports_symbol_snippets_with_clear_skip_wording():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        selected_path = root / "commands" / "run_command.py"
+        selected_path.parent.mkdir(parents=True, exist_ok=True)
+        selected_path.write_text(
+            "def write_run_command():\n"
+            "    return None\n",
+            encoding="utf-8",
+        )
+
+        related_names = [
+            "agent_adapters.py",
+            "execute_command.py",
+            "plan_command.py",
+            "workflow_command.py",
+            "apply_command.py",
+            "report_command.py",
+        ]
+        for index, name in enumerate(related_names, start=1):
+            body = "\n".join(f"    value_{line} = {line}" for line in range(40))
+            (root / "commands" / name).write_text(
+                "def build_command_dry_run_result():\n"
+                f"{body}\n"
+                "    return value_0\n",
+                encoding="utf-8",
+            )
+
+        graph = {
+            "schema_version": 1,
+            "root": str(root),
+            "files": [
+                {
+                    "path": "commands/run_command.py",
+                    "language": "python",
+                    "classes": [],
+                    "functions": [{"name": "write_run_command"}],
+                    "interfaces": [],
+                    "types": [],
+                    "enums": [],
+                    "exports": [],
+                    "imports": [],
+                    "external_imports": [],
+                    "unresolved_imports": [],
+                    "unresolved_import_details": [],
+                    "routes": [],
+                }
+            ]
+            + [
+                {
+                    "path": f"commands/{name}",
+                    "language": "python",
+                    "classes": [],
+                    "functions": [{"name": "build_command_dry_run_result"}],
+                    "interfaces": [],
+                    "types": [],
+                    "enums": [],
+                    "exports": [],
+                    "imports": [],
+                    "external_imports": [],
+                    "unresolved_imports": [],
+                    "unresolved_import_details": [],
+                    "routes": [],
+                }
+                for name in related_names
+            ],
+            "edges": [],
+        }
+
+        report = build_budget_report(
+            graph,
+            "fix dry run plan output",
+            selected_paths=["commands/run_command.py"],
+            budget_value="large",
+        )
+        rows = build_budget_summary_rows(report)
+
+        assert report["symbol_snippets_count"] > 0
+        assert any(label == "Symbol snippets" and "skipped by budget/cap" in str(value) for label, value in rows)
+
+
 TESTS = [
     test_parse_budget_value_supports_presets,
     test_parse_budget_value_supports_numeric_values,
@@ -159,4 +243,5 @@ TESTS = [
     test_selected_file_remains_included_under_tiny_budget,
     test_budget_sections_appear_and_excluded_context_is_reported,
     test_budget_summary_prefers_rendered_context_content_estimate,
+    test_budget_summary_reports_symbol_snippets_with_clear_skip_wording,
 ]

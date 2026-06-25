@@ -184,7 +184,7 @@ def build_budget_summary_rows(report: dict) -> list[tuple[str, object]]:
     if symbol_snippets_count or symbol_snippets_skipped_count:
         value = f"{symbol_snippets_count} included"
         if symbol_snippets_skipped_count:
-            value += f", {symbol_snippets_skipped_count} skipped"
+            value += f", {symbol_snippets_skipped_count} skipped by budget/cap"
         rows.append(("Symbol snippets", value))
 
     rows.extend(
