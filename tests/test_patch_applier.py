@@ -319,6 +319,36 @@ def test_apply_patch_text_fails_safely_for_unsafe_path_rejected_by_validator():
         assert not (root / ".env").exists()
 
 
+def test_apply_patch_text_rejects_traversal_before_writing_any_file():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_root = Path(temp_dir)
+        root = temp_root / "level1" / "repo"
+        root.mkdir(parents=True)
+        _write_file(root, "safe.py", 'print("safe")\n')
+        outside_path = temp_root / "outside.txt"
+        patch = (
+            "diff --git a/safe.py b/safe.py\n"
+            "--- a/safe.py\n"
+            "+++ b/safe.py\n"
+            "@@ -1 +1 @@\n"
+            '-print("safe")\n'
+            '+print("changed")\n'
+            "diff --git a/../../outside.txt b/../../outside.txt\n"
+            "--- /dev/null\n"
+            "+++ b/../../outside.txt\n"
+            "@@ -0,0 +1 @@\n"
+            "+unsafe\n"
+        )
+
+        result = apply_patch_text(root, patch)
+
+        assert result["status"] == "failed"
+        assert result["applied"] is False
+        assert "Unsafe patch path" in result["errors"][0]
+        assert (root / "safe.py").read_text(encoding="utf-8") == 'print("safe")\n'
+        assert not outside_path.exists()
+
+
 def test_apply_patch_text_failure_writes_nothing_and_stays_atomic():
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
@@ -430,6 +460,7 @@ TESTS = [
     test_apply_patch_text_fails_safely_when_hunk_context_does_not_match,
     test_apply_patch_text_fails_safely_for_invalid_patch_text,
     test_apply_patch_text_fails_safely_for_unsafe_path_rejected_by_validator,
+    test_apply_patch_text_rejects_traversal_before_writing_any_file,
     test_apply_patch_text_failure_writes_nothing_and_stays_atomic,
     test_apply_patch_text_returns_fresh_lists_each_time,
     test_patch_applier_does_not_use_subprocess_or_git_execution,

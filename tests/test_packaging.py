@@ -43,8 +43,23 @@ def test_readme_python_and_generated_output_metadata_are_configured():
     assert ".aidc/" in gitignore
 
 
+def test_publish_workflow_checks_tag_tests_and_built_distribution():
+    workflow = (PROJECT_ROOT / ".github" / "workflows" / "publish.yml").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'prefix = "refs/tags/v"' in workflow
+    assert 'tomllib.load(file)["project"]["version"]' in workflow
+    assert "Tag/version mismatch" in workflow
+    assert "python tests.py" in workflow
+    assert "python -m pip install --upgrade build twine" in workflow
+    assert "python -m build" in workflow
+    assert "python -m twine check dist/*" in workflow
+
+
 TESTS = [
     test_distribution_name_and_console_script_are_distinct_and_correct,
     test_all_runtime_top_level_modules_are_packaged,
     test_readme_python_and_generated_output_metadata_are_configured,
+    test_publish_workflow_checks_tag_tests_and_built_distribution,
 ]

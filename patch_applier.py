@@ -44,7 +44,7 @@ def apply_patch_file(root: str = ".", configured_path=None) -> dict:
 
 def apply_patch_text(root: str, patch_text: str) -> dict:
     normalized_patch_text = _normalize_text_newlines(patch_text)
-    validation = validate_patch_text(normalized_patch_text)
+    validation = validate_patch_text(normalized_patch_text, root=root)
 
     if not validation.get("valid"):
         return _build_failure_result(

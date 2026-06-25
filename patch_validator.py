@@ -19,7 +19,7 @@ _ABSOLUTE_WINDOWS_RE = re.compile(r"^[A-Za-z]:[\\/]")
 _ABSOLUTE_UNIX_RE = re.compile(r"^/")
 
 
-def validate_patch_text(patch_text: str) -> dict:
+def validate_patch_text(patch_text: str, root: str | Path | None = None) -> dict:
     if "\x00" in patch_text:
         return _build_result(
             status="invalid",
@@ -66,9 +66,10 @@ def validate_patch_text(patch_text: str) -> dict:
             message="Patch failed validation.",
         )
 
+    root_path = Path(root) if root is not None else None
     warnings: list[str] = []
     for target in extracted_targets:
-        error = _validate_target(target)
+        error = _validate_target(target, root_path)
         if error:
             return _build_result(
                 status="invalid",
@@ -117,7 +118,7 @@ def validate_patch_file(root=".", configured_path=None) -> dict:
         )
 
     patch_text = patch_bytes.decode("utf-8", errors="replace")
-    validation = validate_patch_text(patch_text)
+    validation = validate_patch_text(patch_text, root=root)
 
     if validation.get("status") != "valid":
         return validation
@@ -130,7 +131,7 @@ def validate_patch_file(root=".", configured_path=None) -> dict:
     for target in create_targets:
         target_path = _resolve_target_path(root_path, target)
         if target_path is None:
-            continue
+            return _unsafe_path_result(target)
 
         if target_path.exists():
             return _build_result(
@@ -197,16 +198,19 @@ def _normalize_patch_path(raw_path: str) -> str | None:
     return path
 
 
-def _validate_target(target: str) -> str | None:
+def _validate_target(target: str, root_path: Path | None = None) -> str | None:
     if _is_absolute_path(target):
-        return f"Patch targets absolute path '{target}'."
+        return _unsafe_path_error(target)
 
     parts = [part for part in target.split("/") if part]
     if not parts:
         return "Patch does not contain any target files."
 
     if ".." in parts:
-        return f"Patch targets parent traversal path '{target}'."
+        return _unsafe_path_error(target)
+
+    if root_path is not None and _resolve_target_path(root_path, target) is None:
+        return _unsafe_path_error(target)
 
     if ".git" in parts:
         return f"Patch targets forbidden .git path '{target}'."
@@ -341,6 +345,23 @@ def _resolve_target_path(root_path: Path, target: str) -> Path | None:
         return None
 
     return resolved_target
+
+
+def _unsafe_path_error(target: str) -> str:
+    return (
+        f"Unsafe patch path '{target}': patch paths must stay inside the repository."
+    )
+
+
+def _unsafe_path_result(target: str) -> dict:
+    return _build_result(
+        status="invalid",
+        valid=False,
+        targets=[],
+        errors=[_unsafe_path_error(target)],
+        warnings=[],
+        message="Patch failed validation.",
+    )
 
 
 def _is_aidc_generated_report(target: str) -> bool:

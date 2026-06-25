@@ -279,15 +279,19 @@ def test_write_context_json_writes_valid_stable_payload_and_keeps_markdown_defau
 
         markdown_path = root / ".aidc" / "context_pack.md"
         json_path = root / ".aidc" / "context_pack.json"
-        payload = json.loads(json_path.read_text(encoding="utf-8"))
+        json_text = json_path.read_text(encoding="utf-8")
+        payload = json.loads(json_text)
 
         assert markdown_code == 0
         assert json_code == 0
         assert markdown_path.exists()
         assert json_path.exists()
+        assert "\x1b[" not in json_text
+        assert "\x1b[" not in str(payload)
         assert payload["task"] == "change user login API"
         assert isinstance(payload["budget"], dict)
         assert payload["files"]
+        assert isinstance(payload["sections"], dict)
         assert "symbol_hints" in payload["sections"]
         assert "test_hints" in payload["sections"]
         assert "execution_path_hints" in payload["sections"]

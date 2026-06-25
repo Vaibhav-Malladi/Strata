@@ -126,6 +126,38 @@ def test_apply_dry_run_ready_invalid_returns_nonzero_and_prints_validation_inval
         assert content.strip() not in output
 
 
+def test_apply_dry_run_rejects_paths_outside_repository():
+    unsafe_paths = [
+        "../../outside.txt",
+        "..\\..\\outside.txt",
+        "/absolute/path.txt",
+        "C:\\Users\\someone\\outside.txt",
+    ]
+
+    for unsafe_path in unsafe_paths:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            root = temp_root / "level1" / "repo"
+            root.mkdir(parents=True)
+            outside_path = temp_root / "outside.txt"
+            patch = (
+                f"diff --git {unsafe_path} {unsafe_path}\n"
+                f"--- {unsafe_path}\n"
+                f"+++ {unsafe_path}\n"
+                "@@ -0,0 +1 @@\n"
+                "+unsafe\n"
+            )
+            _create_patch_file(root, patch)
+
+            exit_code, output = _run_apply_cli(root, "--dry-run")
+
+            assert exit_code == 1
+            assert "Unsafe patch path" in output
+            assert "must stay inside the repository" in output
+            assert re.search(r"Applies patch\s+no", output)
+            assert not outside_path.exists()
+
+
 def test_apply_dry_run_invalid_patch_prints_errors():
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
@@ -239,6 +271,7 @@ TESTS = [
     test_apply_dry_run_empty_returns_nonzero_and_prints_empty,
     test_apply_dry_run_ready_returns_zero_and_prints_ready,
     test_apply_dry_run_ready_invalid_returns_nonzero_and_prints_validation_invalid,
+    test_apply_dry_run_rejects_paths_outside_repository,
     test_apply_dry_run_invalid_patch_prints_errors,
     test_apply_dry_run_optional_root_argument_works,
     test_apply_dry_run_missing_does_not_create_aidc,
