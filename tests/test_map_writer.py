@@ -64,8 +64,8 @@ def test_project_map_generation_includes_files_symbols_and_imports():
         graph = scan_repo(str(root))
         content = generate_project_map(graph)
 
-        assert f"{root}\\helper.py" in content
-        assert f"{root}\\main.py" in content
+        assert str(root / "helper.py") in content
+        assert str(root / "main.py") in content
 
         assert "Functions: `help_user`" in content
         assert "Functions: `run`" in content
@@ -85,13 +85,17 @@ def test_project_map_generation_includes_dependencies_and_warnings():
         content = generate_project_map(graph)
 
         assert "Incoming dependencies" in content
-        assert f"used by `{root}\\main.py` via `helper`" in content
+        assert f"used by `{root / 'main.py'}` via `helper`" in content
 
         assert "Outgoing dependencies" in content
-        assert f"depends on `{root}\\helper.py` via `helper`" in content
+        assert f"depends on `{root / 'helper.py'}` via `helper`" in content
 
         assert "## Warnings" in content
-        assert f"`{root}\\main.py` has unresolved import `missing_module` at line `3`" in content
+        assert (
+            f"`{root / 'main.py'}` has unresolved import "
+            "`missing_module` at line `3`"
+            in content
+        )
 
 
 def test_cli_write_map_creates_project_map_file():
@@ -123,10 +127,10 @@ def test_cli_write_map_creates_project_map_file():
         )
 
         assert "# Project Map" in content
-        assert f"{repo_root}\\helper.py" in content
-        assert f"{repo_root}\\main.py" in content
+        assert str(repo_root / "helper.py") in content
+        assert str(repo_root / "main.py") in content
         assert "missing_module" in content
-        assert f"depends on `{repo_root}\\helper.py` via `helper`" in content
+        assert f"depends on `{repo_root / 'helper.py'}` via `helper`" in content
 
 
 TESTS = [
