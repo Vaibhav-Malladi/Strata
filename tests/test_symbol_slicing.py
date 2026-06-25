@@ -1,9 +1,9 @@
 import tempfile
 from pathlib import Path
 
+from agent_export import generate_agent_prompt
 from context_budget import build_budget_report, build_budget_summary_rows
 from context_pack import build_context_pack
-from agent_export import generate_agent_prompt
 from symbol_slicing import collect_symbol_hints, extract_python_symbols
 
 
@@ -12,13 +12,13 @@ def _write_file(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
 
 
-def _make_graph(root: Path) -> dict:
+def _make_graph(root: Path, paths: list[str]) -> dict:
     return {
         "schema_version": 1,
         "root": str(root),
         "files": [
             {
-                "path": "commands/run_command.py",
+                "path": path,
                 "language": "python",
                 "classes": [],
                 "functions": [],
@@ -32,6 +32,7 @@ def _make_graph(root: Path) -> dict:
                 "unresolved_import_details": [],
                 "routes": [],
             }
+            for path in paths
         ],
         "edges": [],
     }
@@ -78,31 +79,41 @@ def test_extract_python_symbols_returns_safe_error_for_syntax_error():
         assert result["error"]["type"] == "syntax_error"
 
 
-def test_collect_symbol_hints_matches_task_terms_and_selected_files():
+def test_collect_symbol_hints_prefers_selected_file_symbols_and_reports_term_matches():
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
         _write_file(
             root / "commands" / "run_command.py",
             (
-                "def dry_run_helper():\n"
+                "def _build_dry_run_rows():\n"
                 "    return True\n\n"
                 "def _print_plan():\n"
                 "    return 'plan'\n\n"
-                "class RunCommand:\n"
-                "    def execute(self):\n"
-                "        return None\n"
+                "def write_run_command():\n"
+                "    return None\n\n"
+                "def _parse_run_args():\n"
+                "    return None\n\n"
+                "def _print_guided_summary():\n"
+                "    return None\n"
+            ),
+        )
+        _write_file(
+            root / "commands" / "apply_command.py",
+            (
+                "def write_apply_dry_run_command():\n"
+                "    return None\n"
             ),
         )
 
-        graph = _make_graph(root)
+        graph = _make_graph(root, ["commands/run_command.py", "commands/apply_command.py"])
         entries = [
             {
                 "file": graph["files"][0],
-                "score": 100,
-                "matched_terms": [],
-                "confidence": "high",
                 "selected_by_user": True,
-            }
+            },
+            {
+                "file": graph["files"][1],
+            },
         ]
 
         hints = collect_symbol_hints(
@@ -111,16 +122,69 @@ def test_collect_symbol_hints_matches_task_terms_and_selected_files():
             entries,
             selected_paths=["commands/run_command.py"],
         )
+        hint_map = {hint["symbol_name"]: hint for hint in hints}
+        symbol_names = [hint["symbol_name"] for hint in hints]
 
-        hint_text = "\n".join(
-            f"{hint['file_path']}::{hint['symbol_name']} {hint['reason']}"
-            for hint in hints
+        assert symbol_names[:4] == [
+            "_build_dry_run_rows",
+            "_print_plan",
+            "write_run_command",
+            "_parse_run_args",
+        ]
+        assert symbol_names.index("_build_dry_run_rows") < symbol_names.index("write_apply_dry_run_command")
+        assert "selected file symbol" in hint_map["_build_dry_run_rows"]["reason"]
+        assert "matched task terms" in hint_map["_build_dry_run_rows"]["reason"]
+        assert '"dry", "run"' in hint_map["_build_dry_run_rows"]["reason"]
+        assert "multi-term match" in hint_map["_build_dry_run_rows"]["reason"]
+        assert "matched task term" in hint_map["_print_plan"]["reason"]
+        assert '"plan"' in hint_map["_print_plan"]["reason"]
+        assert "selected file symbol" in hint_map["_parse_run_args"]["reason"]
+        assert "matched task term" in hint_map["_parse_run_args"]["reason"]
+
+
+def test_collect_symbol_hints_prioritizes_selected_files_over_adjacent_single_term_matches():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _write_file(
+            root / "commands" / "run_command.py",
+            (
+                "def _print_plan():\n"
+                "    return 'selected'\n"
+            ),
+        )
+        _write_file(
+            root / "commands" / "plan_helpers.py",
+            (
+                "def render_plan():\n"
+                "    return 'adjacent'\n\n"
+                "def summarize_plan():\n"
+                "    return 'adjacent'\n"
+            ),
         )
 
-        assert hints
-        assert "commands/run_command.py::_print_plan" in hint_text
-        assert "task term match" in hint_text or "class/method name match" in hint_text
-        assert "dry_run_helper" in hint_text
+        graph = _make_graph(root, ["commands/run_command.py", "commands/plan_helpers.py"])
+        entries = [
+            {
+                "file": graph["files"][0],
+                "selected_by_user": True,
+            },
+            {
+                "file": graph["files"][1],
+            },
+        ]
+
+        hints = collect_symbol_hints(
+            graph,
+            "plan output",
+            entries,
+            selected_paths=["commands/run_command.py"],
+        )
+        symbol_names = [hint["symbol_name"] for hint in hints]
+
+        assert hints[0]["file_path"] == "commands/run_command.py"
+        assert symbol_names[0] == "_print_plan"
+        assert symbol_names.index("_print_plan") < symbol_names.index("render_plan")
+        assert symbol_names.index("_print_plan") < symbol_names.index("summarize_plan")
 
 
 def test_symbol_hints_section_survives_tiny_budget_and_selected_files():
@@ -205,12 +269,81 @@ def test_symbol_hints_section_survives_tiny_budget_and_selected_files():
         assert "commands/run_command.py" in prompt
         assert "_print_plan" in content or "_print_plan" in prompt
         assert report["symbol_hints_count"] > 0
+        assert report["symbol_hints_count"] <= 8
         assert ("Symbol hints", f"{report['symbol_hints_count']} matched") in rows
+
+
+def test_collect_symbol_hints_caps_to_a_small_deterministic_set():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _write_file(
+            root / "commands" / "run_command.py",
+            (
+                "def _build_dry_run_rows():\n"
+                "    return True\n\n"
+                "def _print_dry_run_plan():\n"
+                "    return True\n\n"
+                "def write_run_command():\n"
+                "    return None\n\n"
+                "def _parse_run_args():\n"
+                "    return None\n\n"
+                "def render_dry_run_plan():\n"
+                "    return None\n\n"
+                "def summarize_run_plan():\n"
+                "    return None\n"
+            ),
+        )
+        _write_file(
+            root / "commands" / "apply_command.py",
+            (
+                "def write_apply_dry_run_command():\n"
+                "    return None\n\n"
+                "def render_dry_run_plan():\n"
+                "    return None\n\n"
+                "def summarize_run_plan():\n"
+                "    return None\n\n"
+                "def print_plan_output():\n"
+                "    return None\n\n"
+                "def report_run_output():\n"
+                "    return None\n"
+            ),
+        )
+
+        graph = _make_graph(root, ["commands/run_command.py", "commands/apply_command.py"])
+        entries = [
+            {
+                "file": graph["files"][0],
+                "selected_by_user": True,
+            },
+            {
+                "file": graph["files"][1],
+            },
+        ]
+
+        hints_one = collect_symbol_hints(
+            graph,
+            "fix dry run plan output",
+            entries,
+            selected_paths=["commands/run_command.py"],
+        )
+        hints_two = collect_symbol_hints(
+            graph,
+            "fix dry run plan output",
+            entries,
+            selected_paths=["commands/run_command.py"],
+        )
+
+        assert len(hints_one) == 8
+        assert [hint["symbol_name"] for hint in hints_one] == [hint["symbol_name"] for hint in hints_two]
+        assert all(hint["file_path"] == "commands/run_command.py" for hint in hints_one[:4])
+        assert any(hint["file_path"] == "commands/apply_command.py" for hint in hints_one[4:])
 
 
 TESTS = [
     test_extract_python_symbols_finds_functions_classes_and_methods,
     test_extract_python_symbols_returns_safe_error_for_syntax_error,
-    test_collect_symbol_hints_matches_task_terms_and_selected_files,
+    test_collect_symbol_hints_prefers_selected_file_symbols_and_reports_term_matches,
+    test_collect_symbol_hints_prioritizes_selected_files_over_adjacent_single_term_matches,
     test_symbol_hints_section_survives_tiny_budget_and_selected_files,
+    test_collect_symbol_hints_caps_to_a_small_deterministic_set,
 ]

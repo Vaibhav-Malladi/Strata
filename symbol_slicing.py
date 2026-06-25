@@ -4,8 +4,16 @@ from pathlib import Path
 from context_matching import extract_identifier_terms, extract_task_terms
 
 
-DEFAULT_SYMBOL_HINT_LIMIT = 6
-PER_FILE_SYMBOL_HINT_LIMIT = 3
+DEFAULT_SYMBOL_HINT_LIMIT = 8
+PER_FILE_SYMBOL_HINT_LIMIT = 4
+WEAK_TASK_TERMS = {
+    "bug",
+    "change",
+    "command",
+    "fix",
+    "output",
+    "update",
+}
 
 
 def extract_python_symbols(path: str | Path) -> dict:
@@ -65,7 +73,7 @@ def collect_symbol_hints(
     """Find likely relevant symbols for a task using selected or ranked files."""
 
     root = Path(str((graph or {}).get("root") or "."))
-    task_terms = extract_task_terms(task)
+    task_terms = _prioritize_task_terms(extract_task_terms(task))
     selected_set = {_normalize_path(path) for path in (selected_paths or []) if str(path or "").strip()}
     entries = list(relevant_entries or [])
     hints: list[dict] = []
@@ -128,7 +136,9 @@ def collect_symbol_hints(
 
         file_hints.sort(
             key=lambda item: (
+                int(item.get("priority", 99)),
                 -int(item.get("score", 0)),
+                -int(item.get("matched_term_count", 0)),
                 item.get("kind", ""),
                 int(item.get("start_line", 0)),
                 item.get("symbol_name", ""),
@@ -138,7 +148,9 @@ def collect_symbol_hints(
 
     hints.sort(
         key=lambda item: (
+            int(item.get("priority", 99)),
             -int(item.get("score", 0)),
+            -int(item.get("matched_term_count", 0)),
             item.get("file_path", ""),
             int(item.get("start_line", 0)),
             item.get("symbol_name", ""),
@@ -232,28 +244,30 @@ def _score_symbol_hint(
 ) -> dict | None:
     symbol_terms = set(extract_identifier_terms(str(symbol.get("name", ""))))
     symbol_terms.update(extract_identifier_terms(str(symbol.get("qualname", ""))))
-    matched_terms = [term for term in task_terms if term in symbol_terms]
+    symbol_matches = [term for term in task_terms if term in symbol_terms]
     path_matches = [term for term in task_terms if term in path_terms]
+    matched_terms = _dedupe(symbol_matches + path_matches)
 
-    if not file_selected and not matched_terms and not path_matches:
+    if not file_selected and not matched_terms:
         return None
 
-    score = 0
+    priority, score = _score_symbol_priority(
+        file_selected=file_selected,
+        symbol_matches=symbol_matches,
+        path_matches=path_matches,
+    )
     reasons = []
 
     if file_selected:
-        score += 100
         reasons.append("selected file symbol")
 
-    if matched_terms:
-        score += 25 * len(matched_terms)
-        reasons.append(_format_task_reason(symbol, matched_terms))
-    elif path_matches and file_selected:
-        score += 10 * len(path_matches)
-        reasons.append(_format_task_reason(symbol, path_matches, selected_reference=True))
+    if symbol_matches:
+        reasons.append(_format_task_reason(symbol_matches))
     elif path_matches:
-        score += 5 * len(path_matches)
-        reasons.append(f"selected file reference matches task term {_format_term_list(path_matches)}")
+        reasons.append(_format_task_reason(path_matches))
+
+    if len(matched_terms) >= 2:
+        reasons.append("multi-term match")
 
     if symbol.get("kind") == "function":
         score += 3
@@ -271,17 +285,56 @@ def _score_symbol_hint(
         "end_line": int(symbol.get("end_line", 0) or 0),
         "signature": str(symbol.get("signature", "")),
         "reason": "; ".join(reasons) if reasons else "matched task context",
+        "priority": priority,
+        "matched_term_count": len(matched_terms),
         "score": score,
     }
 
 
-def _format_task_reason(symbol: dict, matched_terms: list[str], *, selected_reference: bool = False) -> str:
+def _score_symbol_priority(
+    *,
+    file_selected: bool,
+    symbol_matches: list[str],
+    path_matches: list[str],
+) -> tuple[int, int]:
+    matched_term_count = len(_dedupe(symbol_matches + path_matches))
+
+    if file_selected:
+        if len(symbol_matches) >= 2:
+            return 0, 500 + 70 * len(symbol_matches) + 10 * len(path_matches)
+
+        if symbol_matches:
+            return 1, 400 + 60 * len(symbol_matches) + 8 * len(path_matches)
+
+        if path_matches:
+            return 2, 300 + 20 * len(path_matches)
+
+        return 2, 280
+
+    if matched_term_count >= 2:
+        return 3, 220 + 60 * len(symbol_matches) + 10 * len(path_matches)
+
+    if matched_term_count == 1:
+        return 4, 140 + 40 * len(symbol_matches) + 5 * len(path_matches)
+
+    return 5, 0
+
+
+def _prioritize_task_terms(task_terms: list[str]) -> list[str]:
+    strong_terms = [term for term in task_terms if term not in WEAK_TASK_TERMS]
+
+    if strong_terms:
+        return strong_terms
+
+    return task_terms
+
+
+def _format_task_reason(matched_terms: list[str]) -> str:
     if not matched_terms:
         return "matched task context"
 
-    label = "class/method name match" if symbol.get("kind") == "method" else "task term match"
-    prefix = "selected file symbol; " if selected_reference else ""
-    return f"{prefix}{label} {_format_term_list(matched_terms)}"
+    label = "matched task terms" if len(matched_terms) > 1 else "matched task term"
+    return f"{label} {_format_term_list(matched_terms)}"
 
 
 def _format_term_list(terms: list[str]) -> str:
@@ -350,3 +403,17 @@ def _safe_int(value: object) -> int:
 
 def _normalize_path(path: str) -> str:
     return str(path or "").replace("\\", "/").strip()
+
+
+def _dedupe(values: list[str]) -> list[str]:
+    seen = set()
+    result = []
+
+    for value in values:
+        if value in seen:
+            continue
+
+        seen.add(value)
+        result.append(value)
+
+    return result
