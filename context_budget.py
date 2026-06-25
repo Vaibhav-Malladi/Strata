@@ -10,6 +10,8 @@ from symbol_slicing import build_symbol_snippets, collect_symbol_hints
 from framework_hints import collect_angular_hints, collect_react_hints
 from javascript_project import collect_javascript_project_hints
 from typescript_project import collect_declaration_hints, collect_typescript_project_hints
+from execution_hints import collect_execution_path_hints
+from verification_hints import collect_verification_commands
 
 
 BUDGET_PRESETS = {
@@ -143,6 +145,23 @@ def build_budget_report(
     declaration_hints = collect_declaration_hints(graph, task)
     react_hints = collect_react_hints(graph, task, included)
     angular_hints = collect_angular_hints(graph, included, task)
+    execution_path_hints = collect_execution_path_hints(
+        graph,
+        included,
+        react_hints=react_hints,
+        angular_hints=angular_hints,
+    )
+    try:
+        from test_mapper import suggest_tests_for_file
+    except Exception:  # pragma: no cover - optional helper fallback
+        suggest_tests_for_file = None
+    verification_plan = collect_verification_commands(
+        graph,
+        task,
+        included,
+        javascript_project_hints,
+        suggest_tests_for_file=suggest_tests_for_file,
+    )
 
     return {
         "budget": budget,
@@ -178,6 +197,10 @@ def build_budget_report(
         "react_hints_count": len(react_hints),
         "angular_hints": angular_hints,
         "angular_hints_count": len(angular_hints),
+        "execution_path_hints": execution_path_hints,
+        "execution_path_hints_count": len(execution_path_hints),
+        "verification_plan": verification_plan,
+        "verification_plan_count": len(verification_plan),
     }
 
 
@@ -259,6 +282,17 @@ def build_budget_summary_rows(report: dict) -> list[tuple[str, object]]:
     angular_count = int(report.get("angular_hints_count", 0) or 0)
     if angular_count:
         rows.append(("Angular hints", f"{_format_count(angular_count, 'relationship')}"))
+
+    execution_count = int(report.get("execution_path_hints_count", 0) or 0)
+    if execution_count:
+        rows.append(("Execution hints", f"{execution_count} included"))
+
+    verification_count = int(report.get("verification_plan_count", 0) or 0)
+    if verification_count:
+        rows.append(("Verification hints", f"{_format_count(verification_count, 'command')}"))
+
+    if report.get("output_format"):
+        rows.append(("Output format", str(report["output_format"])))
 
     rows.extend(
         [

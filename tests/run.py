@@ -66,6 +66,8 @@ import test_symbol_slicing
 import test_typescript_project
 import test_javascript_project
 import test_framework_hints
+import test_execution_hints
+import test_verification_hints
 import test_selected_context
 import test_snapshot
 import test_snapshot_command
@@ -147,6 +149,8 @@ TEST_MODULES = [
     test_typescript_project,
     test_javascript_project,
     test_framework_hints,
+    test_execution_hints,
+    test_verification_hints,
     test_selected_context,
     test_snapshot,
     test_snapshot_command,

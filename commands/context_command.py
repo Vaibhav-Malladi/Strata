@@ -10,6 +10,7 @@ from context_budget import (
 from context_efficiency import compute_context_efficiency, estimate_graph_source_chars, estimate_tokens
 from cli_core import (
     CONTEXT_PACK_FILE,
+    CONTEXT_PACK_JSON_FILE,
     OUTPUT_FILE,
     ROUTES_JSON_FILE,
     build_graph,
@@ -18,6 +19,7 @@ from cli_core import (
 from context_pack import build_context_pack
 from repo_summary import build_repo_intelligence_rows, summarize_graph
 from routes import collect_routes
+from secret_redaction import redact_text
 from ui import build_banner, build_kv_table, build_section, format_error, format_path, print_status_card
 
 
@@ -34,6 +36,7 @@ def write_context(root_path: str = ".", *args: str) -> int:
     root = parsed["root"] or root_path
     task = parsed["task"]
     budget_value = parsed["budget"]
+    output_format = parsed["format"]
 
     graph = build_graph(root)
 
@@ -43,15 +46,32 @@ def write_context(root_path: str = ".", *args: str) -> int:
     save_graph(graph)
     routes_data = _load_routes_data(graph)
     budget_report = build_budget_report(graph, task, budget_value=budget_value)
-    content = build_context_pack(graph, task, routes_data, budget_value=budget_value)
+    budget_report["output_format"] = output_format
+    markdown_content = build_context_pack(
+        graph,
+        task,
+        routes_data,
+        budget_value=budget_value,
+        budget_report=budget_report,
+    )
+    if output_format == "json":
+        content = json.dumps(
+            _build_json_payload(task, budget_report),
+            indent=2,
+            ensure_ascii=False,
+        ) + "\n"
+        output_file = CONTEXT_PACK_JSON_FILE
+    else:
+        content = markdown_content
+        output_file = CONTEXT_PACK_FILE
     budget_report["budgeted_context_tokens"] = estimate_tokens(content)
 
-    output_dir = os.path.dirname(CONTEXT_PACK_FILE)
+    output_dir = os.path.dirname(output_file)
 
     if output_dir:
         os.makedirs(output_dir, exist_ok=True)
 
-    with open(CONTEXT_PACK_FILE, "w", encoding="utf-8") as file:
+    with open(output_file, "w", encoding="utf-8") as file:
         file.write(content)
 
     relevant_files = budget_report["included_entries"]
@@ -66,7 +86,7 @@ def write_context(root_path: str = ".", *args: str) -> int:
         build_kv_table(
             [
                 ("Task", task),
-                ("Output", format_path(CONTEXT_PACK_FILE)),
+                ("Output", format_path(output_file)),
                 ("Graph", format_path(OUTPUT_FILE)),
                 ("Files", len(graph.get("files", []))),
                 ("Symbols", symbols_count),
@@ -103,7 +123,7 @@ def _load_routes_data(graph: dict) -> dict:
 
 
 def _print_usage() -> None:
-    print('Usage: strata context [--budget <preset|tokens>] "<task>" [root]')
+    print('Usage: strata context [--format <markdown|json>] [--budget <preset|tokens>] "<task>" [root]')
 
 
 def _count_routes(routes_data: dict) -> int:
@@ -162,6 +182,7 @@ def _build_context_efficiency_rows(
 def _parse_context_args(args: list[str]) -> dict:
     positionals: list[str] = []
     budget_value: str | None = None
+    output_format = "markdown"
     index = 0
 
     while index < len(args):
@@ -176,6 +197,13 @@ def _parse_context_args(args: list[str]) -> dict:
             budget_value = arg.split("=", 1)[1]
             if not budget_value:
                 raise ValueError("--budget requires a preset or token count")
+        elif arg == "--format":
+            index += 1
+            if index >= len(args):
+                raise ValueError("--format requires markdown or json")
+            output_format = _parse_output_format(args[index])
+        elif arg.startswith("--format="):
+            output_format = _parse_output_format(arg.split("=", 1)[1])
         elif arg.startswith("-"):
             raise ValueError(f"Unknown option: {arg}")
         else:
@@ -199,6 +227,36 @@ def _parse_context_args(args: list[str]) -> dict:
         "task": task,
         "root": root,
         "budget": budget_value,
+        "format": output_format,
+    }
+
+
+def _parse_output_format(value: str) -> str:
+    normalized = str(value or "").strip().lower()
+    if normalized not in {"markdown", "json"}:
+        raise ValueError("--format requires markdown or json")
+    return normalized
+
+
+def _build_json_payload(task: str, report: dict) -> dict:
+    snippets = report.get("symbol_snippets") or {}
+    tests = report.get("test_hints") or {}
+    return {
+        "task": redact_text(task),
+        "budget": report.get("budget", {}),
+        "files": [
+            str((entry.get("file") or {}).get("path", ""))
+            for entry in report.get("included_entries", []) or []
+            if str((entry.get("file") or {}).get("path", "")).strip()
+        ],
+        "sections": {
+            "structured_intent": "best-effort repo context for the requested change",
+            "symbol_hints": report.get("symbol_hints", []) or [],
+            "symbol_snippets": snippets.get("included", []) or [],
+            "test_hints": tests.get("included", []) or [],
+            "execution_path_hints": report.get("execution_path_hints", []) or [],
+            "verification_plan": report.get("verification_plan", []) or [],
+        },
     }
 
 

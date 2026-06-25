@@ -74,6 +74,7 @@ def print_usage() -> None:
     print('  strata ask --budget small "fix validation"')
     print('  strata run --budget small --dry-run "fix validation"')
     print('  strata context --budget 3000 "fix validation"')
+    print('  strata context --format json "fix validation"')
     print('  strata prepare --budget small "fix validation"')
     print()
 

@@ -23,6 +23,8 @@ from typescript_project import (
     build_declaration_hints_section,
     build_typescript_project_hints_section,
 )
+from execution_hints import build_execution_path_hints_section
+from verification_hints import build_verification_plan_section
 
 
 SUPPORTED_AGENTS = {"generic", "local", "aider", "chatgpt"}
@@ -165,9 +167,10 @@ def _generate_generic_prompt(
     lines.extend(build_symbol_snippets_section(budget_report.get("symbol_snippets")))
     lines.extend(build_test_hints_section(budget_report.get("test_hints")))
     lines.extend(_build_frontend_intelligence_sections(budget_report))
+    lines.extend(build_execution_path_hints_section(budget_report.get("execution_path_hints")))
     lines.extend(_format_health_summary(health))
     lines.extend(_format_relevant_files(relevant_files))
-    lines.extend(_format_verification_plan(graph, relevant_files))
+    lines.extend(_format_verification_plan(graph, relevant_files, budget_report))
 
     return redact_text("\n".join(lines).rstrip() + "\n")
 
@@ -208,8 +211,9 @@ def _generate_local_prompt(
     lines.extend(build_symbol_snippets_section(budget_report.get("symbol_snippets")))
     lines.extend(build_test_hints_section(budget_report.get("test_hints")))
     lines.extend(_build_frontend_intelligence_sections(budget_report))
+    lines.extend(build_execution_path_hints_section(budget_report.get("execution_path_hints")))
     lines.extend(_format_compact_file_list(relevant_files))
-    lines.extend(_format_compact_verification_plan(graph, relevant_files))
+    lines.extend(_format_compact_verification_plan(graph, relevant_files, budget_report))
 
     return redact_text("\n".join(lines).rstrip() + "\n")
 
@@ -247,8 +251,9 @@ def _generate_aider_prompt(
     lines.extend(build_symbol_snippets_section(budget_report.get("symbol_snippets")))
     lines.extend(build_test_hints_section(budget_report.get("test_hints")))
     lines.extend(_build_frontend_intelligence_sections(budget_report))
+    lines.extend(build_execution_path_hints_section(budget_report.get("execution_path_hints")))
     lines.extend(_format_aider_file_section(relevant_files))
-    lines.extend(_format_compact_verification_plan(graph, relevant_files))
+    lines.extend(_format_compact_verification_plan(graph, relevant_files, budget_report))
 
     return redact_text("\n".join(lines).rstrip() + "\n")
 
@@ -295,9 +300,10 @@ def _generate_chatgpt_prompt(
     lines.extend(build_symbol_snippets_section(budget_report.get("symbol_snippets")))
     lines.extend(build_test_hints_section(budget_report.get("test_hints")))
     lines.extend(_build_frontend_intelligence_sections(budget_report))
+    lines.extend(build_execution_path_hints_section(budget_report.get("execution_path_hints")))
     lines.extend(_format_health_summary(health))
     lines.extend(_format_relevant_files(relevant_files))
-    lines.extend(_format_verification_plan(graph, relevant_files))
+    lines.extend(_format_verification_plan(graph, relevant_files, budget_report))
 
     return redact_text("\n".join(lines).rstrip() + "\n")
 
@@ -427,31 +433,35 @@ def _format_aider_file_section(relevant_files: list[dict]) -> list[str]:
     return lines
 
 
-def _format_verification_plan(graph: dict, relevant_files: list[dict]) -> list[str]:
-    commands = _collect_verification_commands(graph, relevant_files)
+def _format_verification_plan(
+    graph: dict,
+    relevant_files: list[dict],
+    budget_report: dict | None = None,
+) -> list[str]:
+    commands = list((budget_report or {}).get("verification_plan", []) or [])
+    if not commands:
+        commands = _collect_verification_commands(graph, relevant_files)
     related_tests = _collect_related_test_files(graph, relevant_files)
 
-    lines = [
-        "## Verification Plan",
-        "",
-        "Recommended commands:",
-    ]
-
-    for command in commands:
-        lines.append(f"- `{command}`")
+    lines = build_verification_plan_section(commands)
 
     if related_tests:
-        lines.append("")
+        lines.pop()
         lines.append("Likely related test files:")
         for path in related_tests:
             lines.append(f"- `{path}`")
-
-    lines.append("")
+        lines.append("")
     return lines
 
 
-def _format_compact_verification_plan(graph: dict, relevant_files: list[dict]) -> list[str]:
-    commands = _collect_verification_commands(graph, relevant_files)
+def _format_compact_verification_plan(
+    graph: dict,
+    relevant_files: list[dict],
+    budget_report: dict | None = None,
+) -> list[str]:
+    commands = list((budget_report or {}).get("verification_plan", []) or [])
+    if not commands:
+        commands = _collect_verification_commands(graph, relevant_files)
 
     lines = [
         "Verify with:",

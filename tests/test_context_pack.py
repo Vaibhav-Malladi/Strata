@@ -278,7 +278,7 @@ def test_build_context_pack_shows_best_effort_note_when_matches_are_weak():
 
     assert "# Strata Context Pack" in content
     assert "did not find strong direct file matches" in content or "best-effort hints" in content
-    assert "Suggested Verification" in content
+    assert "Verification Plan" in content
     assert "py tests.py" in content
     assert "py tests\\run.py" in content
 
@@ -294,7 +294,7 @@ def test_build_context_pack_reports_no_files_when_everything_is_filtered_out():
     content = build_context_pack(graph, "landing page blank")
 
     assert "No strong file matches found." in content or "did not find strong direct file matches" in content
-    assert "Suggested Verification" in content
+    assert "Verification Plan" in content
 
 
 def test_build_context_pack_compacts_dependency_neighbors():

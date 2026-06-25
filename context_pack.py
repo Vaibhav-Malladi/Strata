@@ -51,12 +51,13 @@ from typescript_project import (
     build_declaration_hints_section,
     build_typescript_project_hints_section,
 )
+from execution_hints import build_execution_path_hints_section
+from verification_hints import build_verification_plan_section
 
 
 MAX_RELEVANT_FILES = 10
 MAX_RELEVANT_ROUTES = 8
 MAX_RELATED_TEST_FILES = 6
-MAX_VERIFICATION_COMMANDS = 6
 MAX_DEPENDENCY_NEIGHBORS = 8
 
 
@@ -195,25 +196,27 @@ def build_context_pack(
     routes_data: dict | None = None,
     selected_paths: list[str] | None = None,
     budget_value: str | None = None,
+    budget_report: dict | None = None,
 ) -> str:
     """Build a compact deterministic Markdown context pack."""
 
     task = redact_text(task)
     selected_paths = selected_paths or []
-    budget_report = build_budget_report(
-        graph,
-        task,
-        selected_paths=selected_paths,
-        budget_value=budget_value,
-        max_candidates=MAX_RELEVANT_FILES,
-    )
+    if budget_report is None:
+        budget_report = build_budget_report(
+            graph,
+            task,
+            selected_paths=selected_paths,
+            budget_value=budget_value,
+            max_candidates=MAX_RELEVANT_FILES,
+        )
     relevant_files = budget_report["included_entries"]
     relevant_paths = [item["file"].get("path", "") for item in relevant_files]
     task_terms = extract_task_terms(task)
     repo_summary = summarize_graph(graph)
     routes = _rank_relevant_routes(graph, task_terms, relevant_paths, routes_data)
     neighbors = find_dependency_neighbors(graph, relevant_paths)
-    verification = _suggest_verification(graph, relevant_files)
+    verification = list(budget_report.get("verification_plan", []) or [])
     related_tests = _collect_related_tests(graph, relevant_files)
     frontend_frameworks = collect_framework_names(repo_summary)
     frontend_source = (
@@ -253,6 +256,7 @@ def build_context_pack(
     lines.extend(build_declaration_hints_section(budget_report.get("declaration_hints")))
     lines.extend(build_react_hints_section(budget_report.get("react_hints")))
     lines.extend(build_angular_hints_section(budget_report.get("angular_hints")))
+    lines.extend(build_execution_path_hints_section(budget_report.get("execution_path_hints")))
     if frontend_frameworks:
         lines.append("## Repository Intelligence")
         lines.append("")
@@ -394,13 +398,7 @@ def build_context_pack(
         lines.append("- none identified yet")
 
     lines.append("")
-    lines.append("## Suggested Verification")
-    lines.append("")
-
-    for command in verification:
-        lines.append(f"- `{command}`")
-
-    lines.append("")
+    lines.extend(build_verification_plan_section(verification))
     lines.append("## AI Editing Instructions")
     lines.append("")
     if selected_paths:
@@ -565,28 +563,6 @@ def _collect_related_tests(graph: dict, relevant_files: list[dict]) -> list[str]
     ]
 
     return _limit_unique(sorted(filtered), MAX_RELATED_TEST_FILES)
-
-
-def _suggest_verification(graph: dict, relevant_files: list[dict]) -> list[str]:
-    commands = []
-
-    for item in relevant_files:
-        file_info = item.get("file", {})
-        path = file_info.get("path", "")
-
-        if not path:
-            continue
-
-        if suggest_tests_for_file is not None:
-            suggestion = suggest_tests_for_file(graph, path)
-            commands.extend(suggestion.get("recommended_commands", []))
-
-    if not commands:
-        commands = ["py tests.py", "py tests\\run.py"]
-    else:
-        commands.append("py tests\\run.py")
-
-    return _limit_unique(commands, MAX_VERIFICATION_COMMANDS)
 
 
 def _fallback_related_test_files(graph: dict, relevant_files: list[dict]) -> list[str]:

@@ -1,4 +1,5 @@
 import contextlib
+import json
 import os
 import tempfile
 from pathlib import Path
@@ -127,7 +128,7 @@ def test_write_context_prints_usage_when_task_missing():
             exit_code, output = capture_output(write_context, str(root))
 
         assert exit_code == 1
-        assert 'Usage: strata context [--budget <preset|tokens>] "<task>" [root]' in output
+        assert 'Usage: strata context [--format <markdown|json>] [--budget <preset|tokens>] "<task>" [root]' in output
 
 
 def test_write_context_reports_budget_summary_when_budget_is_tight():
@@ -255,6 +256,44 @@ def test_write_context_reports_frontend_repo_intelligence():
         assert "AppModule" in content
 
 
+def test_write_context_json_writes_valid_stable_payload_and_keeps_markdown_default():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        create_context_repo(root)
+
+        with change_directory(root):
+            markdown_code, _ = capture_output(
+                write_context,
+                str(root),
+                "change user login API",
+            )
+            json_code, output = capture_output(
+                write_context,
+                str(root),
+                "--format",
+                "json",
+                "change user login API",
+            )
+
+        markdown_path = root / ".aidc" / "context_pack.md"
+        json_path = root / ".aidc" / "context_pack.json"
+        payload = json.loads(json_path.read_text(encoding="utf-8"))
+
+        assert markdown_code == 0
+        assert json_code == 0
+        assert markdown_path.exists()
+        assert json_path.exists()
+        assert payload["task"] == "change user login API"
+        assert isinstance(payload["budget"], dict)
+        assert payload["files"]
+        assert "symbol_hints" in payload["sections"]
+        assert "test_hints" in payload["sections"]
+        assert "execution_path_hints" in payload["sections"]
+        assert "verification_plan" in payload["sections"]
+        assert "context_pack.json" in output
+        assert "Output format" in output
+
+
 TESTS = [
     test_write_context_creates_context_pack_file,
     test_write_context_prints_usage_when_task_missing,
@@ -263,4 +302,5 @@ TESTS = [
     test_write_context_reports_counts_for_simple_task_case,
     test_write_context_reports_symbol_hints_when_matches_exist,
     test_write_context_reports_frontend_repo_intelligence,
+    test_write_context_json_writes_valid_stable_payload_and_keeps_markdown_default,
 ]

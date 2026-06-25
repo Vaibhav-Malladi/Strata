@@ -263,12 +263,13 @@ def _render_context_help() -> None:
         [
             'Run `strata context --budget 3000 "fix the checkout discount bug"` for a direct token target.',
             'Run `strata context --budget small "fix the checkout discount bug"` for a preset budget cap.',
+            'Run `strata context --format json "fix the checkout discount bug"` for integration-friendly JSON.',
         ],
     )
     _print_lines(
         "What to expect",
         [
-            "Strata writes `.aidc/context_pack.md`.",
+            "Markdown writes `.aidc/context_pack.md`; JSON writes `.aidc/context_pack.json`.",
             "The budget summary shows the generated prompt content estimate when it is available.",
             "Actual AI token usage may still vary by adapter.",
         ],

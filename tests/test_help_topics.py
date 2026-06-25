@@ -76,6 +76,7 @@ def test_help_usage_mentions_all_ai_modes_and_beginner_topics():
         'strata ask --budget small "fix validation"',
         'strata run --budget small --dry-run "fix validation"',
         'strata context --budget 3000 "fix validation"',
+        'strata context --format json "fix validation"',
         'strata prepare --budget small "fix validation"',
     )
 
@@ -283,6 +284,8 @@ def test_help_context_topic_mentions_budget_examples():
         "--budget 3000",
         "--budget small",
         ".aidc/context_pack.md",
+        ".aidc/context_pack.json",
+        "--format json",
     )
 
 
