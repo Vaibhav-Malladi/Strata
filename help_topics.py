@@ -259,7 +259,7 @@ def _render_run_help() -> None:
 def _render_context_help() -> None:
     _print_intro(
         "Context builds local-first, budget-aware repository context and shows a budgeted summary before you hand it to AI. "
-        "Python support is strongest; JavaScript, TypeScript, React, and Angular context intelligence is preview."
+        "Python support is stable and strongest; JavaScript, TypeScript, TSX, React, and Angular context intelligence is experimental/preview."
     )
     _print_lines(
         "Examples",
@@ -274,7 +274,8 @@ def _render_context_help() -> None:
         "What to expect",
         [
             "Markdown writes `.aidc/context_pack.md`; JSON writes `.aidc/context_pack.json`.",
-            "Preview JS/TS/framework hints are confidence-labeled and best-effort.",
+            "Preview JS/TS symbol extraction is lightweight, regex/convention based, confidence-labeled, and best effort.",
+            "React and Angular relationships are likely hints by convention, not runtime, dataflow, template, or complete dependency-injection analysis.",
             "The budget summary shows the generated prompt content estimate when it is available.",
             "Actual AI token usage may still vary by adapter.",
         ],
@@ -350,6 +351,16 @@ def _render_status_help() -> None:
 def _render_doctor_help() -> None:
     _print_intro("Doctor helps diagnose install, PATH, and adapter setup problems.")
     _print_lines(
+        "Install names and runtime",
+        [
+            "The PyPI package is `strata-repo-intel`; the CLI command is `strata`.",
+            "Preferred install: `pipx install strata-repo-intel`.",
+            "Alternative: `python -m pip install --user strata-repo-intel`.",
+            "The current Strata runtime requires Python 3.13 or newer.",
+            "Analyzed projects may target older Python versions because Strata reads and scans their files.",
+        ],
+    )
+    _print_lines(
         "Install diagnostics",
         [
             "`strata doctor install`",
@@ -365,6 +376,13 @@ def _render_doctor_help() -> None:
             "Then reopen the terminal or ensure the Python Scripts directory is on PATH.",
             "Verify the installed command with `strata help`.",
             "If PowerShell works but VS Code does not, close and reopen VS Code.",
+        ],
+    )
+    _print_lines(
+        "Generated workspace",
+        [
+            "`.aidc/` contains generated context packs, prompts, patches, and reports that may include code excerpts.",
+            "Add `.aidc/` to `.gitignore`; Strata may warn if Git is already tracking it.",
         ],
     )
     _print_lines(

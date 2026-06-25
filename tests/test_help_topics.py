@@ -205,6 +205,12 @@ def test_help_doctor_topic_mentions_install_diagnostics():
         "strata doctor adapter",
         "found or missing",
         "setup ai",
+        "strata-repo-intel",
+        "pipx install strata-repo-intel",
+        "python 3.13",
+        "older python versions",
+        ".aidc/",
+        ".gitignore",
     )
 
 
@@ -289,9 +295,11 @@ def test_help_context_topic_mentions_budget_examples():
         ".aidc/context_pack.json",
         "--format json",
         "--file run_command",
-        "python support is strongest",
+        "python support is stable",
         "preview",
         "confidence-labeled",
+        "regex/convention",
+        "best effort",
     )
 
 

@@ -118,7 +118,7 @@ def _print_install_result() -> None:
         ("strata on PATH", _format_optional_path(which_strata)),
         ("Resolved strata path", _format_optional_text(which_strata, "not found")),
         ("Expected Scripts dir", _format_optional_text(scripts_dir, "unknown")),
-        ("python -m strata", strata_module),
+        ("strata module", strata_module),
         ("cli module", cli_module),
         ("commands.run_command", run_module),
     ]
@@ -134,7 +134,7 @@ def _print_install_result() -> None:
         build_kv_table(
             [
                 ("Local dev", "Run `py -m pip install -e .` from the project root."),
-                ("Fallback CLI", "If PATH fails, try `py -m strata` from the repo root."),
+                ("Installed CLI", "Run `strata help` after installation."),
                 ("VS Code", "Restart the VS Code terminal after PATH changes."),
                 (
                     "PowerShell vs VS Code",

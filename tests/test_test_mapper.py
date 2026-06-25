@@ -70,7 +70,7 @@ def test_suggest_tests_for_map_writer():
     assert result["found"] is True
     assert result["target"].endswith("map_writer.py")
     assert "py tests.py" in result["recommended_commands"]
-    assert any(command.startswith("py cli.py map") for command in result["recommended_commands"])
+    assert any(command.startswith("strata map") for command in result["recommended_commands"])
     assert any(path.endswith("test_map_writer.py") for path in result["related_test_files"])
 
 
@@ -81,7 +81,7 @@ def test_suggest_tests_for_impact():
     assert result["found"] is True
     assert result["target"].endswith("impact.py")
     assert "py tests.py" in result["recommended_commands"]
-    assert any(command.startswith("py cli.py impact") for command in result["recommended_commands"])
+    assert any(command.startswith("strata impact") for command in result["recommended_commands"])
     assert any(path.endswith("test_impact.py") for path in result["related_test_files"])
 
 
@@ -106,7 +106,7 @@ def test_format_test_suggestions_includes_sections():
     assert "Found: True" in output
     assert "Recommended commands" in output
     assert "Likely related test files" in output
-    assert "py cli.py map" in output
+    assert "strata map" in output
     assert "test_map_writer.py" in output
 
 
@@ -134,7 +134,7 @@ def test_cli_show_tests_for_displays_report():
     assert "Commands" in output
     assert "Tests" in output
     assert "Test suggestions" in output
-    assert "py cli.py map" in output
+    assert "strata map" in output
     assert "test_map_writer.py" in output
 
 

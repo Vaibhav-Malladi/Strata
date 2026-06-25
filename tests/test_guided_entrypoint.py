@@ -105,8 +105,8 @@ def test_cli_no_args_shows_guided_entrypoint_before_advanced_commands():
 def test_cli_help_lists_main_workflow_first_and_keeps_advanced_reference():
     _, output = capture_output(print_usage)
 
-    _assert_terms(output, "connect ai", "main workflow", "usage:", "advanced commands", "legacy / fallback")
-    assert output.index("Connect AI") < output.index("Main workflow") < output.index("Advanced commands") < output.index("Legacy / fallback")
+    _assert_terms(output, "connect ai", "main workflow", "usage:", "advanced commands", "install help")
+    assert output.index("Connect AI") < output.index("Main workflow") < output.index("Advanced commands") < output.index("Install help")
     _assert_terms(
         output,
         "strata start [path]",
@@ -125,7 +125,8 @@ def test_cli_help_lists_main_workflow_first_and_keeps_advanced_reference():
         "strata apply [--yes] [--dry-run] [path]",
         "strata config set http_timeout 120",
         "strata apply --dry-run <root>",
-        "legacy fallback: use `py cli.py ...`",
+        "if `strata` is unavailable",
+        "reinstall `strata-repo-intel`",
         "patch",
         "review",
         "apply",

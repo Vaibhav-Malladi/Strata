@@ -70,7 +70,7 @@ def load_saved_graph() -> dict | None:
         print_title(red("No saved graph found"))
         print("  Run this first:")
         print()
-        print("    py cli.py scan")
+        print("    strata scan")
         return None
 
     with open(OUTPUT_FILE, "r", encoding="utf-8") as file:

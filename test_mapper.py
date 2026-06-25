@@ -6,38 +6,38 @@ DEFAULT_TEST_COMMAND = "py tests.py"
 
 COMMAND_RULES = {
     "cli.py": [
-        "py -m strata help",
+        "strata help",
     ],
     "scanner.py": [
-        "py cli.py scan tmp_repo",
+        "strata scan tmp_repo",
     ],
     "map_writer.py": [
-        "py cli.py map tmp_repo",
+        "strata map tmp_repo",
     ],
     "brief.py": [
-        'py -m strata brief "add map command tests"',
+        'strata brief "add map command tests"',
     ],
     "brief_impact.py": [
-        'py -m strata brief "change helper behavior"',
+        'strata brief "change helper behavior"',
     ],
     "cycles.py": [
-        "py cli.py cycles tmp_repo",
+        "strata cycles tmp_repo",
     ],
     "health.py": [
-        "py cli.py health tmp_repo",
+        "strata health tmp_repo",
     ],
     "impact.py": [
-        "py cli.py impact tmp_repo helper.py",
+        "strata impact tmp_repo helper.py",
     ],
     "python_parser.py": [
-        "py cli.py scan tmp_repo",
+        "strata scan tmp_repo",
     ],
     "languages.py": [
-        "py cli.py scan tmp_repo",
+        "strata scan tmp_repo",
     ],
     "graph.py": [
-        "py cli.py scan tmp_repo",
-        "py cli.py health tmp_repo",
+        "strata scan tmp_repo",
+        "strata health tmp_repo",
     ],
 }
 

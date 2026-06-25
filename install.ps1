@@ -337,27 +337,24 @@ if ($pipResult.ExitCode -ne 0) {
 Write-Host ("{0} Strata installed" -f $script:CheckMark)
 
 $strataCommand = Get-Command strata -ErrorAction SilentlyContinue
-if ($strataCommand) {
-    Write-Host ("{0} strata command found" -f $script:CheckMark)
+if (-not $strataCommand) {
+    Show-Failure "The `strata` command is not on PATH after installation."
+    Write-Host "Restart VS Code or your terminal after PATH changes, then rerun install.ps1."
+    exit 1
 }
 
-$helpResult = Invoke-LoggedNativeCommand -Label "py -m strata help" -FilePath "py" -ArgumentList @("-m", "strata", "help")
+Write-Host ("{0} strata command found" -f $script:CheckMark)
+
+$helpResult = Invoke-LoggedNativeCommand -Label "strata help" -FilePath "strata" -ArgumentList @("help")
 if ($helpResult.ExitCode -ne 0) {
-    Show-Failure "py -m strata help failed."
+    Show-Failure "strata help failed."
     Write-Host "Run `install.ps1 -VerboseInstall` to see the full output."
     exit 1
 }
 
-Write-Host ("{0} py -m strata available" -f $script:CheckMark)
-if (-not $strataCommand) {
-    Write-Host "  `strata` is not on PATH yet. Restart VS Code or your terminal after PATH changes."
-}
+Write-Host ("{0} strata command available" -f $script:CheckMark)
 
-if ($strataCommand) {
-    $diagnosticResult = Invoke-LoggedNativeCommand -Label "strata doctor install" -FilePath "strata" -ArgumentList @("doctor", "install")
-} else {
-    $diagnosticResult = Invoke-LoggedNativeCommand -Label "py -m strata doctor install" -FilePath "py" -ArgumentList @("-m", "strata", "doctor", "install")
-}
+$diagnosticResult = Invoke-LoggedNativeCommand -Label "strata doctor install" -FilePath "strata" -ArgumentList @("doctor", "install")
 
 if ($diagnosticResult.ExitCode -ne 0) {
     Show-Failure "Install diagnostics failed."

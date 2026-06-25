@@ -112,8 +112,8 @@ def show_file(path: str) -> int:
         print()
         print("  Run a scan first, or check the file path:")
         print()
-        print("    py cli.py scan")
-        print("    py cli.py show")
+        print("    strata scan")
+        print("    strata show")
         return 1
 
     print_title("File details")

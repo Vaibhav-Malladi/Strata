@@ -48,6 +48,15 @@ def print_usage() -> None:
     print_banner(compact=False)
     print()
 
+    print("Install and runtime:")
+    print("  PyPI package: strata-repo-intel")
+    print("  CLI command: strata")
+    print("  Install: pipx install strata-repo-intel")
+    print("  Alternative: python -m pip install --user strata-repo-intel")
+    print("  Strata requires Python 3.13+; analyzed projects may target older Python versions.")
+    print("  Add `.aidc/` to `.gitignore`; generated files may contain code excerpts or AI prompts.")
+    print()
+
     print("Connect AI:")
     for line in _connect_ai_overview_lines(include_help_hint=True):
         print(f"  {line}")
@@ -90,8 +99,8 @@ def print_usage() -> None:
             print(f"    {description}")
     print()
 
-    print("Legacy / fallback:")
-    print("Legacy fallback: use `py cli.py ...` if the `strata` entry point is unavailable.")
+    print("Install help:")
+    print("  If `strata` is unavailable, check PATH or reinstall `strata-repo-intel`.")
     print("  Supported agents: generic, local, aider, chatgpt")
 
 

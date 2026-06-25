@@ -143,7 +143,7 @@ def test_generate_preflight_report_includes_verification_plan():
 
     assert "Recommended commands:" in content
     assert "`py tests.py`" in content
-    assert "`py cli.py map" in content
+    assert "`strata map" in content
     assert "Likely related test files:" in content
     assert "tests/test_map_writer.py" in content
 

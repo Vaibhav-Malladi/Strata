@@ -43,6 +43,27 @@ def test_readme_python_and_generated_output_metadata_are_configured():
     assert ".aidc/" in gitignore
 
 
+def test_public_docs_use_honest_install_runtime_and_support_wording():
+    readme = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
+    help_text = (
+        (PROJECT_ROOT / "cli_help.py").read_text(encoding="utf-8")
+        + (PROJECT_ROOT / "help_topics.py").read_text(encoding="utf-8")
+    )
+    public_text = readme + help_text
+    normalized = public_text.lower()
+
+    assert "the pypi package is `strata-repo-intel`; the cli command is `strata`" in normalized
+    assert "pipx install strata-repo-intel" in public_text
+    assert "python -m pip install --user strata-repo-intel" in public_text
+    assert "python 3.13" in normalized
+    assert "older python versions" in normalized
+    assert "experimental/preview" in normalized
+    assert "regex/convention" in normalized
+    assert "add `.aidc/` to `.gitignore`" in normalized
+    assert "python -m strata" not in normalized
+    assert "py -m strata" not in normalized
+
+
 def test_publish_workflow_checks_tag_tests_and_built_distribution():
     workflow = (PROJECT_ROOT / ".github" / "workflows" / "publish.yml").read_text(
         encoding="utf-8"
@@ -61,5 +82,6 @@ TESTS = [
     test_distribution_name_and_console_script_are_distinct_and_correct,
     test_all_runtime_top_level_modules_are_packaged,
     test_readme_python_and_generated_output_metadata_are_configured,
+    test_public_docs_use_honest_install_runtime_and_support_wording,
     test_publish_workflow_checks_tag_tests_and_built_distribution,
 ]

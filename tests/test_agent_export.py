@@ -87,7 +87,7 @@ def test_generate_generic_agent_prompt_mentions_selected_files_and_related_check
 
     assert "User-selected files" in prompt
     assert "cli.py" in prompt
-    assert "py -m strata help" in prompt
+    assert "strata help" in prompt
 
 
 def test_generate_local_prompt_is_compact():

@@ -264,7 +264,7 @@ Write-Host "  - check Git first"
 Write-Host "  - run the repo-local install.ps1"
 Write-Host "  - let install.ps1 handle Python and PATH prompts"
 Write-Host '  - verify `strata doctor install` quietly'
-Write-Host '  - verify `py -m strata help` quietly'
+Write-Host '  - verify `strata help` quietly'
 Write-Host ""
 
 if (-not (Test-CommandAvailable git)) {

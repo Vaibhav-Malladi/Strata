@@ -6,6 +6,18 @@ Strata helps an AI coding tool receive the right files, symbols, tests, executio
 
 Strata is patch-first and safety-oriented: prepare context, collect a patch, review it, dry-run it, apply it intentionally, run tests, and gate before committing.
 
+## Install at a glance
+
+The PyPI package is `strata-repo-intel`; the CLI command is `strata`.
+
+```bash
+pipx install strata-repo-intel
+strata help
+strata start
+```
+
+Strata itself currently requires Python 3.13 or newer.
+
 ## Support status
 
 | Ecosystem | Status |
@@ -13,7 +25,7 @@ Strata is patch-first and safety-oriented: prepare context, collect a patch, rev
 | Python | Stable and strongest support |
 | JavaScript, TypeScript, TSX, React, Angular | Preview context intelligence |
 
-The preview analyzers are confidence-labeled and best-effort. Some JavaScript and TypeScript relationships use conventions and regex-based analysis rather than a full compiler or runtime model.
+The preview analyzers are confidence-labeled and best-effort. JavaScript and TypeScript symbol extraction is lightweight, regex/convention-based context intelligence and may miss or misidentify symbols. React and Angular relationships are hints inferred by convention, not runtime, dataflow, template, or complete dependency-injection analysis.
 
 ## What Strata provides
 
@@ -31,13 +43,11 @@ Markdown is the default context format.
 
 ## Install
 
-The distribution name is `strata-repo-intel`. The installed command is `strata`.
+The PyPI package is `strata-repo-intel`; the CLI command is `strata`.
 
 Always use `strata-repo-intel` as the pip or pipx distribution name.
 
-Current release metadata requires Python 3.13 because that is the runtime validated for Strata development today. This requirement applies to Strata itself, not to the repository being analyzed. Strata can inspect repositories that target older Python versions because it scans files and does not run or upgrade the project by default.
-
-Python 3.11 and 3.12 support may be possible, but it needs dedicated validation before the package requirement can be lowered honestly.
+The current published runtime requires Python 3.13 or newer to run Strata itself. This does not require the repository being analyzed to use Python 3.13. Strata can inspect projects that target older Python versions because it reads and scans their files; it does not run or upgrade the target project by default.
 
 ### Recommended: pipx
 
@@ -236,7 +246,15 @@ Review the patch and `git diff`, run project checks, then gate before committing
 
 ## Generated workspace
 
-`.aidc/` is Strata's generated workspace output. It is ignored by this repository and normally should not be committed unless you intentionally want to share a report.
+`.aidc/` is Strata's generated workspace. It contains context packs, AI prompts, patches, gate reports, and other generated output. These files may include code excerpts or prompt content and should normally not be committed.
+
+Add this exact line to the analyzed repository's `.gitignore`:
+
+```gitignore
+.aidc/
+```
+
+Strata may warn when Git is already tracking files under `.aidc/`. Remove those files from Git tracking separately after reviewing them; Strata does not edit `.gitignore`, untrack files, or commit automatically.
 
 Common generated files include:
 
@@ -253,10 +271,11 @@ Other commands may create graph, snapshot, cache, verification, or direct-edit r
 
 ## Current limitations
 
-- JavaScript, TypeScript, TSX, React, and Angular support is preview and convention/regex based in places.
-- TypeScript analysis is not a full TypeScript compiler.
-- Angular analysis does not provide complete dependency-injection or template analysis.
-- React analysis is not runtime or full dataflow analysis.
+- JavaScript, TypeScript, TSX, React, and Angular context intelligence is experimental/preview and best effort.
+- JavaScript and TypeScript symbol extraction is lightweight and regex/convention based, so it may miss or misidentify symbols.
+- TypeScript analysis provides likely project and declaration hints, not full TypeScript compiler analysis.
+- Angular analysis provides convention-based hints, not complete dependency-injection or template analysis.
+- React analysis provides likely component and hook hints, not runtime or full dataflow analysis.
 - Confidence labels indicate evidence quality, not guaranteed correctness.
 - Plain context output is deferred.
 - Watch mode and expanded cache workflows are deferred.
@@ -306,8 +325,6 @@ strata gate
 git diff
 git status --short
 ```
-
-The package version remains `0.3.1`; this documentation polish does not publish or tag a release.
 
 ## Philosophy
 

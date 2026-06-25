@@ -532,7 +532,9 @@ def test_cli_help_prefers_strata_commands():
     assert "patch" in output.lower()
     assert "review" in output.lower()
     assert "apply" in output.lower()
-    assert "Legacy fallback: use `py cli.py ...`" in output
+    assert "PyPI package: strata-repo-intel" in output
+    assert "CLI command: strata" in output
+    assert "If `strata` is unavailable" in output
     assert "py cli.py scan [path]" not in output
 
 

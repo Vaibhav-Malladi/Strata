@@ -124,8 +124,8 @@ def test_task_brief_generation_includes_prompt_and_tests():
     assert "- cli.py" in content
 
     assert "py tests.py" in content
-    assert "py -m strata help" in content
-    assert "py cli.py map" in content
+    assert "strata help" in content
+    assert "strata map" in content
 
     assert "Use only the Python standard library." in content
     assert "Do not touch unrelated files." in content

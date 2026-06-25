@@ -323,25 +323,25 @@ def suggest_tests(relevant_files: list[dict]) -> list[str]:
     }
 
     if "cli.py" in basenames:
-        tests.append("py -m strata help")
+        tests.append("strata help")
 
     if "scanner.py" in basenames:
-        tests.append("py cli.py scan tmp_repo")
+        tests.append("strata scan tmp_repo")
 
     if "map_writer.py" in basenames:
-        tests.append("py cli.py map tmp_repo")
+        tests.append("strata map tmp_repo")
 
     if "brief.py" in basenames:
-        tests.append('py cli.py brief "add map command tests"')
+        tests.append('strata brief "add map command tests"')
 
     if "cycles.py" in basenames:
-        tests.append("py cli.py cycles tmp_repo")
+        tests.append("strata cycles tmp_repo")
 
     if "health.py" in basenames:
-        tests.append("py cli.py health tmp_repo")
+        tests.append("strata health tmp_repo")
 
     if "impact.py" in basenames:
-        tests.append("py cli.py impact tmp_repo helper.py")
+        tests.append("strata impact tmp_repo helper.py")
 
     return _dedupe(tests)
 
