@@ -279,10 +279,61 @@ def test_cli_status_command_smoke():
         assert "State" in result.stdout
         assert "Missing" in result.stdout
         assert "Stale" in result.stdout
+        assert "Full scan" in result.stdout
         assert "# Strata Status" in result.stdout
         assert "## Generated Files" in result.stdout
         assert "## Missing Outputs" in result.stdout
         assert "## Recommended Actions" in result.stdout
+
+
+def test_cli_scan_force_command_smoke():
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    cli_path = Path(__file__).resolve().parents[1] / "cli.py"
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        project_root = Path(temp_dir)
+        _create_cli_core_repo(project_root)
+
+        env = os.environ.copy()
+        env["PYTHONIOENCODING"] = "utf-8"
+
+        first_result = subprocess.run(
+            [
+                sys.executable,
+                str(cli_path),
+                "scan",
+            ],
+            cwd=project_root,
+            env=env,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+
+        second_result = subprocess.run(
+            [
+                sys.executable,
+                str(cli_path),
+                "scan",
+                "--force",
+            ],
+            cwd=project_root,
+            env=env,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+
+        assert first_result.returncode == 0, first_result.stderr
+        assert second_result.returncode == 0, second_result.stderr
+        assert "forced rescan requested" in second_result.stdout.lower()
+        assert "Full scan complete" in second_result.stdout
+        assert (project_root / ".aidc" / "cache" / "repo_scan.json").exists()
+        assert not (project_root / ".aidc" / "cache" / "repo_scan.tmp.json").exists()
 
 
 def test_cli_patch_command_smoke():
@@ -430,7 +481,10 @@ def test_cli_help_prefers_strata_commands():
     assert "strata help setup" in output
     assert "strata help ask" in output
     assert "strata help manual" in output
-    assert "strata scan [path]" in output
+    assert "strata help scan" in output
+    assert "strata help status" in output
+    assert "strata scan [path] [--force]" in output
+    assert "strata status [path]" in output
     assert "strata gate <root>" in output
     assert "strata setup" in output
     assert "strata setup --manual" in output
@@ -561,6 +615,7 @@ TESTS = [
     test_cli_show_file_displays_backend_routes,
     test_cli_agent_prompt_command_smoke,
     test_cli_status_command_smoke,
+    test_cli_scan_force_command_smoke,
     test_cli_patch_command_smoke,
     test_cli_apply_dry_run_command_smoke,
     test_cli_run_command_smoke,

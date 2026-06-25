@@ -30,6 +30,8 @@ _HELP_TOPIC_ALIASES = {
     "install": "doctor",
     "gate": "gate",
     "start": "start",
+    "scan": "scan",
+    "status": "status",
 }
 
 
@@ -233,6 +235,53 @@ def _render_run_help() -> None:
     )
 
 
+def _render_scan_help() -> None:
+    _print_intro("Scan builds Strata's full repo context. Focused mode still works if the scan is missing or stale.")
+    _print_lines(
+        "Scan states",
+        [
+            "Fresh means the full repo context is ready.",
+            "Stale means the repo changed since the last scan.",
+            "Interrupted means the previous scan did not finish.",
+        ],
+    )
+    _print_lines(
+        "Use it",
+        [
+            "Run `strata scan` to build or refresh repo context.",
+            "Run `strata scan --force` to ignore any fresh cache and rebuild.",
+            "If a previous scan was interrupted, rerun `strata scan` to recover and clear the temp marker.",
+        ],
+    )
+    _print_lines(
+        "Focused mode",
+        [
+            "Ask and run can still work without a full scan.",
+            "When the scan is missing, stale, or interrupted, Strata uses focused context and suggests `strata scan`.",
+        ],
+    )
+
+
+def _render_status_help() -> None:
+    _print_intro("Status shows whether Strata outputs are current and whether full repo context is ready.")
+    _print_lines(
+        "Scan readiness",
+        [
+            "Fresh means the full repo context is ready.",
+            "Stale means the repo changed since the last scan; run `strata scan`.",
+            "Interrupted means the previous scan did not finish; run `strata scan`.",
+            "Missing means focused mode is available, but full repo context needs `strata scan`.",
+        ],
+    )
+    _print_lines(
+        "Use it",
+        [
+            "Run `strata status` to check generated files and scan freshness.",
+            "Run `strata start` if you want the beginner entrypoint with setup guidance.",
+        ],
+    )
+
+
 def _render_doctor_help() -> None:
     _print_intro("Doctor helps diagnose install, PATH, and adapter setup problems.")
     _print_lines(
@@ -289,8 +338,17 @@ def _render_start_help() -> None:
             "Scan the repository.",
             "Build the repo snapshot cache.",
             "Detect when files changed while Strata was scanning.",
+            "See whether the full repo context is fresh, stale, missing, or interrupted.",
             "Check whether setup is ready.",
             "Move toward setup, ask, review, apply, and gate.",
+        ],
+    )
+    _print_lines(
+        "Scan readiness",
+        [
+            "Run `strata scan` to refresh repo context.",
+            "Run `strata scan --force` to ignore a fresh cache and rebuild.",
+            "Focused mode still works when the scan is missing or stale.",
         ],
     )
     _print_lines(
@@ -328,6 +386,8 @@ _HELP_TOPIC_RENDERERS = {
     "command": _render_command_help,
     "http": _render_http_help,
     "ask": _render_ask_help,
+    "scan": _render_scan_help,
+    "status": _render_status_help,
     "review": _render_review_help,
     "apply": _render_apply_help,
     "run": _render_run_help,

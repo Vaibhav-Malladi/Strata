@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from full_scan import format_full_scan_status, load_full_scan_cache
+from full_scan import describe_full_scan_readiness, format_full_scan_status, load_full_scan_cache
 
 SNAPSHOT_LATEST_FILE = ".aidc/snapshots/latest.txt"
 SNAPSHOT_CACHE_FILE = ".aidc/cache/repo_snapshot.json"
@@ -142,17 +142,15 @@ def format_status_report(status: dict) -> str:
     lines.extend(_format_recommended_actions(status))
 
     full_scan = status.get("full_scan") or {}
-    if str(full_scan.get("status", "missing")).lower() == "interrupted":
-        lines.extend(
-            [
-                "",
-                "## Full Scan",
-                "",
-                "- Previous full scan was interrupted.",
-                "- Last complete cache is still safe.",
-                "- Run `strata scan` to refresh.",
-            ]
-        )
+    scan_readiness = describe_full_scan_readiness(full_scan)
+    lines.extend(
+        [
+            "",
+            "## Full Scan",
+            "",
+            f"- {scan_readiness['message']}",
+        ]
+    )
 
     return "\n".join(lines).rstrip() + "\n"
 

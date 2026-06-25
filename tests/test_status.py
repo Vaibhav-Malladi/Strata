@@ -217,6 +217,7 @@ def test_format_status_report_contains_sections():
     assert "## Generated Files" in report
     assert "## Missing Outputs" in report
     assert "## Recommended Actions" in report
+    assert "## Full Scan" in report
     assert ".aidc/routes.md" in report
     assert ".aidc/diff_report.md" in report
     assert ".aidc/context_pack.md" in report
@@ -254,6 +255,45 @@ def test_format_status_report_mentions_interrupted_full_scan():
         assert result["full_scan"]["status"] == "interrupted"
         assert "Full scan" in report
         assert "interrupted" in report.lower()
+        assert "previous scan did not finish" in report.lower()
+
+
+def test_format_status_report_mentions_focused_mode_when_full_scan_missing():
+    status = {
+        "root": ".",
+        "state": "incomplete",
+        "generated_files": [],
+        "missing_files": [],
+        "stale_files": [],
+        "newest_source_mtime": None,
+        "full_scan": None,
+    }
+
+    report = format_status_report(status)
+
+    assert "Full Scan" in report
+    assert "focused mode" in report.lower()
+    assert "strata scan" in report.lower()
+
+
+def test_format_status_report_mentions_refresh_when_full_scan_is_stale():
+    status = {
+        "root": ".",
+        "state": "stale",
+        "generated_files": [],
+        "missing_files": [],
+        "stale_files": [],
+        "newest_source_mtime": None,
+        "full_scan": {
+            "status": "stale",
+        },
+    }
+
+    report = format_status_report(status)
+
+    assert "Full Scan" in report
+    assert "repo changed since last scan" in report.lower()
+    assert "strata scan" in report.lower()
 
 
 def test_show_status_displays_repo_intelligence_when_graph_exists():
@@ -348,6 +388,36 @@ def test_show_status_displays_repo_intelligence_when_graph_exists():
         assert "Strata status" in output
 
 
+def test_show_status_displays_interrupted_full_scan_state():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        (root / "main.py").write_text("print('hello')\n", encoding="utf-8")
+        write_generated_files(root)
+
+        temp_scan = root / ".aidc" / "cache" / "repo_scan.tmp.json"
+        temp_scan.parent.mkdir(parents=True, exist_ok=True)
+        temp_scan.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "status": "scanning",
+                    "root": str(root),
+                    "file_count": 2,
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        with change_directory(root):
+            exit_code, output = capture_output(show_status, ".")
+
+        assert exit_code is None
+        assert "Full scan" in output
+        assert "interrupted" in output.lower()
+        assert "previous scan did not finish" in output.lower()
+        assert "strata scan" in output.lower()
+
+
 TESTS = [
     test_analyze_status_reports_missing_generated_files,
     test_analyze_status_reports_current_when_outputs_exist,
@@ -355,5 +425,8 @@ TESTS = [
     test_analyze_status_tracks_latest_snapshot_indicator_only,
     test_format_status_report_contains_sections,
     test_format_status_report_mentions_interrupted_full_scan,
+    test_format_status_report_mentions_focused_mode_when_full_scan_missing,
+    test_format_status_report_mentions_refresh_when_full_scan_is_stale,
     test_show_status_displays_repo_intelligence_when_graph_exists,
+    test_show_status_displays_interrupted_full_scan_state,
 ]

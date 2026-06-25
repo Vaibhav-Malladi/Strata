@@ -69,12 +69,26 @@ def main() -> int:
         return 0
 
     if command == "scan":
-        if len(args) == 1:
-            return _exit_code(write_graph("."))
-        if len(args) == 2:
-            return _exit_code(write_graph(args[1]))
-        print_usage()
-        return 1
+        force = False
+        positionals: list[str] = []
+
+        for arg in args[1:]:
+            if arg == "--force":
+                force = True
+                continue
+
+            if arg.startswith("-"):
+                print_usage()
+                return 1
+
+            positionals.append(arg)
+
+        if len(positionals) > 1:
+            print_usage()
+            return 1
+
+        root = positionals[0] if positionals else "."
+        return _exit_code(write_graph(root, force=force))
 
     if command == "start":
         if len(args) == 1:

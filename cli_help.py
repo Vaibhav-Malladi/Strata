@@ -120,7 +120,7 @@ def _connect_ai_overview_lines(include_help_hint: bool) -> list[str]:
 
 def _advanced_command_entries() -> list[tuple[str, str | None]]:
     return [
-        ("strata scan [path]", None),
+        ("strata scan [path] [--force]", "Build or refresh the full repo scan; `--force` ignores a fresh cache."),
         ("strata show [path]", None),
         ("strata map [path]", None),
         ("strata routes [path]", None),
@@ -185,7 +185,9 @@ def _advanced_command_entries() -> list[tuple[str, str | None]]:
         ('strata run "<task>" --fast <root>', None),
         ('strata agent-prompt "<task>" <agent>', None),
         ('strata agent-prompt <root> "<task>" <agent>', None),
-        ("strata status [path]", None),
+        ("strata status [path]", "Show generated files and full repo scan freshness."),
+        ("strata help scan", "Explain scan freshness, interrupted scans, and `--force`."),
+        ("strata help status", "Explain generated-file status and full repo readiness."),
         ("strata help", None),
         ("strata apply --dry-run", None),
         ("strata apply --dry-run <root>", None),

@@ -55,6 +55,8 @@ def test_help_usage_mentions_all_ai_modes_and_beginner_topics():
         "strata setup --codex-cli",
         "strata setup --aider",
         'strata ask "fix bug"',
+        "strata scan [path] [--force]",
+        "strata status [path]",
         "strata review",
         "strata apply --dry-run",
         "strata apply",
@@ -63,6 +65,8 @@ def test_help_usage_mentions_all_ai_modes_and_beginner_topics():
         "strata help setup",
         "strata help ask",
         "strata help manual",
+        "strata help scan",
+        "strata help status",
     )
 
 
@@ -249,7 +253,40 @@ def test_help_start_topic_mentions_beginner_entrypoint():
     exit_code, output = _run_cli("help", "start")
 
     assert exit_code == 0
-    _assert_terms(output, "beginner", "entrypoint", "scan", "snapshot cache", "setup", "ask", "review", "apply", "gate", "strata doctor install")
+    _assert_terms(output, "beginner", "entrypoint", "scan", "snapshot cache", "setup", "ask", "review", "apply", "gate", "strata doctor install", "focused mode", "--force")
+
+
+def test_help_scan_topic_mentions_scan_states_and_force():
+    exit_code, output = _run_cli("help", "scan")
+
+    assert exit_code == 0
+    _assert_terms(
+        output,
+        "scan",
+        "focused mode",
+        "fresh",
+        "stale",
+        "interrupted",
+        "strata scan",
+        "strata scan --force",
+        "temp marker",
+    )
+
+
+def test_help_status_topic_mentions_scan_readiness():
+    exit_code, output = _run_cli("help", "status")
+
+    assert exit_code == 0
+    _assert_terms(
+        output,
+        "status",
+        "fresh",
+        "stale",
+        "interrupted",
+        "missing",
+        "focused mode",
+        "strata scan",
+    )
 
 
 def test_help_browser_alias_routes_to_manual():
@@ -282,6 +319,8 @@ TESTS = [
     test_help_run_topic_mentions_fast_confirmation,
     test_help_gate_topic_mentions_reports_and_tests,
     test_help_start_topic_mentions_beginner_entrypoint,
+    test_help_scan_topic_mentions_scan_states_and_force,
+    test_help_status_topic_mentions_scan_readiness,
     test_help_browser_alias_routes_to_manual,
     test_help_unknown_topic_returns_nonzero_and_suggests_help,
 ]

@@ -81,10 +81,14 @@ def test_help_lists_main_workflow_before_advanced_commands():
     assert "strata setup --command" in output
     assert "strata setup --codex-cli" in output
     assert "strata setup --aider" in output
+    assert "strata scan [path] [--force]" in output
+    assert "strata status [path]" in output
     assert "strata doctor install" in output
     assert "strata help setup" in output
     assert "strata help ask" in output
     assert "strata help manual" in output
+    assert "strata help scan" in output
+    assert "strata help status" in output
     assert "strata review <root>" in output
     assert "strata apply --yes" in output
 
@@ -118,6 +122,7 @@ def test_start_reports_repo_readiness_and_intelligence():
         assert "Repo readiness" in output
         assert "ready" in output
         assert "strata scan" in output.lower()
+        assert "focused mode" in output.lower() or "full repo context" in output.lower()
         assert "strata ask \"your task\"" in output
         assert (root / ".aidc" / "graph.json").exists()
         assert (root / ".aidc" / "cache" / "repo_snapshot.json").exists()
@@ -142,6 +147,7 @@ def test_start_without_config_shows_connect_ai_guidance():
         assert "Connect AI" in output
         assert "Snapshot cache" in output
         assert "Full scan" in output
+        assert "focused mode" in output.lower() or "full repo context needs" in output.lower()
         assert "strata scan" in output.lower()
         assert "strata setup" in output
         assert "strata setup --manual" in output
@@ -169,7 +175,8 @@ def test_start_reports_interrupted_full_scan_marker():
 
         assert exit_code == 0
         assert "interrupted" in output.lower()
-        assert "Last complete cache is still safe" in output
+        assert "previous scan did not finish" in output.lower()
+        assert "full repo context" in output.lower()
         assert "strata scan" in output.lower()
 
 

@@ -8,7 +8,7 @@ from agent_adapters import run_adapter
 from commands.apply_command import write_apply_command
 from commands.ask_command import _build_inline_review_result, _execute_adapter
 from commands.prepare_command import prepare_workflow
-from full_scan import format_full_scan_status, load_full_scan_cache
+from full_scan import describe_full_scan_readiness, format_full_scan_status, load_full_scan_cache
 from snapshot_cache import format_snapshot_cache_status
 from ui import (
     format_error,
@@ -124,7 +124,7 @@ def write_run_command(root_path: str, *args: str) -> int:
         review_result=review_result,
     )
     _print_snapshot_cache_note(cache_result)
-    _print_full_scan_note(task, full_scan_state)
+    _print_full_scan_note(full_scan_state)
 
     if review_result["ready"] and fast:
         if _confirm_apply():
@@ -328,17 +328,15 @@ def _print_snapshot_cache_note(cache_result: dict | None) -> None:
     print(format_warning(message))
 
 
-def _print_full_scan_note(task: str, full_scan_state: dict | None) -> None:
-    if not _is_repo_wide_task(task):
-        return
+def _print_full_scan_note(full_scan_state: dict | None) -> None:
+    readiness = describe_full_scan_readiness(full_scan_state)
 
-    status = str((full_scan_state or {}).get("status", "missing")).strip().lower()
-    if status == "fresh":
+    if readiness["ready"]:
         return
 
     print(
         format_warning(
-            "This looks repo-wide. Full scan is not ready, so Strata will continue with focused context. Tip: run `strata scan`."
+            "Full repo scan is not ready; using focused context. Run `strata scan`."
         )
     )
 
@@ -358,21 +356,3 @@ def _context_confidence(full_scan_state: dict | None) -> str:
 
     return "basic"
 
-
-def _is_repo_wide_task(task: str) -> bool:
-    normalized = f" {task.lower()} "
-    keywords = [
-        " refactor ",
-        " migrate ",
-        " rename ",
-        " architecture ",
-        " dependency ",
-        " all ",
-        " entire ",
-        " across ",
-        " frontend ",
-        " backend ",
-        " project-wide ",
-        " repo-wide ",
-    ]
-    return any(keyword in normalized for keyword in keywords)

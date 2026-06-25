@@ -221,9 +221,49 @@ def test_scan_command_reports_frontend_repo_intelligence():
         assert "full scan" in output.lower()
 
 
+def test_scan_command_recovery_clears_interrupted_marker():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir) / "repo"
+        _create_repo(root)
+        temp_scan = root / ".aidc" / "cache" / "repo_scan.tmp.json"
+        temp_scan.parent.mkdir(parents=True, exist_ok=True)
+        temp_scan.write_text(
+            '{"schema_version":1,"status":"scanning","root":"%s"}' % root.as_posix(),
+            encoding="utf-8",
+        )
+
+        with change_directory(root):
+            exit_code, output = capture_output(write_graph, ".")
+
+        assert exit_code == 0
+        assert "previous scan did not finish" in output.lower()
+        assert "Interrupted scan recovered." in output
+        assert (root / ".aidc" / "cache" / "repo_scan.json").exists()
+        assert not temp_scan.exists()
+
+
+def test_scan_command_force_reports_forced_rescan():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir) / "repo"
+        _create_repo(root)
+
+        with change_directory(root):
+            first_exit_code, _ = capture_output(write_graph, ".")
+            second_exit_code, output = capture_output(write_graph, ".", True)
+
+        assert first_exit_code == 0
+        assert second_exit_code == 0
+        assert "forced rescan requested" in output.lower()
+        assert "Full scan complete" in output
+        assert (root / ".aidc" / "cache" / "repo_scan.json").exists()
+        assert not (root / ".aidc" / "cache" / "repo_scan.tmp.json").exists()
+
+
 TESTS = [
     test_scan_command_writes_graph_and_formats_terminal_output,
     test_scan_command_reports_unresolved_imports,
     test_scan_command_ignores_generated_directories_and_egg_info,
     test_scan_command_reports_frontend_repo_intelligence,
+    test_scan_command_recovery_clears_interrupted_marker,
+    test_scan_command_force_reports_forced_rescan,
 ]

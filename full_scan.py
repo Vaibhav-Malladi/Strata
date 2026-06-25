@@ -85,6 +85,44 @@ def format_full_scan_status(scan_result: dict[str, Any] | None) -> str:
     return status or "missing"
 
 
+def describe_full_scan_readiness(scan_result: dict[str, Any] | None) -> dict[str, Any]:
+    status = str((scan_result or {}).get("status", "missing")).strip().lower()
+
+    if status == "fresh":
+        return {
+            "state": "fresh",
+            "ready": True,
+            "message": "Full repo context is ready.",
+        }
+
+    if status == "interrupted":
+        return {
+            "state": "interrupted",
+            "ready": False,
+            "message": "Previous scan did not finish. Run `strata scan` to refresh repo context.",
+        }
+
+    if status == "partial":
+        return {
+            "state": "partial",
+            "ready": False,
+            "message": "Repo changed while Strata was scanning. Run `strata scan` to refresh repo context.",
+        }
+
+    if status == "stale":
+        return {
+            "state": "stale",
+            "ready": False,
+            "message": "Repo changed since last scan. Run `strata scan` to refresh repo context.",
+        }
+
+    return {
+        "state": "missing",
+        "ready": False,
+        "message": "Focused mode is available, but full repo context needs `strata scan`.",
+    }
+
+
 def build_full_scan_payload(
     *,
     root: str | Path,

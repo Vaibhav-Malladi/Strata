@@ -8,6 +8,7 @@ from full_scan import (
     LARGE_REPO_THRESHOLD,
     build_full_scan_payload,
     clear_full_scan_temp_marker,
+    describe_full_scan_readiness,
     finalize_full_scan_cache,
     format_full_scan_status,
     load_completed_full_scan_cache,
@@ -29,7 +30,7 @@ from ui import (
 )
 
 
-def write_graph(root_path: str) -> int:
+def write_graph(root_path: str, force: bool = False) -> int:
     root = Path(root_path)
 
     if not root.exists():
@@ -40,10 +41,15 @@ def write_graph(root_path: str) -> int:
         _print_error("Scan failed", f"path is not a directory: {root_path}")
         return 1
 
-    interrupted_scan = load_full_scan_cache(root)
-    if interrupted_scan and str(interrupted_scan.get("status", "")).lower() == "interrupted":
-        print(format_warning("Previous full scan was interrupted. Last complete cache is still safe."))
-        print(format_warning("Run `strata scan` again to refresh the full map."))
+    full_scan_state = load_full_scan_cache(root)
+    readiness = describe_full_scan_readiness(full_scan_state)
+    had_interrupted_scan = readiness["state"] == "interrupted"
+
+    if force:
+        print(format_warning("Forced rescan requested. Rebuilding full repo context now."))
+
+    if had_interrupted_scan:
+        print(format_warning(readiness["message"]))
 
     clear_full_scan_temp_marker(root)
 
@@ -138,6 +144,9 @@ def write_graph(root_path: str) -> int:
     finalize_full_scan_cache(root, scan_result)
     write_repo_snapshot_cache(root, start_snapshot, after_snapshot)
     unresolved_count = count_unresolved_imports(graph)
+
+    if had_interrupted_scan:
+        print(format_success("Interrupted scan recovered."))
 
     print(
         _progress_card(

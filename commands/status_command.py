@@ -1,6 +1,7 @@
 import json
 
 from cli_core import OUTPUT_FILE
+from full_scan import format_full_scan_status
 from repo_summary import build_repo_intelligence_rows, summarize_graph
 from status import analyze_status, format_status_report
 from ui import build_banner, build_kv_table, build_section, format_path
@@ -21,6 +22,7 @@ def show_status(root: str = ".") -> None:
                 ("State", status.get("state", "unknown")),
                 ("Missing", len(status.get("missing_files", []))),
                 ("Stale", len(status.get("stale_files", []))),
+                ("Full scan", format_full_scan_status(status.get("full_scan"))),
             ]
         )
     )
