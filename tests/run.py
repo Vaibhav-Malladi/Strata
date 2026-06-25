@@ -87,6 +87,7 @@ import test_ask_inline_review
 import test_guided_entrypoint
 import test_test_quality
 import test_help_topics
+import test_packaging
 import test_scan_command
 import test_repo_summary
 import test_setup_command
@@ -170,6 +171,7 @@ TEST_MODULES = [
     test_guided_entrypoint,
     test_test_quality,
     test_help_topics,
+    test_packaging,
     test_scan_command,
     test_repo_summary,
     test_setup_command,

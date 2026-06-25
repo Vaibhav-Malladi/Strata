@@ -123,7 +123,8 @@ def _load_routes_data(graph: dict) -> dict:
 
 
 def _print_usage() -> None:
-    print('Usage: strata context [--format <markdown|json>] [--budget <preset|tokens>] "<task>" [root]')
+    print('Usage: strata context [--budget <preset|tokens>] [--format <markdown|json>] "<task>" [root]')
+    print('Selected files: use `strata ask --file <reference> ...` or `strata run --file <reference> ...`.')
 
 
 def _count_routes(routes_data: dict) -> int:

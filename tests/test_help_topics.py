@@ -73,10 +73,10 @@ def test_help_usage_mentions_all_ai_modes_and_beginner_topics():
         'strata ask --file LoginForm "fix validation"',
         'strata run --file run_command "fix dry run output" --dry-run',
         'strata ask --file run_command --file ask_command "compare these flows"',
-        'strata ask --budget small "fix validation"',
-        'strata run --budget small --dry-run "fix validation"',
-        'strata context --budget 3000 "fix validation"',
-        'strata context --format json "fix validation"',
+        'strata context --budget small "fix dry run plan output"',
+        'strata context --format json --budget small "fix login button not disabling"',
+        'strata ask --file run_command --budget small "fix dry run plan output"',
+        'strata run --file LoginButton --budget small "fix disabled state" --dry-run',
         'strata prepare --budget small "fix validation"',
     )
 
@@ -199,7 +199,9 @@ def test_help_doctor_topic_mentions_install_diagnostics():
         "windows tips",
         "pip",
         "-e",
-        "py -m strata",
+        "python scripts directory",
+        "reopen",
+        "strata help",
         "strata doctor adapter",
         "found or missing",
         "setup ai",
@@ -286,6 +288,10 @@ def test_help_context_topic_mentions_budget_examples():
         ".aidc/context_pack.md",
         ".aidc/context_pack.json",
         "--format json",
+        "--file run_command",
+        "python support is strongest",
+        "preview",
+        "confidence-labeled",
     )
 
 

@@ -128,7 +128,9 @@ def test_write_context_prints_usage_when_task_missing():
             exit_code, output = capture_output(write_context, str(root))
 
         assert exit_code == 1
-        assert 'Usage: strata context [--format <markdown|json>] [--budget <preset|tokens>] "<task>" [root]' in output
+        assert 'Usage: strata context [--budget <preset|tokens>] [--format <markdown|json>] "<task>" [root]' in output
+        assert "strata ask --file <reference>" in output
+        assert "strata run --file <reference>" in output
 
 
 def test_write_context_reports_budget_summary_when_budget_is_tight():

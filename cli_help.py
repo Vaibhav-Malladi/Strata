@@ -71,10 +71,10 @@ def print_usage() -> None:
     print()
 
     print("Budgeted context examples:")
-    print('  strata ask --budget small "fix validation"')
-    print('  strata run --budget small --dry-run "fix validation"')
-    print('  strata context --budget 3000 "fix validation"')
-    print('  strata context --format json "fix validation"')
+    print('  strata context --budget small "fix dry run plan output"')
+    print('  strata context --format json --budget small "fix login button not disabling"')
+    print('  strata ask --file run_command --budget small "fix dry run plan output"')
+    print('  strata run --file LoginButton --budget small "fix disabled state" --dry-run')
     print('  strata prepare --budget small "fix validation"')
     print()
 
@@ -183,8 +183,7 @@ def _advanced_command_entries() -> list[tuple[str, str | None]]:
         ("strata tests-for <root> <file>", None),
         ('strata preflight "<task>"', None),
         ('strata preflight <root> "<task>"', None),
-        ('strata context "<task>"', None),
-        ('strata context <root> "<task>"', None),
+        ('strata context [--budget <preset|tokens>] [--format <markdown|json>] "<task>" [root]', "Compile budget-aware Markdown or JSON context. Use `ask` or `run --file` for selected-file anchoring."),
         ('strata prepare "<task>"', None),
         ('strata prepare "<task>" <root>', None),
         ('strata run [--file <reference>]... "<task>"', "Prepare context, request a patch, review it, and end with `strata apply` as the next step."),

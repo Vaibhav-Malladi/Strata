@@ -5,13 +5,13 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "strata-repo-intel"
 version = "0.3.1"
-description = "Local-first repository intelligence for AI-assisted coding workflows."
+description = "Local-first, budget-aware repository context compiler for safer AI-assisted coding."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.13"
 authors = [
     { name = "Vaibhav Malladi" }
 ]
-license = { text = "MIT" }
+license = "MIT"
 keywords = [
     "repository-intelligence",
     "ai-coding",
@@ -24,9 +24,7 @@ classifiers = [
     "Environment :: Console",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Operating System :: OS Independent",
     "Topic :: Software Development",
     "Topic :: Software Development :: Quality Assurance"
@@ -34,6 +32,11 @@ classifiers = [
 dependencies = [
     "rich>=13",
 ]
+
+[project.urls]
+Homepage = "https://github.com/Vaibhav-Malladi/Strata"
+Repository = "https://github.com/Vaibhav-Malladi/Strata"
+Issues = "https://github.com/Vaibhav-Malladi/Strata/issues"
 
 [project.scripts]
 strata = "cli:main"
@@ -66,8 +69,25 @@ py-modules = [
     "command_executor",
     "http_executor",
     "ollama_adapter",
+    "context_budget",
+    "direct_edit",
+    "execution_hints",
+    "framework_hints",
+    "fs_utils",
+    "full_scan",
+    "help_topics",
+    "javascript_project",
+    "js_parser",
     "languages",
     "map_writer",
+    "repo_ignore",
+    "secret_redaction",
+    "selected_context",
+    "snapshot_cache",
+    "symbol_slicing",
+    "test_mapping",
+    "typescript_project",
+    "verification_hints",
     "preflight",
     "repo_summary",
     "strata",

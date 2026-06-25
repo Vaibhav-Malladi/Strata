@@ -1,59 +1,15 @@
-# Strata V7 Roadmap
+# Historical V7 Planning Note
 
-V7 is future work. These ideas are not current behavior yet.
+This file is retained only as a historical planning marker. Current behavior and support status are documented in the project README and CLI help.
 
-## 1. Fast Workflow / Trust Modes
+Items that have since shipped include budgeted context packs, JSON context output, selected-file context for `ask` and `run`, and preview JavaScript/TypeScript/React/Angular context intelligence.
 
-- Balanced mode for everyday use.
-- `strata do` as a faster guided workflow.
-- Optional fast mode later.
-- Background gate checks later.
+Still deferred:
 
-## 2. Undo and History
+- plain context output
+- watch mode
+- expanded cache workflows
+- deeper monorepo and compiler-level analysis
+- richer CI reporting
 
-- Snapshot before apply.
-- `strata undo`.
-- `.aidc/history.jsonl`.
-- Patch fingerprinting.
-
-## 3. Agent / Machine-Readable Output
-
-- `--format json`.
-- `--format plain`.
-- `STRATA_OUTPUT=json`.
-
-## 4. More Languages
-
-- Java.
-- Rust.
-- Go.
-- C#.
-- PHP.
-- C/C++.
-
-## 5. Deeper Frontend / Monorepo Support
-
-- Nx.
-- Turborepo.
-- pnpm workspaces.
-- Angular project files.
-- Vite and webpack aliases.
-
-## 6. Watch / Hooks / CI
-
-- `strata watch`.
-- Pre-commit hook support.
-- CI output improvements.
-- SARIF and PR comments later.
-
-## 7. Token / Cost Reporting
-
-- Model-specific tokenizers.
-- Provider pricing config.
-- Optional estimated money saved.
-
-## Notes
-
-- These ideas should stay framed as planned work.
-- Do not promise exact savings or guaranteed automation.
-- Keep the patch-first safety model intact as the default.
+Future work is exploratory and should not be treated as a support promise. The patch-first safety model remains the default.

@@ -11,6 +11,10 @@ venv/
 # Strata generated output
 .aidc/
 
+# Python packaging output
+build/
+dist/
+
 # Editor/system files
 .vscode/
 .DS_Store

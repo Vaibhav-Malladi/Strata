@@ -257,19 +257,24 @@ def _render_run_help() -> None:
 
 
 def _render_context_help() -> None:
-    _print_intro("Context builds focused repository context and shows the budgeted summary before you hand it to AI.")
+    _print_intro(
+        "Context builds local-first, budget-aware repository context and shows a budgeted summary before you hand it to AI. "
+        "Python support is strongest; JavaScript, TypeScript, React, and Angular context intelligence is preview."
+    )
     _print_lines(
         "Examples",
         [
-            'Run `strata context --budget 3000 "fix the checkout discount bug"` for a direct token target.',
-            'Run `strata context --budget small "fix the checkout discount bug"` for a preset budget cap.',
-            'Run `strata context --format json "fix the checkout discount bug"` for integration-friendly JSON.',
+            'Python: `strata context --budget small "fix dry run plan output"`.',
+            'React: `strata context --format json --budget small "fix login button not disabling"`.',
+            'Use `--budget 3000` instead of a preset when you want a direct token target.',
+            'For selected-file context, use `strata ask --file run_command ...` or `strata run --file LoginButton ...`.',
         ],
     )
     _print_lines(
         "What to expect",
         [
             "Markdown writes `.aidc/context_pack.md`; JSON writes `.aidc/context_pack.json`.",
+            "Preview JS/TS/framework hints are confidence-labeled and best-effort.",
             "The budget summary shows the generated prompt content estimate when it is available.",
             "Actual AI token usage may still vary by adapter.",
         ],
@@ -356,9 +361,9 @@ def _render_doctor_help() -> None:
     _print_lines(
         "Windows tips",
         [
-            "Run `py -m pip install -e .` for local development.",
-            "If `strata` is not on PATH yet, try `py -m strata` from the repo root.",
-            "Restart the VS Code terminal after PATH changes.",
+            "If `strata` is not on PATH, reinstall from the repo root with `py -m pip install -e .`.",
+            "Then reopen the terminal or ensure the Python Scripts directory is on PATH.",
+            "Verify the installed command with `strata help`.",
             "If PowerShell works but VS Code does not, close and reopen VS Code.",
         ],
     )

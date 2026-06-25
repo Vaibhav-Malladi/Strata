@@ -405,35 +405,32 @@ def test_install_strata_ps1_contains_bootstrap_flow():
     )
 
 
-def test_readme_install_section_mentions_bootstrap_and_fallback():
+def test_readme_install_section_mentions_package_install_paths_and_bootstrap():
     readme_path = Path(__file__).resolve().parents[1] / "README.md"
     text = readme_path.read_text(encoding="utf-8")
 
     _assert_terms(
         text,
+        "strata-repo-intel",
+        "pipx install strata-repo-intel",
+        "python -m pip install --user strata-repo-intel",
+        "python -m pip install -e .",
+        "py -m pip install -e .",
+        "strata help",
+        "strata start",
+        'strata context --budget small "your task"',
+        "python 3.13",
+        "older python versions",
+        "user scripts directory",
+        "path",
+        "reopen",
         "install-strata.ps1",
         "install.ps1",
         "https://raw.githubusercontent.com/vaibhav-malladi/strata/main/install-strata.ps1",
-        "https://github.com/vaibhav-malladi/strata.git",
-        "-verboseinstall",
-        "pip",
-        "-e",
-        "editable",
-        "py -m strata help",
         "strata doctor install",
-        "bootstrap installer",
-        "clone",
-        "update",
-        "git",
-        "python",
-        "path",
-        "non-git",
-        "local changes",
-        "vs code",
-        "strata start",
-        "restart",
-        "install.log",
+        ".aidc/",
     )
+    assert "python -m strata" not in text.lower()
     assert "<raw-install-strata-url>" not in text
     assert "<repo-url>" not in text
     assert "YOUR_REAL_USERNAME" not in text
@@ -457,5 +454,5 @@ TESTS = [
     test_doctor_install_reports_python_and_path_diagnostics,
     test_install_ps1_contains_bootstrap_prompts,
     test_install_strata_ps1_contains_bootstrap_flow,
-    test_readme_install_section_mentions_bootstrap_and_fallback,
+    test_readme_install_section_mentions_package_install_paths_and_bootstrap,
 ]
