@@ -5,6 +5,7 @@ import math
 from context_efficiency import estimate_tokens
 from context_matching import _normalize_path
 from selected_context import build_selected_file_entries
+from symbol_slicing import collect_symbol_hints
 
 
 BUDGET_PRESETS = {
@@ -110,6 +111,12 @@ def build_budget_report(
         included.append(_annotate_entry(entry, cost, "included"))
 
     excluded_total_count = max(0, len(ranked_entries) - (len(included) - len(selected_entries)))
+    symbol_hints = collect_symbol_hints(
+        graph,
+        task,
+        included,
+        selected_paths=selected_paths or [],
+    )
 
     return {
         "budget": budget,
@@ -124,6 +131,8 @@ def build_budget_report(
         "estimated_context_tokens": included_tokens,
         "selected_over_budget": selected_over_budget,
         "budget_mode": budget["mode"],
+        "symbol_hints": symbol_hints,
+        "symbol_hints_count": len(symbol_hints),
     }
 
 
@@ -144,17 +153,29 @@ def build_budget_summary_rows(report: dict) -> list[tuple[str, object]]:
         ("Target estimated tokens", _format_budget_target(target_tokens)),
         (budgeted_context_label, f"~{int(budgeted_context_tokens):,}"),
         ("Files included", _format_file_list(included_entries, total_count=len(included_entries))),
-        (
-            "Files skipped by budget",
-            _format_file_list(
-                excluded_entries,
-                empty_value="none",
-                total_count=int(report.get("excluded_total_count", len(excluded_entries)) or 0),
-            ),
-        ),
-        ("Budget exceeded by selected files", _format_yes_no(bool(report.get("selected_over_budget")))),
-        ("Budget mode", str(report.get("budget_mode") or "best effort")),
     ]
+
+    symbol_hints_count = int(report.get("symbol_hints_count", len(report.get("symbol_hints", []) or [])) or 0)
+    if symbol_hints_count:
+        rows.append(("Symbol hints", f"{symbol_hints_count} matched"))
+
+    rows.extend(
+        [
+            (
+                "Files skipped by budget",
+                _format_file_list(
+                    excluded_entries,
+                    empty_value="none",
+                    total_count=int(report.get("excluded_total_count", len(excluded_entries)) or 0),
+                ),
+            ),
+            (
+                "Budget exceeded by selected files",
+                _format_yes_no(bool(report.get("selected_over_budget"))),
+            ),
+            ("Budget mode", str(report.get("budget_mode") or "best effort")),
+        ]
+    )
 
     return rows
 

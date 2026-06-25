@@ -206,6 +206,27 @@ def test_write_context_reports_counts_for_simple_task_case():
         assert "fix helper bug" in content
 
 
+def test_write_context_reports_symbol_hints_when_matches_exist():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        create_context_repo(root)
+
+        with change_directory(root):
+            exit_code, output = capture_output(
+                write_context,
+                str(root),
+                "change user login API",
+            )
+
+        content = (root / ".aidc" / "context_pack.md").read_text(encoding="utf-8")
+
+        assert exit_code == 0
+        assert "Symbol hints" in output
+        assert "## Symbol Hints" in content
+        assert "login_user" in content
+        assert "find_user" in content
+
+
 def test_write_context_reports_frontend_repo_intelligence():
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
@@ -240,5 +261,6 @@ TESTS = [
     test_write_context_reports_budget_summary_when_budget_is_tight,
     test_write_context_still_works_when_routes_are_missing,
     test_write_context_reports_counts_for_simple_task_case,
+    test_write_context_reports_symbol_hints_when_matches_exist,
     test_write_context_reports_frontend_repo_intelligence,
 ]

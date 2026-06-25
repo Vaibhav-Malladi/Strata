@@ -15,6 +15,7 @@ from context_budget import (
     build_included_context_section,
     build_structured_intent_section,
 )
+from symbol_slicing import build_symbol_hints_section
 
 
 SUPPORTED_AGENTS = {"generic", "local", "aider", "chatgpt"}
@@ -153,6 +154,7 @@ def _generate_generic_prompt(
     lines.extend(build_context_budget_section(budget_report))
     lines.extend(build_included_context_section(budget_report))
     lines.extend(build_excluded_context_section(budget_report))
+    lines.extend(build_symbol_hints_section(budget_report.get("symbol_hints")))
     lines.extend(_format_health_summary(health))
     lines.extend(_format_relevant_files(relevant_files))
     lines.extend(_format_verification_plan(graph, relevant_files))
@@ -192,6 +194,7 @@ def _generate_local_prompt(
     lines.extend(build_context_budget_section(budget_report))
     lines.extend(build_included_context_section(budget_report))
     lines.extend(build_excluded_context_section(budget_report))
+    lines.extend(build_symbol_hints_section(budget_report.get("symbol_hints")))
     lines.extend(_format_compact_file_list(relevant_files))
     lines.extend(_format_compact_verification_plan(graph, relevant_files))
 
@@ -227,6 +230,7 @@ def _generate_aider_prompt(
     lines.extend(build_context_budget_section(budget_report))
     lines.extend(build_included_context_section(budget_report))
     lines.extend(build_excluded_context_section(budget_report))
+    lines.extend(build_symbol_hints_section(budget_report.get("symbol_hints")))
     lines.extend(_format_aider_file_section(relevant_files))
     lines.extend(_format_compact_verification_plan(graph, relevant_files))
 
@@ -271,6 +275,7 @@ def _generate_chatgpt_prompt(
     lines.extend(build_context_budget_section(budget_report))
     lines.extend(build_included_context_section(budget_report))
     lines.extend(build_excluded_context_section(budget_report))
+    lines.extend(build_symbol_hints_section(budget_report.get("symbol_hints")))
     lines.extend(_format_health_summary(health))
     lines.extend(_format_relevant_files(relevant_files))
     lines.extend(_format_verification_plan(graph, relevant_files))
