@@ -63,8 +63,9 @@ def print_usage() -> None:
     print()
 
     print("Selected-file examples:")
-    print('  strata ask --file helper.py "fix the greeting"')
-    print('  strata run --file app.py --file helper.py "refactor this flow"')
+    print('  strata ask --file LoginForm "fix validation"')
+    print('  strata run --file run_command "fix dry run output" --dry-run')
+    print('  strata ask --file run_command --file ask_command "compare these flows"')
     print()
 
     print("Usage:")
@@ -87,7 +88,7 @@ def print_usage() -> None:
 def _main_workflow_lines() -> list[tuple[str, str]]:
     return [
         ("strata start [path]", "Set up Strata, build the repo snapshot cache, and understand this project."),
-        ('strata ask [--file <path>] "<task>" [path]', "Prepare context for your configured AI mode and collect a safe patch."),
+        ('strata ask [--file <reference>]... "<task>" [path]', "Prepare context for your configured AI mode and collect a safe patch."),
         ("strata review [path]", "Inspect and validate the patch before applying."),
         ("strata apply [--yes] [--dry-run] [path]", "Validate or apply the generated patch."),
     ]
@@ -176,9 +177,9 @@ def _advanced_command_entries() -> list[tuple[str, str | None]]:
         ('strata context <root> "<task>"', None),
         ('strata prepare "<task>"', None),
         ('strata prepare "<task>" <root>', None),
-        ('strata run [--file <path>] "<task>"', "Prepare context, request a patch, review it, and end with `strata apply` as the next step."),
+        ('strata run [--file <reference>]... "<task>"', "Prepare context, request a patch, review it, and end with `strata apply` as the next step."),
         ('strata run "<task>" <root>', None),
-        ('strata run --file <path> --file <path> "<task>"', None),
+        ('strata run --file <reference> --file <reference> "<task>"', None),
         ('strata run --type <task_type> "<task>"', None),
         ('strata run --type <task_type> "<task>" <root>', None),
         ('strata run --fast "<task>"', "Same guided flow, but asks before applying a validated patch."),

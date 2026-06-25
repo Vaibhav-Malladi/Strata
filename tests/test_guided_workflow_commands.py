@@ -34,6 +34,19 @@ def _create_repo(root: Path) -> None:
     root.mkdir(parents=True, exist_ok=True)
     (root / "main.py").write_text("print('hello')\n", encoding="utf-8")
     (root / "helper.py").write_text("def helper():\n    return True\n", encoding="utf-8")
+    (root / "commands" / "run_command.py").parent.mkdir(parents=True, exist_ok=True)
+    (root / "commands" / "run_command.py").write_text("def run_command():\n    return None\n", encoding="utf-8")
+    (root / "commands" / "ask_command.py").write_text("def ask_command():\n    return None\n", encoding="utf-8")
+    (root / "commands" / "config_command.py").write_text("def config_command():\n    return None\n", encoding="utf-8")
+    (root / "workflow_config.py").write_text("CONFIG = True\n", encoding="utf-8")
+    (root / "tests" / "test_config_command.py").parent.mkdir(parents=True, exist_ok=True)
+    (root / "tests" / "test_config_command.py").write_text("def test_config_command():\n    assert True\n", encoding="utf-8")
+    (root / "src" / "components" / "LoginForm.tsx").parent.mkdir(parents=True, exist_ok=True)
+    (root / "src" / "components" / "LoginForm.tsx").write_text(
+        "export function LoginForm() { return null; }\n",
+        encoding="utf-8",
+    )
+    (root / "credentials.json").write_text("{}\n", encoding="utf-8")
 
 
 def _create_patch_file(root: Path, content: str) -> Path:
@@ -71,7 +84,7 @@ def test_help_lists_main_workflow_before_advanced_commands():
     assert output.index("Connect AI") < output.index("Main workflow:") < output.index("Advanced commands:")
     assert "repo snapshot cache" in output.lower()
     assert "strata start [path]" in output
-    assert 'strata ask [--file <path>] "<task>" [path]' in output
+    assert 'strata ask [--file <reference>]... "<task>" [path]' in output
     assert "strata start" in output
     assert "strata setup" in output
     assert "strata run" in output
@@ -92,8 +105,9 @@ def test_help_lists_main_workflow_before_advanced_commands():
     assert "strata review <root>" in output
     assert "strata apply --yes" in output
     assert "Selected-file examples" in output
-    assert 'strata ask --file helper.py "fix the greeting"' in output
-    assert 'strata run --file app.py --file helper.py "refactor this flow"' in output
+    assert 'strata ask --file LoginForm "fix validation"' in output
+    assert 'strata run --file run_command "fix dry run output" --dry-run' in output
+    assert 'strata ask --file run_command --file ask_command "compare these flows"' in output
 
 
 def test_start_reports_repo_readiness_and_intelligence():
@@ -246,9 +260,9 @@ def test_ask_selected_file_mode_accepts_repeated_file_flags_and_anchors_prompt()
             root,
             "ask",
             "--file",
-            "helper.py",
+            "run_command",
             "--file",
-            "main.py",
+            "ask_command",
             "fix the greeting",
         )
 
@@ -256,15 +270,18 @@ def test_ask_selected_file_mode_accepts_repeated_file_flags_and_anchors_prompt()
 
         assert exit_code == 0
         assert "Selected context" in output
+        assert "Resolved files" in output
+        assert "run_command -> commands/run_command.py" in output
+        assert "ask_command -> commands/ask_command.py" in output
         assert "Context mode" in output
         assert "selected files" in output.lower()
         assert "Selected files" in output
-        assert "helper.py" in output
-        assert "main.py" in output
+        assert "commands/run_command.py" in output
+        assert "commands/ask_command.py" in output
         assert "selected-file context" in output.lower()
         assert "User-selected files" in prompt_text
-        assert "helper.py" in prompt_text
-        assert "main.py" in prompt_text
+        assert "commands/run_command.py" in prompt_text
+        assert "commands/ask_command.py" in prompt_text
 
 
 def test_ask_missing_selected_file_is_rejected_with_friendly_error():
@@ -275,7 +292,8 @@ def test_ask_missing_selected_file_is_rejected_with_friendly_error():
         exit_code, output = _run_cli(root, "ask", "--file", "missing.py", "fix the greeting")
 
         assert exit_code == 1
-        assert "Selected file does not exist" in output
+        assert "No file matched" in output
+        assert "Closest matches" in output
         assert "Ask failed" in output
 
 
@@ -316,6 +334,33 @@ def test_ask_ignored_generated_selected_file_is_rejected_with_friendly_error():
 
         assert exit_code == 1
         assert "ignored or generated" in output.lower()
+        assert "Ask failed" in output
+
+
+def test_ask_ambiguous_selected_file_is_rejected_with_ranked_candidates():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _create_repo(root)
+
+        exit_code, output = _run_cli(root, "ask", "--file", "config", "fix loading")
+
+        assert exit_code == 1
+        assert "Could not safely choose one file for" in output
+        assert "Closest matches" in output
+        assert "workflow_config.py" in output
+        assert "config_command.py" in output
+        assert "Ask failed" in output
+
+
+def test_ask_secret_like_selected_file_is_rejected_with_friendly_error():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _create_repo(root)
+
+        exit_code, output = _run_cli(root, "ask", "--file", "credentials.json", "fix the greeting")
+
+        assert exit_code == 1
+        assert "secret/credential file" in output.lower()
         assert "Ask failed" in output
 
 

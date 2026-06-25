@@ -25,6 +25,19 @@ def _create_run_repo(root: Path) -> None:
         encoding="utf-8",
     )
 
+    (root / "commands" / "run_command.py").parent.mkdir(parents=True, exist_ok=True)
+    (root / "commands" / "run_command.py").write_text("def run_command():\n    return None\n", encoding="utf-8")
+    (root / "commands" / "ask_command.py").write_text("def ask_command():\n    return None\n", encoding="utf-8")
+    (root / "commands" / "config_command.py").write_text("def config_command():\n    return None\n", encoding="utf-8")
+    (root / "workflow_config.py").write_text("CONFIG = True\n", encoding="utf-8")
+    (root / "tests" / "test_config_command.py").parent.mkdir(parents=True, exist_ok=True)
+    (root / "tests" / "test_config_command.py").write_text("def test_config_command():\n    assert True\n", encoding="utf-8")
+    (root / "src" / "components" / "LoginForm.tsx").parent.mkdir(parents=True, exist_ok=True)
+    (root / "src" / "components" / "LoginForm.tsx").write_text(
+        "export function LoginForm() { return null; }\n",
+        encoding="utf-8",
+    )
+
 
 def _save_run_config(root: Path, **overrides) -> None:
     config = default_config()
@@ -338,15 +351,17 @@ def test_run_selected_file_mode_shows_context_mode_and_selected_files():
                 write_run_command,
                 str(repo_root),
                 "--file",
-                "helper.py",
+                "run_command",
                 "refactor helper flow",
             )
 
         assert exit_code == 0
+        assert "Resolved files" in output
+        assert "run_command -> commands/run_command.py" in output
         assert "Context mode" in output
         assert "selected files" in output.lower()
         assert "Selected files" in output
-        assert "helper.py" in output
+        assert "commands/run_command.py" in output
         assert "selected-file context" in output.lower()
         assert (repo_root / ".aidc" / "agent_prompt.md").exists()
 

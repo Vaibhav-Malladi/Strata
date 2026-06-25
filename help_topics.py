@@ -183,9 +183,9 @@ def _render_ask_help() -> None:
     _print_lines(
         "Selected-file context",
         [
-            "If you already know the important file, anchor context with `--file helper.py`.",
+            "If you already know the important file, anchor context with `--file LoginForm` or `--file run_command.py`.",
             "Use repeated `--file` flags for more than one file.",
-            'Example: `strata ask --file helper.py "fix the greeting"`.',
+            'Example: `strata ask --file run_command --file ask_command "compare these flows"`.',
         ],
     )
     _print_lines(
@@ -237,7 +237,7 @@ def _render_run_help() -> None:
     _print_lines(
         "Selected-file context",
         [
-            "If you already know the file, run `strata run --file app.py \"fix bug\"`.",
+            "If you already know the file, run `strata run --file LoginForm \"fix bug\"` or `strata run --file run_command \"fix dry run output\" --dry-run`.",
             "Use repeated `--file` flags to anchor multiple files before the task.",
             'Example: `strata run --file app.py --file helper.py "refactor this flow"`.',
         ],

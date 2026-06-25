@@ -18,7 +18,10 @@ from full_scan import describe_full_scan_readiness, format_full_scan_status, loa
 from selected_context import (
     context_mode_description,
     context_mode_label,
+    format_file_reference_failure_lines,
+    format_file_reference_resolution_lines,
     format_selected_file_list,
+    resolve_file_references,
     normalize_selected_paths,
 )
 from snapshot_cache import format_snapshot_cache_status
@@ -61,10 +64,30 @@ def write_ask_command(root_path: str = ".", *args: str) -> int:
         return 1
 
     try:
-        selected_paths = normalize_selected_paths(root, raw_selected_paths)
+        resolution_result = resolve_file_references(root, raw_selected_paths, task=task)
     except ValueError as error:
         _print_error("Ask failed", str(error))
         return 1
+
+    if resolution_result["status"] != "resolved":
+        failed = resolution_result.get("failed") or resolution_result
+        _print_error(
+            "Ask failed",
+            str(failed.get("message") or "File reference could not be resolved."),
+            format_file_reference_failure_lines(failed)[1:],
+        )
+        return 1
+
+    try:
+        selected_paths = normalize_selected_paths(root, resolution_result["resolved_paths"])
+    except ValueError as error:
+        _print_error("Ask failed", str(error))
+        return 1
+
+    resolution_lines = format_file_reference_resolution_lines(resolution_result)
+    if resolution_lines:
+        for line in resolution_lines:
+            print(line)
 
     try:
         config = load_config(root)
@@ -669,7 +692,7 @@ def _parse_ask_args(args: Sequence[str]) -> dict:
         if arg == "--file":
             index += 1
             if index >= len(args):
-                raise ValueError("--file requires a file path")
+                raise ValueError("--file requires a file reference")
             selected_paths.append(args[index])
         elif arg.startswith("-"):
             raise ValueError(f"Unknown option: {arg}")
@@ -709,13 +732,16 @@ def _validate_root(root: str) -> bool:
 
 
 def _print_usage() -> None:
-    print('Usage: strata ask [--file <path>]... "<task>" [root]')
+    print('Usage: strata ask [--file <reference>]... "<task>" [root]')
 
 
-def _print_error(title: str, message: str) -> None:
+def _print_error(title: str, message: str, details: list[str] | None = None) -> None:
     print_banner()
     print_command_header("Ask", title, mode="compact")
     print(format_error(message))
+
+    for line in details or []:
+        print(line)
 
 
 def _print_direct_edit_warning() -> None:

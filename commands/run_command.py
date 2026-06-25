@@ -12,7 +12,10 @@ from full_scan import describe_full_scan_readiness, format_full_scan_status, loa
 from selected_context import (
     context_mode_description,
     context_mode_label,
+    format_file_reference_failure_lines,
+    format_file_reference_resolution_lines,
     format_selected_file_list,
+    resolve_file_references,
     normalize_selected_paths,
 )
 from snapshot_cache import format_snapshot_cache_status
@@ -30,7 +33,7 @@ from ui import (
 from workflow_config import load_config
 from workflow_planner import build_step_plan
 
-RUN_USAGE = 'Usage: strata run [--file <path>]... [--dry-run] [--fast] [--type <task_type>] "<task>" [root]'
+RUN_USAGE = 'Usage: strata run [--file <reference>]... [--dry-run] [--fast] [--type <task_type>] "<task>" [root]'
 
 
 def write_run_command(root_path: str, *args: str) -> int:
@@ -51,10 +54,30 @@ def write_run_command(root_path: str, *args: str) -> int:
         return 1
 
     try:
-        selected_paths = normalize_selected_paths(root, raw_selected_paths)
+        resolution_result = resolve_file_references(root, raw_selected_paths, task=task)
     except ValueError as error:
         _print_error("Run failed", str(error))
         return 1
+
+    if resolution_result["status"] != "resolved":
+        failed = resolution_result.get("failed") or resolution_result
+        _print_error(
+            "Run failed",
+            str(failed.get("message") or "File reference could not be resolved."),
+            format_file_reference_failure_lines(failed)[1:],
+        )
+        return 1
+
+    try:
+        selected_paths = normalize_selected_paths(root, resolution_result["resolved_paths"])
+    except ValueError as error:
+        _print_error("Run failed", str(error))
+        return 1
+
+    resolution_lines = format_file_reference_resolution_lines(resolution_result)
+    if resolution_lines:
+        for line in resolution_lines:
+            print(line)
 
     try:
         config = load_config(root)
@@ -209,7 +232,7 @@ def _parse_run_args(args: Sequence[str]) -> dict[str, Any]:
         if arg == "--file":
             index += 1
             if index >= len(args):
-                raise ValueError("--file requires a file path")
+                raise ValueError("--file requires a file reference")
             selected_paths.append(args[index])
         elif arg == "--dry-run":
             dry_run = True
@@ -337,9 +360,12 @@ def _confirm_apply() -> bool:
     return response.strip().lower() in {"y", "yes"}
 
 
-def _print_error(title: str, message: str) -> None:
+def _print_error(title: str, message: str, details: list[str] | None = None) -> None:
     print_banner()
     print_status_card(title, [("Message", message)], status=format_error("failed"))
+
+    for line in details or []:
+        print(line)
 
 
 def _print_snapshot_cache_note(cache_result: dict | None) -> None:

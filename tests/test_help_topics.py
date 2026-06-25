@@ -54,13 +54,13 @@ def test_help_usage_mentions_all_ai_modes_and_beginner_topics():
         "strata setup --command",
         "strata setup --codex-cli",
         "strata setup --aider",
-        'strata ask [--file <path>] "<task>" [path]',
+        'strata ask [--file <reference>]... "<task>" [path]',
         "strata scan [path] [--force]",
         "strata status [path]",
         "strata review",
         "strata apply --dry-run",
         "strata apply",
-        'strata run [--file <path>] "<task>"',
+        'strata run [--file <reference>]... "<task>"',
         "strata doctor install",
         "strata help setup",
         "strata help ask",
@@ -68,8 +68,9 @@ def test_help_usage_mentions_all_ai_modes_and_beginner_topics():
         "strata help scan",
         "strata help status",
         "Selected-file examples",
-        'strata ask --file helper.py "fix the greeting"',
-        'strata run --file app.py --file helper.py "refactor this flow"',
+        'strata ask --file LoginForm "fix validation"',
+        'strata run --file run_command "fix dry run output" --dry-run',
+        'strata ask --file run_command --file ask_command "compare these flows"',
     )
 
 
@@ -221,8 +222,9 @@ def test_help_ask_topic_mentions_setup_and_next_steps():
         "strata apply --dry-run",
         "strata apply",
         "selected-file context",
-        "--file helper.py",
-        "helper.py",
+        "--file LoginForm",
+        "run_command",
+        "ask_command",
     )
 
 
@@ -244,7 +246,20 @@ def test_help_run_topic_mentions_fast_confirmation():
     exit_code, output = _run_cli("help", "run")
 
     assert exit_code == 0
-    _assert_terms(output, "strata run", "patch", "review", "--fast", "apply", "commit", "push", "auto", "selected-file context", "--file app.py", "helper.py")
+    _assert_terms(
+        output,
+        "strata run",
+        "patch",
+        "review",
+        "--fast",
+        "apply",
+        "commit",
+        "push",
+        "auto",
+        "selected-file context",
+        "--file loginform",
+        "run_command",
+    )
     _assert_terms(output, ("confirm", "confirmation"))
 
 
