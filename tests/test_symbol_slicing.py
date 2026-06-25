@@ -4,7 +4,13 @@ from pathlib import Path
 from agent_export import generate_agent_prompt
 from context_budget import build_budget_report, build_budget_summary_rows
 from context_pack import build_context_pack
-from symbol_slicing import build_symbol_snippets, build_symbol_snippets_section, collect_symbol_hints, extract_python_symbols
+from symbol_slicing import (
+    build_symbol_snippets,
+    build_symbol_snippets_section,
+    collect_symbol_hints,
+    extract_javascript_symbols,
+    extract_python_symbols,
+)
 
 
 def _write_file(path: Path, content: str) -> None:
@@ -77,6 +83,75 @@ def test_extract_python_symbols_returns_safe_error_for_syntax_error():
         assert result["status"] == "syntax_error"
         assert result["symbols"] == []
         assert result["error"]["type"] == "syntax_error"
+
+
+def test_extract_javascript_symbols_finds_functions_typed_arrows_components_hooks_and_methods():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        file_path = root / "LoginPanel.tsx"
+        _write_file(
+            file_path,
+            (
+                "export async function saveUser(user: User) {\n"
+                "  return user;\n"
+                "}\n\n"
+                "export const useAuth: AuthHook = async (token: string) => {\n"
+                "  return token;\n"
+                "};\n\n"
+                "export const LoginPanel = (props: Props) => <button />;\n\n"
+                "export class UserService {\n"
+                "  async login(user: User) {\n"
+                "    return user;\n"
+                "  }\n"
+                "}\n"
+            ),
+        )
+
+        result = extract_javascript_symbols(file_path)
+        symbols = {item["qualname"]: item for item in result["symbols"]}
+
+        assert result["status"] == "ok"
+        assert symbols["saveUser"]["kind"] == "function"
+        assert symbols["useAuth"]["kind"] == "hook"
+        assert symbols["LoginPanel"]["kind"] == "component"
+        assert symbols["UserService"]["kind"] == "class"
+        assert symbols["UserService.login"]["kind"] == "method"
+        assert all(item["confidence"] == "medium" for item in symbols.values())
+        assert all(item["confidence_reason"] == "regex" for item in symbols.values())
+        assert symbols["useAuth"]["signature"].startswith("(token")
+
+
+def test_generated_context_includes_approximate_tsx_symbol_confidence():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _write_file(
+            root / "src" / "LoginButton.tsx",
+            "export const LoginButton = ({ disabled }: Props) => <button disabled={disabled} />;\n",
+        )
+        graph = {
+            "root": str(root),
+            "files": [
+                {
+                    **_make_graph(root, ["src/LoginButton.tsx"])["files"][0],
+                    "path": "src/LoginButton.tsx",
+                    "language": "typescript",
+                    "functions": [{"name": "LoginButton"}],
+                }
+            ],
+            "edges": [],
+        }
+
+        content = build_context_pack(
+            graph,
+            "fix login button not disabling",
+            selected_paths=["src/LoginButton.tsx"],
+            budget_value="small",
+        )
+
+        assert "## Symbol Hints" in content
+        assert "LoginButton" in content
+        assert "medium confidence (regex)" in content
+        assert "## React Hints" in content
 
 
 def test_collect_symbol_hints_prefers_selected_file_symbols_and_reports_term_matches():
@@ -795,6 +870,8 @@ def test_context_pack_and_agent_prompt_include_symbol_snippets_section():
 TESTS = [
     test_extract_python_symbols_finds_functions_classes_and_methods,
     test_extract_python_symbols_returns_safe_error_for_syntax_error,
+    test_extract_javascript_symbols_finds_functions_typed_arrows_components_hooks_and_methods,
+    test_generated_context_includes_approximate_tsx_symbol_confidence,
     test_collect_symbol_hints_prefers_selected_file_symbols_and_reports_term_matches,
     test_collect_symbol_hints_prioritizes_selected_files_over_adjacent_single_term_matches,
     test_symbol_hints_section_survives_tiny_budget_and_selected_files,

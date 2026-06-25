@@ -1,4 +1,5 @@
 import ast
+import re
 from pathlib import Path
 
 from context_matching import extract_identifier_terms, extract_task_terms, _dedupe, _file_stem, _normalize_path
@@ -69,6 +70,50 @@ def extract_python_test_functions(path: str | Path) -> dict:
     return result
 
 
+def extract_javascript_test_functions(path: str | Path) -> dict:
+    """Extract common test/it declarations from JS, TS, JSX, and TSX files."""
+
+    file_path = Path(path)
+    normalized_path = str(file_path).replace("\\", "/")
+    result = {
+        "path": normalized_path,
+        "language": "typescript" if file_path.suffix.lower() in {".ts", ".tsx"} else "javascript",
+        "status": "ok",
+        "functions": [],
+    }
+    try:
+        lines = file_path.read_text(encoding="utf-8").splitlines()
+    except OSError as error:
+        result["status"] = "read_error"
+        result["error"] = {"type": "read_error", "message": str(error)}
+        return result
+
+    pattern = re.compile(
+        r"^\s*(?:it|test)\s*\(\s*([\"'`])(?P<name>.+?)\1\s*,"
+    )
+    functions = []
+    for line_number, line in enumerate(lines, start=1):
+        match = pattern.match(line)
+        if match is None:
+            continue
+        functions.append(
+            {
+                "name": match.group("name"),
+                "start_line": line_number,
+                "end_line": line_number,
+                "signature": "",
+            }
+        )
+    result["functions"] = functions
+    return result
+
+
+def extract_test_functions(path: str | Path) -> dict:
+    if Path(path).suffix.lower() == ".py":
+        return extract_python_test_functions(path)
+    return extract_javascript_test_functions(path)
+
+
 def collect_test_hints(
     graph: dict,
     task: str,
@@ -99,7 +144,7 @@ def collect_test_hints(
         if not file_path.exists() or file_path.is_dir():
             continue
 
-        parsed = extract_python_test_functions(file_path)
+        parsed = extract_test_functions(file_path)
         if parsed.get("status") != "ok":
             continue
 
@@ -112,7 +157,12 @@ def collect_test_hints(
             task_terms,
             source_match,
         )
-        if not function_hints:
+        file_only = (
+            not function_hints
+            and bool(source_match.get("exact_filename"))
+            and file_path.suffix.lower() in {".js", ".jsx", ".ts", ".tsx"}
+        )
+        if not function_hints and not file_only:
             continue
 
         function_hints = function_hints[:DEFAULT_TEST_HINT_FUNCTIONS_PER_FILE]
@@ -124,6 +174,7 @@ def collect_test_hints(
                 "reason": source_match["reason"],
                 "score": source_match["score"],
                 "functions": function_hints,
+                "file_only": file_only,
             }
         )
 
@@ -147,7 +198,11 @@ def collect_test_hints(
             included_function_count += 1
         file_item["functions"] = trimmed
 
-    included_files = [file_item for file_item in included_files if file_item.get("functions")]
+    included_files = [
+        file_item
+        for file_item in included_files
+        if file_item.get("functions") or file_item.get("file_only")
+    ]
     included_function_count = sum(len(file_item.get("functions", [])) for file_item in included_files)
 
     skipped_file_count = max(0, len(file_candidates) - len(included_files))
@@ -326,8 +381,9 @@ def _build_test_text_hint(file_info: dict, path: str) -> str:
 
 
 def _best_source_match(test_file: dict, source_candidates: list[dict]) -> dict | None:
-    stem = str(test_file.get("stem", ""))
+    stem = _source_test_stem(str(test_file.get("stem", "")))
     text_hint = str(test_file.get("text_hint", ""))
+    test_parent = Path(str(test_file.get("path", ""))).parent.as_posix()
     best: dict | None = None
 
     for source in source_candidates:
@@ -360,6 +416,12 @@ def _best_source_match(test_file: dict, source_candidates: list[dict]) -> dict |
         if referenced_source:
             score += 180
             reasons.append("references source path or module")
+
+        source_parent = Path(source_path).parent.as_posix()
+        proximity = _directory_proximity(test_parent, source_parent)
+        if proximity:
+            score += proximity
+            reasons.append("nearby directory")
 
         if source.get("selected"):
             score += 40
@@ -587,6 +649,28 @@ def _normalize_text(text: str) -> str:
         .replace("-", " ")
         .lower()
     )
+
+
+def _source_test_stem(stem: str) -> str:
+    normalized = str(stem)
+    for suffix in (".test", ".spec"):
+        if normalized.lower().endswith(suffix):
+            return normalized[: -len(suffix)]
+    return normalized
+
+
+def _directory_proximity(test_parent: str, source_parent: str) -> int:
+    if test_parent == source_parent:
+        return 80
+
+    test_parts = [part for part in test_parent.split("/") if part and part != "__tests__"]
+    source_parts = [part for part in source_parent.split("/") if part]
+    shared = 0
+    for left, right in zip(test_parts, source_parts):
+        if left != right:
+            break
+        shared += 1
+    return min(45, shared * 15)
 
 
 def _empty_test_hint_report(limit_files: int, limit_functions: int) -> dict:

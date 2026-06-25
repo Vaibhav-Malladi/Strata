@@ -330,6 +330,56 @@ def test_budget_summary_reports_test_hint_counts():
         assert ("Test hints", "1 test / 1 file") in rows
 
 
+def test_collect_test_hints_maps_js_ts_component_hook_and_angular_spec_files():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        fixtures = {
+            "src/LoginButton.tsx": "export const LoginButton = () => <button />;\n",
+            "src/LoginButton.test.tsx": "test('disables login button', () => {});\n",
+            "src/useAuth.ts": "export const useAuth = () => true;\n",
+            "src/useAuth.test.ts": "it('updates auth state', () => {});\n",
+            "src/auth.service.ts": "export class AuthService {}\n",
+            "src/auth.service.spec.ts": "test('calls auth service', () => {});\n",
+            "src/UserCard.tsx": "export const UserCard = () => <div />;\n",
+            "src/UserCard.test.tsx": "test(\n  'renders user card',\n  () => {}\n);\n",
+        }
+        for path, content in fixtures.items():
+            _write_file(root / path, content)
+        files = [
+            _source_file("src/LoginButton.tsx"),
+            _test_file("src/LoginButton.test.tsx"),
+            _source_file("src/useAuth.ts"),
+            _test_file("src/useAuth.test.ts"),
+            _source_file("src/auth.service.ts"),
+            _test_file("src/auth.service.spec.ts"),
+            _source_file("src/UserCard.tsx"),
+            _test_file("src/UserCard.test.tsx"),
+        ]
+        for file_info in files:
+            file_info["language"] = "typescript"
+        graph = _make_graph(root, files)
+
+        report = collect_test_hints(
+            graph,
+            "fix login button auth state",
+            relevant_entries=[
+                {"file": files[0], "selected_by_user": True},
+                {"file": files[2]},
+                {"file": files[4]},
+                {"file": files[6]},
+            ],
+            selected_paths=["src/LoginButton.tsx"],
+            limit_files=4,
+        )
+        paths = {item["test_file"] for item in report["included"]}
+
+        assert "src/LoginButton.test.tsx" in paths
+        assert "src/useAuth.test.ts" in paths
+        assert "src/auth.service.spec.ts" in paths
+        assert "src/UserCard.test.tsx" in paths
+        assert report["included_function_count"] >= 3
+
+
 TESTS = [
     test_extract_python_test_functions_returns_only_top_level_test_functions_and_line_ranges,
     test_extract_python_test_functions_handles_syntax_errors_safely,
@@ -337,4 +387,5 @@ TESTS = [
     test_collect_test_hints_maps_selected_context_to_test_fixture,
     test_context_pack_and_agent_prompt_include_test_hints_section,
     test_budget_summary_reports_test_hint_counts,
+    test_collect_test_hints_maps_js_ts_component_hook_and_angular_spec_files,
 ]

@@ -20,8 +20,8 @@ IDENTIFIER_STOP_WORDS = {
 
 TASK_HINT_TERMS = {
     "frontend_ui": {
-        "button", "component", "dashboard", "form", "home", "landing",
-        "navbar", "page", "screen", "ui", "view",
+        "button", "card", "component", "dashboard", "form", "hook", "home",
+        "landing", "navbar", "page", "profile", "screen", "ui", "view",
     },
     "backend_api": {
         "api", "controller", "endpoint", "request", "response", "route",
@@ -217,6 +217,11 @@ def detect_file_roles(file_info: dict) -> list[str]:
     ):
         add("component")
 
+    if stem.startswith("use") and len(stem) > 3 and path.lower().endswith(
+        (".js", ".jsx", ".ts", ".tsx")
+    ):
+        add("hook")
+
     return roles
 
 
@@ -305,6 +310,9 @@ def score_file_for_task(
     if "component" in roles and hints.get("frontend_ui"):
         score += 3
 
+    if "hook" in roles and ("hook" in task_terms or hints.get("frontend_ui")):
+        score += 7
+
     if "route" in roles and hints.get("backend_api"):
         score += 7
 
@@ -367,7 +375,7 @@ def score_confidence(
     if direct_matches >= 1:
         return "medium"
 
-    if score >= 12 and roles.intersection({"page", "component", "route", "controller", "service", "model"}):
+    if score >= 12 and roles.intersection({"page", "component", "hook", "route", "controller", "service", "model"}):
         return "medium"
 
     return "low"
@@ -571,6 +579,9 @@ def _looks_like_component_file(
         return True
 
     if basename_stem.endswith("component"):
+        return True
+
+    if path.lower().endswith((".jsx", ".tsx")) and _file_stem(basename)[:1].isupper():
         return True
 
     return False

@@ -1,4 +1,5 @@
 import ast
+import re
 from pathlib import Path
 
 from context_matching import extract_identifier_terms, extract_task_terms
@@ -20,6 +21,7 @@ WEAK_TASK_TERMS = {
     "output",
     "update",
 }
+JS_TS_EXTENSIONS = {".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx"}
 
 
 def extract_python_symbols(path: str | Path) -> dict:
@@ -68,6 +70,126 @@ def extract_python_symbols(path: str | Path) -> dict:
     return result
 
 
+def extract_javascript_symbols(path: str | Path) -> dict:
+    """Extract useful JavaScript/TypeScript symbols with approximate ranges."""
+
+    file_path = Path(path)
+    normalized_path = str(file_path).replace("\\", "/")
+    language = _javascript_language(file_path)
+    result = {
+        "path": normalized_path,
+        "language": language,
+        "status": "ok",
+        "symbols": [],
+    }
+
+    try:
+        source = file_path.read_text(encoding="utf-8")
+    except OSError as error:
+        result["status"] = "read_error"
+        result["error"] = {"type": "read_error", "message": str(error)}
+        return result
+
+    lines = source.splitlines()
+    symbols: list[dict] = []
+    seen: set[tuple[str, int]] = set()
+    class_ranges: list[tuple[str, int, int]] = []
+
+    patterns = (
+        (
+            re.compile(
+                r"^\s*(?:export\s+)?(?:default\s+)?(?P<async>async\s+)?function\s+"
+                r"(?P<name>[A-Za-z_$][\w$]*)\s*(?P<signature>\([^)]*\))"
+            ),
+            "function",
+        ),
+        (
+            re.compile(
+                r"^\s*(?:export\s+)?(?:default\s+)?class\s+"
+                r"(?P<name>[A-Za-z_$][\w$]*)"
+            ),
+            "class",
+        ),
+        (
+            re.compile(
+                r"^\s*(?:export\s+)?(?:default\s+)?(?:const|let|var)\s+"
+                r"(?P<name>[A-Za-z_$][\w$]*)"
+                r"(?:\s*:\s*[^=]+)?\s*=\s*(?:async\s*)?"
+                r"(?P<signature>\([^)]*\)|[A-Za-z_$][\w$]*)\s*=>"
+            ),
+            "function",
+        ),
+    )
+
+    for index, line in enumerate(lines, start=1):
+        for pattern, default_kind in patterns:
+            match = pattern.match(line)
+            if match is None:
+                continue
+
+            name = match.group("name")
+            key = (name, index)
+            if key in seen:
+                break
+            seen.add(key)
+
+            end_line = _approximate_js_symbol_end(lines, index)
+            kind = _javascript_symbol_kind(
+                name,
+                default_kind,
+                file_path.suffix.lower(),
+            )
+            signature = _compact_signature(line, match.groupdict().get("signature"))
+            symbol = {
+                "name": name,
+                "qualname": name,
+                "kind": kind,
+                "file_path": normalized_path,
+                "start_line": index,
+                "end_line": end_line,
+                "signature": signature,
+                "language": language,
+                "confidence": "medium",
+                "confidence_reason": "regex",
+            }
+            symbols.append(symbol)
+            if default_kind == "class":
+                class_ranges.append((name, index, end_line))
+            break
+
+    for class_name, start_line, end_line in class_ranges:
+        symbols.extend(
+            _extract_javascript_class_methods(
+                lines,
+                class_name,
+                start_line,
+                end_line,
+                normalized_path,
+                language,
+            )
+        )
+
+    symbols.sort(key=lambda item: (int(item["start_line"]), str(item["qualname"])))
+    result["symbols"] = symbols
+    return result
+
+
+def extract_symbols(path: str | Path) -> dict:
+    """Dispatch symbol extraction by supported source extension."""
+
+    suffix = Path(path).suffix.lower()
+    if suffix == ".py":
+        return extract_python_symbols(path)
+    if suffix in JS_TS_EXTENSIONS:
+        return extract_javascript_symbols(path)
+    return {
+        "path": str(path).replace("\\", "/"),
+        "language": "unknown",
+        "status": "unsupported",
+        "symbols": [],
+    }
+
+
 def collect_symbol_hints(
     graph: dict,
     task: str,
@@ -95,17 +217,15 @@ def collect_symbol_hints(
             continue
 
         normalized_path = _normalize_path(path)
-        language = str(file_info.get("language", "")).strip().lower()
-        if language and language not in {"python", "unknown"}:
-            continue
-        if not normalized_path.endswith(".py"):
+        suffix = Path(normalized_path).suffix.lower()
+        if suffix != ".py" and suffix not in JS_TS_EXTENSIONS:
             continue
 
         file_path = root / Path(path)
         if not file_path.exists() or file_path.is_dir():
             continue
 
-        parsed = extract_python_symbols(file_path)
+        parsed = extract_symbols(file_path)
         if parsed.get("status") != "ok":
             continue
 
@@ -184,9 +304,19 @@ def build_symbol_hints_section(symbol_hints: list[dict] | None) -> list[str]:
         start_line = hint.get("start_line")
         end_line = hint.get("end_line")
         reason = str(hint.get("reason", "matched task context"))
+        confidence = str(hint.get("confidence", "")).strip()
+        confidence_reason = str(hint.get("confidence_reason", "")).strip()
         line_range = _format_line_range(start_line, end_line)
+        confidence_text = ""
+        if confidence:
+            confidence_text = f", {confidence} confidence"
+            if confidence_reason:
+                confidence_text += f" ({confidence_reason})"
 
-        lines.append(f"- `{file_path}`::{symbol_name} - {kind}, {line_range}, {reason}")
+        lines.append(
+            f"- `{file_path}`::{symbol_name} - {kind}, {line_range}"
+            f"{confidence_text}, {reason}"
+        )
 
     lines.append("")
     return lines
@@ -248,7 +378,7 @@ def build_symbol_snippets(
             skipped.append(_build_symbol_snippet_skip(hint, "secret-looking path"))
             continue
 
-        if not file_path.endswith(".py"):
+        if Path(file_path).suffix.lower() != ".py" and Path(file_path).suffix.lower() not in JS_TS_EXTENSIONS:
             skipped.append(_build_symbol_snippet_skip(hint, "unsupported file type"))
             continue
 
@@ -351,7 +481,7 @@ def build_symbol_snippets_section(snippet_report: dict | None) -> list[str]:
         lines.append("")
         lines.append(f"Lines {start_line}-{end_line}. Reason: {reason}.")
         lines.append("")
-        lines.append("```python")
+        lines.append(f"```{_snippet_language(file_path)}")
         if snippet_text:
             lines.extend(snippet_text.splitlines())
         else:
@@ -377,6 +507,9 @@ def _build_class_symbol(node: ast.ClassDef, file_path: str) -> dict:
         "start_line": node.lineno,
         "end_line": getattr(node, "end_lineno", node.lineno),
         "signature": f"class {node.name}",
+        "language": "python",
+        "confidence": "high",
+        "confidence_reason": "ast",
     }
 
 
@@ -390,6 +523,9 @@ def _build_function_symbol(node: ast.AST, file_path: str) -> dict:
         "start_line": getattr(node, "lineno", 0),
         "end_line": getattr(node, "end_lineno", getattr(node, "lineno", 0)),
         "signature": _format_function_signature(node),
+        "language": "python",
+        "confidence": "high",
+        "confidence_reason": "ast",
     }
 
 
@@ -410,6 +546,9 @@ def _build_method_symbols(node: ast.ClassDef, file_path: str) -> list[dict]:
                 "start_line": child.lineno,
                 "end_line": getattr(child, "end_lineno", child.lineno),
                 "signature": _format_function_signature(child),
+                "language": "python",
+                "confidence": "high",
+                "confidence_reason": "ast",
             }
         )
 
@@ -466,6 +605,9 @@ def _score_symbol_hint(
         "start_line": int(symbol.get("start_line", 0) or 0),
         "end_line": int(symbol.get("end_line", 0) or 0),
         "signature": str(symbol.get("signature", "")),
+        "language": str(symbol.get("language", "")),
+        "confidence": str(symbol.get("confidence", "medium")),
+        "confidence_reason": str(symbol.get("confidence_reason", "regex")),
         "reason": "; ".join(reasons) if reasons else "matched task context",
         "priority": priority,
         "matched_term_count": len(matched_terms),
@@ -574,6 +716,103 @@ def _format_function_signature(node: ast.AST) -> str:
         parts.append(f"**{args.kwarg.arg}")
 
     return f"({', '.join(parts)})"
+
+
+def _javascript_language(path: Path) -> str:
+    suffix = path.suffix.lower()
+    if suffix == ".tsx":
+        return "tsx"
+    if suffix == ".ts":
+        return "typescript"
+    if suffix == ".jsx":
+        return "jsx"
+    return "javascript"
+
+
+def _javascript_symbol_kind(name: str, default_kind: str, suffix: str) -> str:
+    if default_kind == "class":
+        return "class"
+    if name.startswith("use") and len(name) > 3 and name[3].isupper():
+        return "hook"
+    if suffix in {".tsx", ".jsx"} and name[:1].isupper():
+        return "component"
+    return "function"
+
+
+def _compact_signature(line: str, parameter_text: str | None) -> str:
+    if parameter_text:
+        return re.sub(r"\s+", " ", parameter_text.strip())
+    return re.sub(r"\s+", " ", line.strip())[:240]
+
+
+def _approximate_js_symbol_end(lines: list[str], start_line: int) -> int:
+    start_index = max(0, start_line - 1)
+    brace_depth = 0
+    saw_brace = False
+
+    for index in range(start_index, min(len(lines), start_index + 200)):
+        line = lines[index]
+        brace_depth += line.count("{")
+        brace_depth -= line.count("}")
+        saw_brace = saw_brace or "{" in line
+        if saw_brace and brace_depth <= 0:
+            return index + 1
+        if not saw_brace and line.rstrip().endswith(";"):
+            return index + 1
+
+    return min(len(lines), start_line + 20)
+
+
+def _extract_javascript_class_methods(
+    lines: list[str],
+    class_name: str,
+    start_line: int,
+    end_line: int,
+    file_path: str,
+    language: str,
+) -> list[dict]:
+    methods = []
+    method_pattern = re.compile(
+        r"^\s*(?:(?:public|private|protected|static|async|readonly|abstract|override)\s+)*"
+        r"(?P<name>[A-Za-z_$][\w$]*)\s*(?P<signature>\([^)]*\))"
+        r"(?:\s*:\s*[^{=]+)?\s*\{"
+    )
+
+    for line_number in range(start_line + 1, min(end_line, len(lines)) + 1):
+        match = method_pattern.match(lines[line_number - 1])
+        if match is None or match.group("name") in {"if", "for", "while", "switch", "catch"}:
+            continue
+        name = match.group("name")
+        methods.append(
+            {
+                "name": name,
+                "qualname": f"{class_name}.{name}",
+                "kind": "method",
+                "class_name": class_name,
+                "file_path": file_path,
+                "start_line": line_number,
+                "end_line": min(end_line, _approximate_js_symbol_end(lines, line_number)),
+                "signature": _compact_signature(lines[line_number - 1], match.group("signature")),
+                "language": language,
+                "confidence": "medium",
+                "confidence_reason": "regex",
+            }
+        )
+
+    return methods
+
+
+def _snippet_language(file_path: str) -> str:
+    suffix = Path(file_path).suffix.lower()
+    return {
+        ".py": "python",
+        ".ts": "typescript",
+        ".tsx": "tsx",
+        ".js": "javascript",
+        ".jsx": "jsx",
+        ".mjs": "javascript",
+        ".cjs": "javascript",
+    }.get(suffix, "text")
 
 
 def _safe_int(value: object) -> int:

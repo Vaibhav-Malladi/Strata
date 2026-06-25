@@ -17,6 +17,11 @@ from context_budget import (
     build_structured_intent_section,
 )
 from symbol_slicing import build_symbol_hints_section, build_symbol_snippets_section
+from framework_hints import build_angular_hints_section, build_react_hints_section
+from typescript_project import (
+    build_declaration_hints_section,
+    build_typescript_project_hints_section,
+)
 
 
 SUPPORTED_AGENTS = {"generic", "local", "aider", "chatgpt"}
@@ -158,6 +163,7 @@ def _generate_generic_prompt(
     lines.extend(build_symbol_hints_section(budget_report.get("symbol_hints")))
     lines.extend(build_symbol_snippets_section(budget_report.get("symbol_snippets")))
     lines.extend(build_test_hints_section(budget_report.get("test_hints")))
+    lines.extend(_build_frontend_intelligence_sections(budget_report))
     lines.extend(_format_health_summary(health))
     lines.extend(_format_relevant_files(relevant_files))
     lines.extend(_format_verification_plan(graph, relevant_files))
@@ -200,6 +206,7 @@ def _generate_local_prompt(
     lines.extend(build_symbol_hints_section(budget_report.get("symbol_hints")))
     lines.extend(build_symbol_snippets_section(budget_report.get("symbol_snippets")))
     lines.extend(build_test_hints_section(budget_report.get("test_hints")))
+    lines.extend(_build_frontend_intelligence_sections(budget_report))
     lines.extend(_format_compact_file_list(relevant_files))
     lines.extend(_format_compact_verification_plan(graph, relevant_files))
 
@@ -238,6 +245,7 @@ def _generate_aider_prompt(
     lines.extend(build_symbol_hints_section(budget_report.get("symbol_hints")))
     lines.extend(build_symbol_snippets_section(budget_report.get("symbol_snippets")))
     lines.extend(build_test_hints_section(budget_report.get("test_hints")))
+    lines.extend(_build_frontend_intelligence_sections(budget_report))
     lines.extend(_format_aider_file_section(relevant_files))
     lines.extend(_format_compact_verification_plan(graph, relevant_files))
 
@@ -285,6 +293,7 @@ def _generate_chatgpt_prompt(
     lines.extend(build_symbol_hints_section(budget_report.get("symbol_hints")))
     lines.extend(build_symbol_snippets_section(budget_report.get("symbol_snippets")))
     lines.extend(build_test_hints_section(budget_report.get("test_hints")))
+    lines.extend(_build_frontend_intelligence_sections(budget_report))
     lines.extend(_format_health_summary(health))
     lines.extend(_format_relevant_files(relevant_files))
     lines.extend(_format_verification_plan(graph, relevant_files))
@@ -303,6 +312,15 @@ def _format_health_summary(health: dict) -> list[str]:
         f"- Status: {health.get('status', 'unknown')}",
         "",
     ]
+
+
+def _build_frontend_intelligence_sections(budget_report: dict) -> list[str]:
+    lines = []
+    lines.extend(build_typescript_project_hints_section(budget_report.get("typescript_project_hints")))
+    lines.extend(build_declaration_hints_section(budget_report.get("declaration_hints")))
+    lines.extend(build_react_hints_section(budget_report.get("react_hints")))
+    lines.extend(build_angular_hints_section(budget_report.get("angular_hints")))
+    return lines
 
 
 def _merge_selected_files(

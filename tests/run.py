@@ -63,6 +63,8 @@ import test_context_pack
 import test_context_budget
 import test_test_mapping
 import test_symbol_slicing
+import test_typescript_project
+import test_framework_hints
 import test_selected_context
 import test_snapshot
 import test_snapshot_command
@@ -141,6 +143,8 @@ TEST_MODULES = [
     test_context_budget,
     test_test_mapping,
     test_symbol_slicing,
+    test_typescript_project,
+    test_framework_hints,
     test_selected_context,
     test_snapshot,
     test_snapshot_command,
