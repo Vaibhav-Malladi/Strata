@@ -62,6 +62,11 @@ def print_usage() -> None:
         print(f"  {line}")
     print()
 
+    print("Selected-file examples:")
+    print('  strata ask --file helper.py "fix the greeting"')
+    print('  strata run --file app.py --file helper.py "refactor this flow"')
+    print()
+
     print("Usage:")
     print("  strata <command> [args]")
     print("  strata help")
@@ -82,7 +87,7 @@ def print_usage() -> None:
 def _main_workflow_lines() -> list[tuple[str, str]]:
     return [
         ("strata start [path]", "Set up Strata, build the repo snapshot cache, and understand this project."),
-        ('strata ask "<task>" [path]', "Prepare context for your configured AI mode and collect a safe patch."),
+        ('strata ask [--file <path>] "<task>" [path]', "Prepare context for your configured AI mode and collect a safe patch."),
         ("strata review [path]", "Inspect and validate the patch before applying."),
         ("strata apply [--yes] [--dry-run] [path]", "Validate or apply the generated patch."),
     ]
@@ -171,8 +176,9 @@ def _advanced_command_entries() -> list[tuple[str, str | None]]:
         ('strata context <root> "<task>"', None),
         ('strata prepare "<task>"', None),
         ('strata prepare "<task>" <root>', None),
-        ('strata run "<task>"', "Prepare context, request a patch, review it, and end with `strata apply` as the next step."),
+        ('strata run [--file <path>] "<task>"', "Prepare context, request a patch, review it, and end with `strata apply` as the next step."),
         ('strata run "<task>" <root>', None),
+        ('strata run --file <path> --file <path> "<task>"', None),
         ('strata run --type <task_type> "<task>"', None),
         ('strata run --type <task_type> "<task>" <root>', None),
         ('strata run --fast "<task>"', "Same guided flow, but asks before applying a validated patch."),

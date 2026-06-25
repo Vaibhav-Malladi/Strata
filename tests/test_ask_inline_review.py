@@ -225,6 +225,50 @@ def test_ask_missing_patch_shows_fix_and_next_guidance():
         assert 'run `strata ask "your task"` again' in output.lower()
 
 
+def test_ask_selected_file_mode_warns_when_stale_patch_exists():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _create_repo(root)
+        _configure_command_adapter(root)
+        _write_patch(
+            root,
+            (
+                "diff --git a/tests/test_patch_applier.py b/tests/test_patch_applier.py\n"
+                "--- a/tests/test_patch_applier.py\n"
+                "+++ b/tests/test_patch_applier.py\n"
+                "@@ -1 +1 @@\n"
+                "-print('old')\n"
+                "+print('new')\n"
+            ),
+        )
+
+        original_execute = ask_command_module.execute_command_adapter
+
+        def _fake_execute_command_adapter(_root, **_kwargs):
+            return {
+                "status": "patch_missing",
+                "patch_status": "missing",
+                "patch_valid": False,
+                "patch_path": ".aidc/agent_patch.diff",
+                "targets": [],
+                "message": "No patch written for this run.",
+                "stdout": "",
+                "stderr": "",
+                "warnings": [],
+                "errors": [],
+            }
+
+        ask_command_module.execute_command_adapter = _fake_execute_command_adapter
+        try:
+            exit_code, output = _run_cli(root, "ask", "--file", "helper.py", "fix the greeting")
+        finally:
+            ask_command_module.execute_command_adapter = original_execute
+
+        assert exit_code == 0
+        _assert_terms(output, "selected context", "context mode", "selected files", "helper.py")
+        _assert_terms(output, "existing patch file found before ask")
+
+
 def test_ask_invalid_patch_shows_fix_and_next_guidance():
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
@@ -290,6 +334,7 @@ TESTS = [
     test_ask_ready_patch_shows_inline_review_fields_and_warning,
     test_ask_does_not_apply_the_patch,
     test_ask_missing_patch_shows_fix_and_next_guidance,
+    test_ask_selected_file_mode_warns_when_stale_patch_exists,
     test_ask_invalid_patch_shows_fix_and_next_guidance,
     test_ask_missing_command_adapter_shows_setup_guidance_and_returns_nonzero,
 ]

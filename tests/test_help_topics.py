@@ -54,19 +54,22 @@ def test_help_usage_mentions_all_ai_modes_and_beginner_topics():
         "strata setup --command",
         "strata setup --codex-cli",
         "strata setup --aider",
-        'strata ask "fix bug"',
+        'strata ask [--file <path>] "<task>" [path]',
         "strata scan [path] [--force]",
         "strata status [path]",
         "strata review",
         "strata apply --dry-run",
         "strata apply",
-        'strata run "<task>"',
+        'strata run [--file <path>] "<task>"',
         "strata doctor install",
         "strata help setup",
         "strata help ask",
         "strata help manual",
         "strata help scan",
         "strata help status",
+        "Selected-file examples",
+        'strata ask --file helper.py "fix the greeting"',
+        'strata run --file app.py --file helper.py "refactor this flow"',
     )
 
 
@@ -217,6 +220,9 @@ def test_help_ask_topic_mentions_setup_and_next_steps():
         "strata review",
         "strata apply --dry-run",
         "strata apply",
+        "selected-file context",
+        "--file helper.py",
+        "helper.py",
     )
 
 
@@ -238,7 +244,7 @@ def test_help_run_topic_mentions_fast_confirmation():
     exit_code, output = _run_cli("help", "run")
 
     assert exit_code == 0
-    _assert_terms(output, "strata run", "patch", "review", "--fast", "apply", "commit", "push", "auto")
+    _assert_terms(output, "strata run", "patch", "review", "--fast", "apply", "commit", "push", "auto", "selected-file context", "--file app.py", "helper.py")
     _assert_terms(output, ("confirm", "confirmation"))
 
 

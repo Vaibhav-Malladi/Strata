@@ -91,9 +91,16 @@ def write_prepare_command(root_path: str, task: str | None = None) -> int:
     return 0
 
 
-def prepare_workflow(root_path: str, task: str, config: dict | None = None) -> dict | None:
+def prepare_workflow(
+    root_path: str,
+    task: str,
+    config: dict | None = None,
+    selected_paths: list[str] | None = None,
+) -> dict | None:
     if config is None:
         config = load_config(root_path)
+
+    selected_paths = selected_paths or []
 
     before_snapshot = capture_repo_snapshot(root_path)
     graph = build_graph(root_path)
@@ -105,9 +112,9 @@ def prepare_workflow(root_path: str, task: str, config: dict | None = None) -> d
         save_graph(graph)
         routes_data = collect_routes(graph)
 
-        _write_context_pack(graph, task, routes_data)
+        _write_context_pack(graph, task, routes_data, selected_paths)
         write_preflight_report(graph, task, PREFLIGHT_FILE)
-        _write_agent_prompt(graph, task, config["agent"])
+        _write_agent_prompt(graph, task, config["agent"], selected_paths)
 
         snapshot_result = None
 
@@ -124,21 +131,36 @@ def prepare_workflow(root_path: str, task: str, config: dict | None = None) -> d
         "config": config,
         "graph": graph,
         "routes_data": routes_data,
+        "selected_paths": selected_paths,
         "snapshot_result": snapshot_result,
         "cache_result": cache_result,
         "full_scan_state": full_scan_state,
     }
 
 
-def _write_context_pack(graph: dict, task: str, routes_data: list[dict]) -> None:
+def _write_context_pack(
+    graph: dict,
+    task: str,
+    routes_data: list[dict],
+    selected_paths: list[str],
+) -> None:
     output_path = Path(CONTEXT_PACK_FILE)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(build_context_pack(graph, task, routes_data), encoding="utf-8")
+    output_path.write_text(
+        build_context_pack(graph, task, routes_data, selected_paths=selected_paths),
+        encoding="utf-8",
+    )
 
 
-def _write_agent_prompt(graph: dict, task: str, agent: str) -> None:
+def _write_agent_prompt(graph: dict, task: str, agent: str, selected_paths: list[str]) -> None:
     resolved_agent = _resolve_prompt_agent(agent)
-    write_agent_prompt(graph, task, resolved_agent, AGENT_PROMPT_FILE)
+    write_agent_prompt(
+        graph,
+        task,
+        resolved_agent,
+        AGENT_PROMPT_FILE,
+        selected_paths=selected_paths,
+    )
 
 
 def _resolve_prompt_agent(agent: str) -> str:

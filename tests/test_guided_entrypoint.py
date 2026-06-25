@@ -110,7 +110,7 @@ def test_cli_help_lists_main_workflow_first_and_keeps_advanced_reference():
     _assert_terms(
         output,
         "strata start [path]",
-        'strata ask "<task>" [path]',
+        'strata ask [--file <path>] "<task>" [path]',
         "strata start",
         "strata setup",
         "strata setup ai",
@@ -131,6 +131,9 @@ def test_cli_help_lists_main_workflow_first_and_keeps_advanced_reference():
         "apply",
         "browser ai",
         ".aidc/agent_prompt.md",
+        "Selected-file examples",
+        'strata ask --file helper.py "fix the greeting"',
+        'strata run --file app.py --file helper.py "refactor this flow"',
     )
     _assert_terms(output, ("chatgpt", "claude", "gemini", "copilot chat"))
 

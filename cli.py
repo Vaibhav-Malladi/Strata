@@ -99,7 +99,7 @@ def main() -> int:
         return 1
 
     if command == "ask":
-        return _exit_code(_handle_ask_command(args[1:]))
+        return _exit_code(write_ask_command(".", *args[1:]))
 
     if command == "show":
         if len(args) == 1:
@@ -337,27 +337,7 @@ def _handle_apply_command(args: list[str]) -> int:
 
 
 def _handle_ask_command(args: list[str]) -> int:
-    positionals: list[str] = []
-
-    for arg in args:
-        if arg.startswith("-"):
-            print_usage()
-            return 1
-
-        positionals.append(arg)
-
-    if not positionals:
-        print_usage()
-        return 1
-
-    if len(positionals) > 2:
-        print_usage()
-        return 1
-
-    if len(positionals) == 1:
-        return _exit_code(write_ask_command(".", positionals[0]))
-
-    return _exit_code(write_ask_command(positionals[1], positionals[0]))
+    return _exit_code(write_ask_command(".", *args))
 
 
 def _handle_execute_command(args: list[str]) -> int:

@@ -4,6 +4,7 @@ from brief import score_relevant_files
 from health import analyze_health
 from test_mapper import suggest_tests_for_file
 from secret_redaction import redact_text
+from selected_context import build_selected_file_entries, build_selected_file_section
 
 
 SUPPORTED_AGENTS = {"generic", "local", "aider", "chatgpt"}
@@ -19,22 +20,32 @@ def normalize_agent(agent: str) -> str:
     return normalized
 
 
-def generate_agent_prompt(graph: dict, task: str, agent: str = "generic", max_files: int = 5) -> str:
+def generate_agent_prompt(
+    graph: dict,
+    task: str,
+    agent: str = "generic",
+    max_files: int = 5,
+    selected_paths: list[str] | None = None,
+) -> str:
     agent = normalize_agent(agent)
     task = redact_text(task)
-    relevant_files = score_relevant_files(graph, task)[:max_files]
+    selected_paths = selected_paths or []
+    selected_entries = build_selected_file_entries(graph, selected_paths)
+    scored_files = score_relevant_files(graph, task)
+    relevant_files = _merge_selected_files(selected_entries, scored_files, max_files)
+    selected_section = build_selected_file_section(selected_paths)
     health = analyze_health(graph)
 
     if agent == "local":
-        return _generate_local_prompt(graph, task, relevant_files, health)
+        return _generate_local_prompt(graph, task, relevant_files, health, selected_section)
 
     if agent == "aider":
-        return _generate_aider_prompt(graph, task, relevant_files, health)
+        return _generate_aider_prompt(graph, task, relevant_files, health, selected_section)
 
     if agent == "chatgpt":
-        return _generate_chatgpt_prompt(graph, task, relevant_files, health)
+        return _generate_chatgpt_prompt(graph, task, relevant_files, health, selected_section)
 
-    return _generate_generic_prompt(graph, task, relevant_files, health)
+    return _generate_generic_prompt(graph, task, relevant_files, health, selected_section)
 
 
 def write_agent_prompt(
@@ -43,15 +54,28 @@ def write_agent_prompt(
     agent: str,
     output_path: str | Path,
     max_files: int = 5,
+    selected_paths: list[str] | None = None,
 ) -> None:
-    prompt = generate_agent_prompt(graph, task, agent, max_files=max_files)
+    prompt = generate_agent_prompt(
+        graph,
+        task,
+        agent,
+        max_files=max_files,
+        selected_paths=selected_paths,
+    )
 
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(redact_text(prompt), encoding="utf-8")
 
 
-def _generate_generic_prompt(graph: dict, task: str, relevant_files: list[dict], health: dict) -> str:
+def _generate_generic_prompt(
+    graph: dict,
+    task: str,
+    relevant_files: list[dict],
+    health: dict,
+    selected_section: list[str],
+) -> str:
     lines = [
         "# Agent Prompt",
         "",
@@ -75,6 +99,7 @@ def _generate_generic_prompt(graph: dict, task: str, relevant_files: list[dict],
         "",
     ]
 
+    lines.extend(selected_section)
     lines.extend(_format_health_summary(health))
     lines.extend(_format_relevant_files(relevant_files))
     lines.extend(_format_verification_plan(graph, relevant_files))
@@ -82,7 +107,13 @@ def _generate_generic_prompt(graph: dict, task: str, relevant_files: list[dict],
     return redact_text("\n".join(lines).rstrip() + "\n")
 
 
-def _generate_local_prompt(graph: dict, task: str, relevant_files: list[dict], health: dict) -> str:
+def _generate_local_prompt(
+    graph: dict,
+    task: str,
+    relevant_files: list[dict],
+    health: dict,
+    selected_section: list[str],
+) -> str:
     lines = [
         "# Local Model Prompt",
         "",
@@ -101,13 +132,20 @@ def _generate_local_prompt(graph: dict, task: str, relevant_files: list[dict], h
         "",
     ]
 
+    lines.extend(selected_section)
     lines.extend(_format_compact_file_list(relevant_files))
     lines.extend(_format_compact_verification_plan(graph, relevant_files))
 
     return redact_text("\n".join(lines).rstrip() + "\n")
 
 
-def _generate_aider_prompt(graph: dict, task: str, relevant_files: list[dict], health: dict) -> str:
+def _generate_aider_prompt(
+    graph: dict,
+    task: str,
+    relevant_files: list[dict],
+    health: dict,
+    selected_section: list[str],
+) -> str:
     lines = [
         "# Aider Prompt",
         "",
@@ -123,13 +161,20 @@ def _generate_aider_prompt(graph: dict, task: str, relevant_files: list[dict], h
         "",
     ]
 
+    lines.extend(selected_section)
     lines.extend(_format_aider_file_section(relevant_files))
     lines.extend(_format_compact_verification_plan(graph, relevant_files))
 
     return redact_text("\n".join(lines).rstrip() + "\n")
 
 
-def _generate_chatgpt_prompt(graph: dict, task: str, relevant_files: list[dict], health: dict) -> str:
+def _generate_chatgpt_prompt(
+    graph: dict,
+    task: str,
+    relevant_files: list[dict],
+    health: dict,
+    selected_section: list[str],
+) -> str:
     lines = [
         "# ChatGPT Coding Prompt",
         "",
@@ -154,6 +199,7 @@ def _generate_chatgpt_prompt(graph: dict, task: str, relevant_files: list[dict],
         "",
     ]
 
+    lines.extend(selected_section)
     lines.extend(_format_health_summary(health))
     lines.extend(_format_relevant_files(relevant_files))
     lines.extend(_format_verification_plan(graph, relevant_files))
@@ -172,6 +218,30 @@ def _format_health_summary(health: dict) -> list[str]:
         f"- Status: {health.get('status', 'unknown')}",
         "",
     ]
+
+
+def _merge_selected_files(
+    selected_entries: list[dict],
+    scored_files: list[dict],
+    max_files: int,
+) -> list[dict]:
+    merged: list[dict] = []
+    seen: set[str] = set()
+
+    for item in selected_entries + scored_files:
+        file_info = item.get("file", {})
+        path = str(file_info.get("path", "")).replace("\\", "/").strip()
+
+        if not path or path in seen:
+            continue
+
+        seen.add(path)
+        merged.append(item)
+
+        if len(merged) >= max_files:
+            break
+
+    return merged
 
 
 def _format_relevant_files(relevant_files: list[dict]) -> list[str]:
@@ -193,6 +263,8 @@ def _format_relevant_files(relevant_files: list[dict]) -> list[str]:
 
         lines.append(f"### `{path}`")
         lines.append("")
+        if item.get("selected_by_user"):
+            lines.append("- Selection: user-selected")
         lines.append(f"- Relevance score: {score}")
         lines.append(f"- Reason: {reason}")
 

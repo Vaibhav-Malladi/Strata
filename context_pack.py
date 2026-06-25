@@ -34,6 +34,7 @@ from context_matching import (
     _normalize_text,
 )
 from repo_summary import collect_frontend_symbols, collect_framework_names, summarize_graph
+from selected_context import build_selected_file_entries, build_selected_file_section
 
 
 MAX_RELEVANT_FILES = 10
@@ -43,15 +44,29 @@ MAX_VERIFICATION_COMMANDS = 6
 MAX_DEPENDENCY_NEIGHBORS = 8
 
 
-def rank_relevant_files(graph: dict, task: str, limit: int = 10) -> list[dict]:
+def rank_relevant_files(
+    graph: dict,
+    task: str,
+    limit: int = 10,
+    selected_paths: list[str] | None = None,
+) -> list[dict]:
     """Rank likely relevant files for a task."""
 
     task_terms = extract_task_terms(task)
     task_hints = detect_task_hints(task)
+    selected_entries = build_selected_file_entries(graph, selected_paths or [])
+    selected_paths_set = {
+        _normalize_path(item["file"].get("path", ""))
+        for item in selected_entries
+    }
     scored_files = []
 
     for file_info in graph.get("files", []):
         score = score_file_for_task(file_info, task_terms, task, task_hints)
+
+        normalized_path = _normalize_path(file_info.get("path", ""))
+        if normalized_path in selected_paths_set:
+            continue
 
         if score <= 0:
             continue
@@ -80,15 +95,19 @@ def rank_relevant_files(graph: dict, task: str, limit: int = 10) -> list[dict]:
         )
     )
 
-    strong_or_direct = [
+    task_ranked = [
         item
         for item in scored_files
         if item["confidence"] in {"high", "medium"}
         or item["matched_terms"]
     ]
 
-    if strong_or_direct:
-        return strong_or_direct[:limit]
+    if selected_entries:
+        fallback = task_ranked if task_ranked else scored_files[: min(limit, 3)]
+        return (selected_entries + fallback)[:limit]
+
+    if task_ranked:
+        return task_ranked[:limit]
 
     return scored_files[: min(limit, 3)]
 
@@ -154,11 +173,22 @@ def find_dependency_neighbors(graph: dict, relevant_paths: list[str]) -> dict:
     }
 
 
-def build_context_pack(graph: dict, task: str, routes_data: dict | None = None) -> str:
+def build_context_pack(
+    graph: dict,
+    task: str,
+    routes_data: dict | None = None,
+    selected_paths: list[str] | None = None,
+) -> str:
     """Build a compact deterministic Markdown context pack."""
 
     task = redact_text(task)
-    relevant_files = rank_relevant_files(graph, task, limit=MAX_RELEVANT_FILES)
+    selected_paths = selected_paths or []
+    relevant_files = rank_relevant_files(
+        graph,
+        task,
+        limit=MAX_RELEVANT_FILES,
+        selected_paths=selected_paths,
+    )
     relevant_paths = [
         item["file"].get("path", "")
         for item in relevant_files
@@ -193,6 +223,7 @@ def build_context_pack(graph: dict, task: str, routes_data: dict | None = None) 
     lines.append("")
     lines.append(task)
     lines.append("")
+    lines.extend(build_selected_file_section(selected_paths))
     if frontend_frameworks:
         lines.append("## Repository Intelligence")
         lines.append("")
@@ -214,6 +245,8 @@ def build_context_pack(graph: dict, task: str, routes_data: dict | None = None) 
     lines.append(
         "- Dependency neighbors are included after the initial matching pass."
     )
+    if selected_paths:
+        lines.append("- User-selected files were anchored before scored matches.")
     lines.append("- This is deterministic repo context, not an LLM plan.")
     lines.append(
         "- Test suggestions were reused from `test_mapper.py` when available, with a conservative fallback."
@@ -239,7 +272,11 @@ def build_context_pack(graph: dict, task: str, routes_data: dict | None = None) 
             confidence = item.get("confidence", "low")
 
             lines.append(f"{index}. `{path}`")
-            lines.append(f"   - Score: `{score}`")
+            if item.get("selected_by_user"):
+                lines.append("   - Selection: user-selected")
+                lines.append(f"   - Score: `{score}`")
+            else:
+                lines.append(f"   - Score: `{score}`")
             lines.append(f"   - Confidence: `{confidence}`")
 
             if matched_terms:
@@ -339,6 +376,8 @@ def build_context_pack(graph: dict, task: str, routes_data: dict | None = None) 
     lines.append("")
     lines.append("## AI Editing Instructions")
     lines.append("")
+    if selected_paths:
+        lines.append("- Treat user-selected files as primary anchors.")
     lines.append("- Focus on likely relevant files first.")
     lines.append("- Do not rewrite unrelated files.")
     lines.append("- Preserve public behavior unless the task requires changing it.")

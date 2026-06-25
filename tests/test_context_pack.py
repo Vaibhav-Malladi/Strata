@@ -153,6 +153,27 @@ def test_rank_relevant_files_allows_tests_for_test_focused_task():
     assert paths.index("tests/test_home_page.py") < paths.index("src/pages/Home.tsx")
 
 
+def test_rank_relevant_files_prioritizes_selected_files_above_task_matches():
+    graph = fake_graph(
+        [
+            make_file("src/pages/Home.tsx"),
+            make_file("src/components/Header.tsx"),
+            make_file("tests/test_home_page.py", language="python"),
+        ]
+    )
+
+    ranked = rank_relevant_files(
+        graph,
+        "home page is broken",
+        selected_paths=["src/components/Header.tsx"],
+    )
+    paths = [item["file"]["path"] for item in ranked]
+
+    assert paths[0] == "src/components/Header.tsx"
+    assert ranked[0].get("selected_by_user") is True
+    assert "src/pages/Home.tsx" in paths
+
+
 def test_dependency_neighbor_detection_uses_small_fake_graph():
     graph = fake_graph(
         [
@@ -222,6 +243,26 @@ def test_build_context_pack_includes_deterministic_ranking_notes_and_paths():
     )
     assert "src/pages/LandingPage.tsx" in content
     assert "AI Editing Instructions" in content
+
+
+def test_build_context_pack_mentions_user_selected_files_before_scored_matches():
+    graph = fake_graph(
+        [
+            make_file("src/pages/Home.tsx"),
+            make_file("src/components/Header.tsx"),
+            make_file("tests/test_home_page.py", language="python"),
+        ]
+    )
+
+    content = build_context_pack(
+        graph,
+        "home page is broken",
+        selected_paths=["src/components/Header.tsx"],
+    )
+
+    assert "User-selected files" in content
+    assert "src/components/Header.tsx" in content
+    assert content.index("User-selected files") < content.index("Likely Relevant Files")
 
 
 def test_build_context_pack_shows_best_effort_note_when_matches_are_weak():

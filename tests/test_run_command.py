@@ -322,6 +322,35 @@ def test_run_normal_prompt_file_shows_review_summary_and_next_apply():
         )
 
 
+def test_run_selected_file_mode_shows_context_mode_and_selected_files():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        repo_root = Path(temp_dir)
+        _create_run_repo(repo_root)
+        _save_run_config(
+            repo_root,
+            adapter="prompt_file",
+            prompt_path=".aidc/agent_prompt.md",
+        )
+        _create_patch_file(repo_root, _valid_patch_text())
+
+        with change_directory(repo_root):
+            exit_code, output = capture_output(
+                write_run_command,
+                str(repo_root),
+                "--file",
+                "helper.py",
+                "refactor helper flow",
+            )
+
+        assert exit_code == 0
+        assert "Context mode" in output
+        assert "selected files" in output.lower()
+        assert "Selected files" in output
+        assert "helper.py" in output
+        assert "selected-file context" in output.lower()
+        assert (repo_root / ".aidc" / "agent_prompt.md").exists()
+
+
 def test_run_normal_no_patch_gives_fix_guidance():
     with tempfile.TemporaryDirectory() as temp_dir:
         repo_root = Path(temp_dir)
@@ -553,6 +582,7 @@ TESTS = [
     test_run_dry_run_respects_auto_snapshot_false,
     test_run_dry_run_respects_auto_verify_false,
     test_run_normal_prompt_file_shows_review_summary_and_next_apply,
+    test_run_selected_file_mode_shows_context_mode_and_selected_files,
     test_run_normal_no_patch_gives_fix_guidance,
     test_run_repo_wide_task_warns_when_full_scan_missing,
     test_run_fast_decline_does_not_apply,

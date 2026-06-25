@@ -71,7 +71,7 @@ def test_help_lists_main_workflow_before_advanced_commands():
     assert output.index("Connect AI") < output.index("Main workflow:") < output.index("Advanced commands:")
     assert "repo snapshot cache" in output.lower()
     assert "strata start [path]" in output
-    assert 'strata ask "<task>" [path]' in output
+    assert 'strata ask [--file <path>] "<task>" [path]' in output
     assert "strata start" in output
     assert "strata setup" in output
     assert "strata run" in output
@@ -91,6 +91,9 @@ def test_help_lists_main_workflow_before_advanced_commands():
     assert "strata help status" in output
     assert "strata review <root>" in output
     assert "strata apply --yes" in output
+    assert "Selected-file examples" in output
+    assert 'strata ask --file helper.py "fix the greeting"' in output
+    assert 'strata run --file app.py --file helper.py "refactor this flow"' in output
 
 
 def test_start_reports_repo_readiness_and_intelligence():
@@ -227,6 +230,93 @@ def test_ask_prompt_file_manual_mode_writes_prompt_and_recommends_review():
         assert ".aidc/agent_patch.diff" in output
         assert "Run `strata review`" in output
         assert "strata apply --dry-run" in output
+
+
+def test_ask_selected_file_mode_accepts_repeated_file_flags_and_anchors_prompt():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _create_repo(root)
+        _save_config(
+            root,
+            adapter="prompt_file",
+            prompt_path=".aidc/agent_prompt.md",
+        )
+
+        exit_code, output = _run_cli(
+            root,
+            "ask",
+            "--file",
+            "helper.py",
+            "--file",
+            "main.py",
+            "fix the greeting",
+        )
+
+        prompt_text = (root / ".aidc" / "agent_prompt.md").read_text(encoding="utf-8")
+
+        assert exit_code == 0
+        assert "Selected context" in output
+        assert "Context mode" in output
+        assert "selected files" in output.lower()
+        assert "Selected files" in output
+        assert "helper.py" in output
+        assert "main.py" in output
+        assert "selected-file context" in output.lower()
+        assert "User-selected files" in prompt_text
+        assert "helper.py" in prompt_text
+        assert "main.py" in prompt_text
+
+
+def test_ask_missing_selected_file_is_rejected_with_friendly_error():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _create_repo(root)
+
+        exit_code, output = _run_cli(root, "ask", "--file", "missing.py", "fix the greeting")
+
+        assert exit_code == 1
+        assert "Selected file does not exist" in output
+        assert "Ask failed" in output
+
+
+def test_ask_selected_directory_is_rejected_with_friendly_error():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _create_repo(root)
+        (root / "src").mkdir(parents=True, exist_ok=True)
+
+        exit_code, output = _run_cli(root, "ask", "--file", "src", "fix the greeting")
+
+        assert exit_code == 1
+        assert "directory, not a file" in output.lower()
+        assert "Ask failed" in output
+
+
+def test_ask_outside_repo_selected_file_is_rejected_with_friendly_error():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _create_repo(root)
+
+        exit_code, output = _run_cli(root, "ask", "--file", "..\\outside.py", "fix the greeting")
+
+        assert exit_code == 1
+        assert "outside the repo root" in output.lower()
+        assert "Ask failed" in output
+
+
+def test_ask_ignored_generated_selected_file_is_rejected_with_friendly_error():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _create_repo(root)
+        ignored_file = root / ".aidc" / "temp.py"
+        ignored_file.parent.mkdir(parents=True, exist_ok=True)
+        ignored_file.write_text("print('ignored')\n", encoding="utf-8")
+
+        exit_code, output = _run_cli(root, "ask", "--file", ".aidc/temp.py", "fix the greeting")
+
+        assert exit_code == 1
+        assert "ignored or generated" in output.lower()
+        assert "Ask failed" in output
 
 
 def test_ask_command_missing_adapter_shows_setup_guidance():
@@ -384,6 +474,11 @@ TESTS = [
     test_start_reports_repo_readiness_and_intelligence,
     test_start_without_config_shows_connect_ai_guidance,
     test_ask_prompt_file_manual_mode_writes_prompt_and_recommends_review,
+    test_ask_selected_file_mode_accepts_repeated_file_flags_and_anchors_prompt,
+    test_ask_missing_selected_file_is_rejected_with_friendly_error,
+    test_ask_selected_directory_is_rejected_with_friendly_error,
+    test_ask_outside_repo_selected_file_is_rejected_with_friendly_error,
+    test_ask_ignored_generated_selected_file_is_rejected_with_friendly_error,
     test_ask_command_missing_adapter_shows_setup_guidance,
     test_ask_repo_wide_task_warns_when_full_scan_missing,
     test_review_without_patch_gives_clear_next_step,

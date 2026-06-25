@@ -15,6 +15,12 @@ from ollama_adapter import execute_ollama_adapter
 from patch_contract import inspect_patch
 from patch_validator import validate_patch_file
 from full_scan import describe_full_scan_readiness, format_full_scan_status, load_full_scan_cache
+from selected_context import (
+    context_mode_description,
+    context_mode_label,
+    format_selected_file_list,
+    normalize_selected_paths,
+)
 from snapshot_cache import format_snapshot_cache_status
 from ui import (
     format_error,
@@ -26,6 +32,7 @@ from ui import (
     print_error,
     print_success,
     print_status_card,
+    print_warning,
     render_step,
     status_spinner,
 )
@@ -48,8 +55,15 @@ def write_ask_command(root_path: str = ".", *args: str) -> int:
 
     root = parsed["root"] or root_path
     task = parsed["task"]
+    raw_selected_paths = parsed["selected_paths"]
 
     if not _validate_root(root):
+        return 1
+
+    try:
+        selected_paths = normalize_selected_paths(root, raw_selected_paths)
+    except ValueError as error:
+        _print_error("Ask failed", str(error))
         return 1
 
     try:
@@ -58,9 +72,11 @@ def write_ask_command(root_path: str = ".", *args: str) -> int:
         _print_error("Workflow config error", str(error))
         return 1
 
+    existing_patch_summary = inspect_patch(root, config.get("patch_path"))
+
     try:
         with status_spinner(render_step("Preparing prompt", "running")) as spinner:
-            prepare_result = prepare_workflow(root, task, config)
+            prepare_result = prepare_workflow(root, task, config, selected_paths=selected_paths)
             spinner.update(render_step("Checking adapter", "running"))
     except ValueError as error:
         _print_error("Ask failed", str(error))
@@ -91,7 +107,11 @@ def write_ask_command(root_path: str = ".", *args: str) -> int:
         prepare_result["graph"],
         task,
         _read_text_chars(Path(CONTEXT_PACK_FILE)),
+        prepare_result.get("selected_paths", selected_paths),
     )
+
+    if selected_paths:
+        _print_selected_context_summary(prepare_result.get("selected_paths", selected_paths))
 
     if not ready:
         _print_prepared_summary(
@@ -107,10 +127,11 @@ def write_ask_command(root_path: str = ".", *args: str) -> int:
             ready=ready,
             cache_result=cache_result,
             full_scan_state=full_scan_state,
+            selected_paths=prepare_result.get("selected_paths", selected_paths),
         )
         print_status_card("Context Efficiency", context_efficiency_rows)
         _print_snapshot_cache_note(cache_result)
-        _print_full_scan_note(full_scan_state)
+        _print_full_scan_note(full_scan_state, prepare_result.get("selected_paths", selected_paths))
         for line in _not_ready_next_steps():
             print(line)
         print_status_card(
@@ -135,10 +156,11 @@ def write_ask_command(root_path: str = ".", *args: str) -> int:
             ready=ready,
             cache_result=cache_result,
             full_scan_state=full_scan_state,
+            selected_paths=prepare_result.get("selected_paths", selected_paths),
         )
         print_status_card("Context Efficiency", context_efficiency_rows)
         _print_snapshot_cache_note(cache_result)
-        _print_full_scan_note(full_scan_state)
+        _print_full_scan_note(full_scan_state, prepare_result.get("selected_paths", selected_paths))
 
         for line in _manual_next_steps():
             print(line)
@@ -154,6 +176,14 @@ def write_ask_command(root_path: str = ".", *args: str) -> int:
         (Path(root) / DIRECT_EDIT_REPORT_PATH).unlink(missing_ok=True)
 
     execution_result = _execute_adapter(root, adapter, prepare_result["config"])
+    if (
+        selected_paths
+        and existing_patch_summary.get("status") != "missing"
+        and str(execution_result.get("patch_status", "")).lower() not in {"ready", "valid"}
+    ):
+        print_warning(
+            "Existing patch file found before Ask; inline review may reflect a previous `.aidc/agent_patch.diff`."
+        )
     direct_edit_report = _maybe_write_direct_edit_report(root, before_snapshot, execution_result)
     if direct_edit_report is not None:
         print_banner()
@@ -254,25 +284,27 @@ def _print_prepared_summary(
     ready: bool,
     cache_result: dict | None,
     full_scan_state: dict | None,
+    selected_paths: list[str],
 ) -> None:
     print_banner()
     print_command_header("Ask", "Prepare context and request a patch", mode="compact")
+    rows = [
+        ("Task", task),
+        ("Mode", _display_value(config.get("mode"))),
+        ("Agent", _display_value(config.get("agent"))),
+        ("Adapter", _display_value(adapter)),
+        ("Prompt", format_path(prompt_path)),
+        ("Snapshot", snapshot_display),
+        ("Snapshot cache", snapshot_cache_display),
+        ("Full scan", full_scan_display),
+        ("Confidence", _context_confidence(full_scan_state)),
+        ("Adapter status", _display_adapter_status(adapter_result, ready)),
+        ("Message", _display_value(adapter_result.get("message"))),
+    ]
+
     print_status_card(
         "Ask prepared",
-        [
-            ("Task", task),
-            ("Mode", _display_value(config.get("mode"))),
-            ("Agent", _display_value(config.get("agent"))),
-            ("Adapter", _display_value(adapter)),
-            ("Prompt", format_path(prompt_path)),
-            ("Snapshot", snapshot_display),
-            ("Snapshot cache", snapshot_cache_display),
-            ("Full scan", full_scan_display),
-            ("Context mode", "focused context"),
-            ("Confidence", _context_confidence(full_scan_state)),
-            ("Adapter status", _display_adapter_status(adapter_result, ready)),
-            ("Message", _display_value(adapter_result.get("message"))),
-        ],
+        rows,
         status=_format_ready_status(adapter, ready),
     )
 
@@ -297,7 +329,21 @@ def _print_snapshot_cache_note(cache_result: dict | None) -> None:
     print(format_warning(message))
 
 
-def _print_full_scan_note(full_scan_state: dict | None) -> None:
+def _print_selected_context_summary(selected_paths: list[str]) -> None:
+    if not selected_paths:
+        return
+
+    print_status_card(
+        "Selected context",
+        [
+            ("Context mode", context_mode_label(selected_paths)),
+            ("Selected files", format_selected_file_list(selected_paths)),
+        ],
+        status=format_success("ready"),
+    )
+
+
+def _print_full_scan_note(full_scan_state: dict | None, selected_paths: list[str]) -> None:
     readiness = describe_full_scan_readiness(full_scan_state)
 
     if readiness["ready"]:
@@ -305,7 +351,7 @@ def _print_full_scan_note(full_scan_state: dict | None) -> None:
 
     print(
         format_warning(
-            "Full repo scan is not ready; using focused context. Run `strata scan`."
+            f"Full repo scan is not ready; using {context_mode_description(selected_paths)}. Run `strata scan`."
         )
     )
 
@@ -614,12 +660,23 @@ def _merge_unique(existing: list[str], additions: Sequence[str]) -> list[str]:
 
 def _parse_ask_args(args: Sequence[str]) -> dict:
     positionals: list[str] = []
+    selected_paths: list[str] = []
+    index = 0
 
-    for arg in args:
-        if arg.startswith("-"):
+    while index < len(args):
+        arg = args[index]
+
+        if arg == "--file":
+            index += 1
+            if index >= len(args):
+                raise ValueError("--file requires a file path")
+            selected_paths.append(args[index])
+        elif arg.startswith("-"):
             raise ValueError(f"Unknown option: {arg}")
+        else:
+            positionals.append(arg)
 
-        positionals.append(arg)
+        index += 1
 
     if not positionals:
         raise ValueError("ask requires a task")
@@ -633,6 +690,7 @@ def _parse_ask_args(args: Sequence[str]) -> dict:
     return {
         "task": task,
         "root": root,
+        "selected_paths": selected_paths,
     }
 
 
@@ -651,7 +709,7 @@ def _validate_root(root: str) -> bool:
 
 
 def _print_usage() -> None:
-    print('Usage: strata ask "<task>" [root]')
+    print('Usage: strata ask [--file <path>]... "<task>" [root]')
 
 
 def _print_error(title: str, message: str) -> None:
@@ -735,8 +793,9 @@ def _build_context_efficiency_rows(
     graph: dict,
     task: str,
     focused_context_chars: int | None,
+    selected_paths: list[str],
 ) -> list[tuple[str, object]]:
-    relevant_files = rank_relevant_files(graph, task)
+    relevant_files = rank_relevant_files(graph, task, selected_paths=selected_paths)
     source_files_scanned = len(graph.get("files", []))
     files_included = len(relevant_files)
     full_source_chars = estimate_graph_source_chars(graph)

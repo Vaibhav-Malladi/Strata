@@ -77,6 +77,19 @@ def test_generate_generic_agent_prompt_contains_task_and_rules():
     assert "## Verification Plan" in prompt
 
 
+def test_generate_generic_agent_prompt_mentions_selected_files_and_related_checks():
+    prompt = generate_agent_prompt(
+        fake_graph(),
+        "adjust prompt generation",
+        "generic",
+        selected_paths=["cli.py"],
+    )
+
+    assert "User-selected files" in prompt
+    assert "cli.py" in prompt
+    assert "py -m strata help" in prompt
+
+
 def test_generate_local_prompt_is_compact():
     prompt = generate_agent_prompt(fake_graph(), "change agent export behavior", "local")
 
