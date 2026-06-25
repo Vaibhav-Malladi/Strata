@@ -158,7 +158,13 @@ def test_missing_prompt_returns_missing_prompt():
 
         assert result["status"] == "missing_prompt"
         assert result["executed"] is False
-        assert result["errors"] == ["Prompt file not found: " + str(root / ".aidc" / "agent_prompt.md")]
+        assert len(result["errors"]) == 1
+        prefix = "Prompt file not found: "
+        assert result["errors"][0].startswith(prefix)
+
+        actual_path = Path(result["errors"][0][len(prefix):]).resolve()
+        expected_path = (root / ".aidc" / "agent_prompt.md").resolve()
+        assert actual_path == expected_path
 
 
 def test_missing_api_key_env_returns_missing_api_key_before_network_call():
