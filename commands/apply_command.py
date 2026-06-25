@@ -1,5 +1,8 @@
+import subprocess
+from pathlib import Path
+
 from patch_applier import apply_patch_file
-from patch_contract import inspect_patch
+from patch_contract import inspect_patch, resolve_patch_path
 from patch_validator import validate_patch_file
 from ui import (
     format_error,
@@ -9,6 +12,20 @@ from ui import (
     print_command_header,
     print_status_card,
     print_warning,
+)
+
+_GIT_TIMEOUT_SECONDS = 5
+_STALE_PATCH_WARNING = (
+    "Patch may be stale because it is older than generated context or source files. "
+    "Review or regenerate the patch if you are unsure."
+)
+_DIRTY_TREE_WARNING = (
+    "Git working tree has uncommitted changes. Commit, stash, or revert them before "
+    "running `strata apply`."
+)
+_TRACKED_AIDC_WARNING = (
+    "Git is tracking files under `.aidc/`. Generated prompts, context, reports, and "
+    "patches should normally not be committed. Add `.aidc/` to `.gitignore`."
 )
 
 
@@ -30,6 +47,18 @@ def inspect_apply_state(root_path: str = ".") -> dict:
         else patch_summary.get("message", "")
     )
 
+    warnings = []
+    dirty_tree = False
+
+    if validation is not None and validation.get("valid"):
+        warnings.extend(_collect_stale_patch_warnings(root_path, targets))
+        git_state = _inspect_git_state(root_path)
+        dirty_tree = bool(git_state["dirty"])
+        if dirty_tree:
+            warnings.append(_DIRTY_TREE_WARNING)
+        if git_state["aidc_tracked"]:
+            warnings.append(_TRACKED_AIDC_WARNING)
+
     return {
         "patch_summary": patch_summary,
         "validation": validation,
@@ -37,6 +66,8 @@ def inspect_apply_state(root_path: str = ".") -> dict:
         "targets": targets,
         "message": message,
         "safe": bool(validation and validation.get("valid")),
+        "warnings": warnings,
+        "dirty_tree": dirty_tree,
     }
 
 
@@ -48,6 +79,7 @@ def write_apply_dry_run_command(root_path: str = ".") -> int:
     display_status = _format_status(status)
     validation_status = validation["status"] if validation is not None else patch_summary.get("status", "missing")
     targets = validation.get("targets", []) if validation is not None else []
+    warnings = list(state["warnings"])
     message = _format_message(validation if validation is not None else patch_summary)
     next_label = "Next" if validation is not None and validation.get("valid") else "Fix"
     next_step = "Run `strata apply`." if validation is not None and validation.get("valid") else 'Run `strata ask "your task"` first.'
@@ -63,7 +95,10 @@ def write_apply_dry_run_command(root_path: str = ".") -> int:
     ]
 
     if validation is not None and validation.get("warnings"):
-        rows.append(("Warnings", _format_notes(validation.get("warnings", []))))
+        warnings.extend(validation.get("warnings", []))
+
+    if warnings:
+        rows.append(("Warnings", _format_notes(warnings)))
 
     if validation is not None and validation.get("errors"):
         rows.append(("Errors", _format_notes(validation.get("errors", []))))
@@ -86,6 +121,7 @@ def write_apply_command(root_path: str = ".", yes: bool = False) -> int:
         else patch_summary.get("message", "")
     )
     errors = validation.get("errors", []) if validation is not None else []
+    warnings = list(state["warnings"])
 
     if validation is None or not validation.get("valid"):
         rows = [
@@ -104,6 +140,7 @@ def write_apply_command(root_path: str = ".", yes: bool = False) -> int:
         print_status_card("Apply patch", rows, status=_format_apply_status(status))
         return 1
 
+    warnings.extend(validation.get("warnings", []))
     rows = [
         ("Patch", format_path(patch_summary.get("patch_path", ".aidc/agent_patch.diff"))),
         ("Exists", _format_exists(True)),
@@ -115,8 +152,16 @@ def write_apply_command(root_path: str = ".", yes: bool = False) -> int:
         ("Message", message),
     ]
 
+    if warnings:
+        rows.append(("Warnings", _format_notes(warnings)))
+
     print_command_header("Apply", "Confirm before applying patch", mode="compact")
-    print_status_card("Apply patch", rows, status=_format_status("ready"))
+    apply_status = "blocked" if state["dirty_tree"] else "ready"
+    print_status_card("Apply patch", rows, status=_format_apply_status(apply_status))
+
+    if state["dirty_tree"]:
+        print_warning("Patch not applied because the Git working tree has uncommitted changes.")
+        return 1
 
     if not yes and not _confirm_apply(targets):
         print_warning("Patch not applied.")
@@ -257,3 +302,80 @@ def _apply_success_message(message: object) -> str:
         return base
 
     return f"{base} {note}"
+
+
+def _collect_stale_patch_warnings(root_path: str, targets: list[str]) -> list[str]:
+    root = Path(root_path).resolve()
+    patch_path = resolve_patch_path(root=root)
+
+    try:
+        patch_mtime = patch_path.stat().st_mtime_ns
+    except OSError:
+        return []
+
+    newer_paths: list[str] = []
+    context_paths = (
+        root / ".aidc" / "context_pack.md",
+        root / ".aidc" / "context_pack.json",
+    )
+
+    for context_path in context_paths:
+        if _is_newer_than(context_path, patch_mtime):
+            newer_paths.append(context_path.relative_to(root).as_posix())
+
+    for target in targets:
+        target_path = (root / target).resolve()
+        try:
+            target_path.relative_to(root)
+        except ValueError:
+            continue
+
+        if target_path.is_file() and _is_newer_than(target_path, patch_mtime):
+            newer_paths.append(Path(target).as_posix())
+
+    if not newer_paths:
+        return []
+
+    paths = ", ".join(dict.fromkeys(newer_paths))
+    return [f"{_STALE_PATCH_WARNING} Newer file(s): {paths}."]
+
+
+def _is_newer_than(path: Path, mtime_ns: int) -> bool:
+    try:
+        return path.is_file() and path.stat().st_mtime_ns > mtime_ns
+    except OSError:
+        return False
+
+
+def _inspect_git_state(root_path: str) -> dict:
+    root = str(Path(root_path).resolve())
+    status = _run_git(root, "status", "--porcelain", "--untracked-files=normal")
+
+    if status is None:
+        return {"dirty": False, "aidc_tracked": False}
+
+    tracked_aidc = _run_git(root, "ls-files", "--", ".aidc")
+    return {
+        "dirty": bool(status.strip()),
+        "aidc_tracked": bool(tracked_aidc and tracked_aidc.strip()),
+    }
+
+
+def _run_git(root: str, *args: str) -> str | None:
+    try:
+        result = subprocess.run(
+            ["git", "-C", root, *args],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=_GIT_TIMEOUT_SECONDS,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+    if result.returncode != 0:
+        return None
+
+    return result.stdout

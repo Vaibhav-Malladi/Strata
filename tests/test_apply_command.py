@@ -1,5 +1,7 @@
 import contextlib
+import os
 import re
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -36,6 +38,38 @@ def _run_apply_cli(root: Path, *args: str):
     with change_directory(root):
         with change_argv(["cli.py", "apply", *args]):
             return capture_output(cli_main)
+
+
+def _run_git(root: Path, *args: str) -> None:
+    result = subprocess.run(
+        ["git", "-C", str(root), *args],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def _initialize_git_repo(root: Path, tracked_paths: list[str]) -> None:
+    _run_git(root, "init", "--quiet")
+    _run_git(root, "config", "user.name", "Strata Tests")
+    _run_git(root, "config", "user.email", "strata-tests@example.invalid")
+    for tracked_path in tracked_paths:
+        _run_git(root, "add", "--", tracked_path)
+    _run_git(root, "commit", "--quiet", "-m", "test setup")
+
+
+def _valid_main_patch() -> str:
+    return (
+        "diff --git a/main.py b/main.py\n"
+        "--- a/main.py\n"
+        "+++ b/main.py\n"
+        "@@ -1 +1 @@\n"
+        '-print("old")\n'
+        '+print("new")\n'
+    )
 
 
 def test_apply_dry_run_missing_returns_nonzero_and_prints_missing():
@@ -255,6 +289,102 @@ def test_apply_dry_run_real_patch_still_does_not_modify_files():
         assert (root / "main.py").read_text(encoding="utf-8") == 'print("old")\n'
 
 
+def test_apply_blocks_dirty_git_working_tree_even_with_yes():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _write_file(root, ".gitignore", ".aidc/\n")
+        _write_file(root, "main.py", 'print("old")\n')
+        _write_file(root, "notes.txt", "clean\n")
+        _initialize_git_repo(root, [".gitignore", "main.py", "notes.txt"])
+        _write_file(root, "notes.txt", "dirty\n")
+        _create_patch_file(root, _valid_main_patch())
+
+        exit_code, output = _run_apply_cli(root, "--yes")
+
+        assert exit_code == 1
+        assert "uncommitted changes" in output
+        assert "Commit, stash, or revert" in output
+        assert "Patch not applied" in output
+        assert (root / "main.py").read_text(encoding="utf-8") == 'print("old")\n'
+
+
+def test_apply_dry_run_warns_for_dirty_tree_without_writing():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _write_file(root, ".gitignore", ".aidc/\n")
+        _write_file(root, "main.py", 'print("old")\n')
+        _write_file(root, "notes.txt", "clean\n")
+        _initialize_git_repo(root, [".gitignore", "main.py", "notes.txt"])
+        _write_file(root, "notes.txt", "dirty\n")
+        _create_patch_file(root, _valid_main_patch())
+
+        exit_code, output = _run_apply_cli(root, "--dry-run")
+
+        assert exit_code == 0
+        assert "uncommitted changes" in output
+        assert re.search(r"Applies patch\s+no", output)
+        assert (root / "main.py").read_text(encoding="utf-8") == 'print("old")\n'
+
+
+def test_apply_dry_run_warns_when_context_is_newer_than_patch():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _write_file(root, "main.py", 'print("old")\n')
+        patch_path = _create_patch_file(root, _valid_main_patch())
+        markdown_context_path = _write_file(
+            root, ".aidc/context_pack.md", "new context\n"
+        )
+        json_context_path = _write_file(
+            root, ".aidc/context_pack.json", '{"task": "new context"}\n'
+        )
+        os.utime(patch_path, ns=(1_000_000_000, 1_000_000_000))
+        os.utime(markdown_context_path, ns=(2_000_000_000, 2_000_000_000))
+        os.utime(json_context_path, ns=(3_000_000_000, 3_000_000_000))
+
+        exit_code, output = _run_apply_cli(root, "--dry-run")
+
+        assert exit_code == 0
+        assert "Patch may be stale" in output
+        assert "older than generated context or source files" in output
+        assert ".aidc/context_pack.md" in output.replace("\\", "/")
+        assert ".aidc/context_pack.json" in output.replace("\\", "/")
+
+
+def test_apply_dry_run_warns_when_target_file_is_newer_than_patch():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        target_path = _write_file(root, "main.py", 'print("old")\n')
+        patch_path = _create_patch_file(root, _valid_main_patch())
+        os.utime(patch_path, ns=(1_000_000_000, 1_000_000_000))
+        os.utime(target_path, ns=(2_000_000_000, 2_000_000_000))
+
+        exit_code, output = _run_apply_cli(root, "--dry-run")
+
+        assert exit_code == 0
+        assert "Patch may be stale" in output
+        assert "main.py" in output
+
+
+def test_apply_dry_run_warns_when_aidc_is_tracked_by_git():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _write_file(root, "main.py", 'print("old")\n')
+        _write_file(root, ".aidc/tracked.txt", "tracked generated output\n")
+        _create_patch_file(root, _valid_main_patch())
+        _initialize_git_repo(
+            root,
+            ["main.py", ".aidc/tracked.txt", ".aidc/agent_patch.diff"],
+        )
+
+        exit_code, output = _run_apply_cli(root, "--dry-run")
+
+        assert exit_code == 0
+        assert "tracking files under `.aidc/`" in output
+        assert "Add `.aidc/` to `.gitignore`" in output
+        assert "uncommitted changes" not in output
+        assert (root / "main.py").read_text(encoding="utf-8") == 'print("old")\n'
+
+
 def test_apply_unknown_flag_returns_nonzero_and_shows_usage():
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
@@ -277,5 +407,10 @@ TESTS = [
     test_apply_dry_run_missing_does_not_create_aidc,
     test_apply_returns_zero_and_prints_changed_files_for_valid_patch,
     test_apply_dry_run_real_patch_still_does_not_modify_files,
+    test_apply_blocks_dirty_git_working_tree_even_with_yes,
+    test_apply_dry_run_warns_for_dirty_tree_without_writing,
+    test_apply_dry_run_warns_when_context_is_newer_than_patch,
+    test_apply_dry_run_warns_when_target_file_is_newer_than_patch,
+    test_apply_dry_run_warns_when_aidc_is_tracked_by_git,
     test_apply_unknown_flag_returns_nonzero_and_shows_usage,
 ]
