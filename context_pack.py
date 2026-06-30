@@ -9,7 +9,7 @@ try:
 except Exception:  # pragma: no cover - optional helper fallback
     suggest_tests_for_file = None
 
-from context_matching import (
+from strata.core.context_matching import (
     TASK_HINT_TERMS,
     TASK_STOP_WORDS,
     TASK_SYNONYMS,

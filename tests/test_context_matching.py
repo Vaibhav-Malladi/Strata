@@ -1,3 +1,5 @@
+import context_matching as old_context_matching
+import strata.core.context_matching as new_context_matching
 from context_matching import (
     collect_file_terms,
     detect_file_roles,
@@ -9,6 +11,10 @@ from context_matching import (
     score_confidence,
     score_file_for_task,
 )
+
+
+def test_core_context_matching_import_matches_compatibility_shim():
+    assert old_context_matching.extract_task_terms is new_context_matching.extract_task_terms
 
 
 def make_file(path, **overrides):
@@ -128,6 +134,7 @@ def test_score_file_for_task_prefers_direct_page_match():
 
 
 TESTS = [
+    test_core_context_matching_import_matches_compatibility_shim,
     test_extract_task_terms_removes_common_tiny_words_and_keeps_useful_terms,
     test_extract_identifier_terms_splits_paths_and_identifiers,
     test_expand_task_terms_includes_small_generic_synonyms,

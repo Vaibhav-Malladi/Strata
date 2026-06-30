@@ -1,7 +1,13 @@
 import tempfile
 from pathlib import Path
 
+import selected_context as old_selected_context
+import strata.core.selected_context as new_selected_context
 from selected_context import resolve_file_references, resolve_one_file_reference
+
+
+def test_core_selected_context_import_matches_compatibility_shim():
+    assert old_selected_context.resolve_file_references is new_selected_context.resolve_file_references
 
 
 def _create_resolver_repo(root: Path) -> None:
@@ -106,6 +112,7 @@ def test_resolver_rejects_ambiguous_missing_and_unsafe_references():
 
 
 TESTS = [
+    test_core_selected_context_import_matches_compatibility_shim,
     test_resolve_file_reference_supports_exact_and_smart_matches,
     test_resolve_file_references_resolves_each_flag_independently,
     test_resolver_prefers_source_files_and_can_pick_explicit_test_files,

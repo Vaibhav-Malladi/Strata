@@ -3,9 +3,15 @@ import os
 import tempfile
 from pathlib import Path
 
+import context_efficiency as old_context_efficiency
+import strata.core.context_efficiency as new_context_efficiency
 from commands.context_command import write_context
 from context_efficiency import compute_context_efficiency, estimate_tokens
 from tests.helpers import capture_output
+
+
+def test_core_context_efficiency_import_matches_compatibility_shim():
+    assert old_context_efficiency.estimate_tokens is new_context_efficiency.estimate_tokens
 
 
 @contextlib.contextmanager
@@ -87,6 +93,7 @@ def test_write_context_outputs_context_efficiency_section():
 
 
 TESTS = [
+    test_core_context_efficiency_import_matches_compatibility_shim,
     test_estimate_tokens_returns_zero_for_empty_text,
     test_estimate_tokens_rounds_up_for_exact_quarter_blocks,
     test_estimate_tokens_rounds_up_for_partial_quarter_blocks,

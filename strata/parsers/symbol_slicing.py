@@ -2,9 +2,9 @@ import ast
 import re
 from pathlib import Path
 
-from context_matching import extract_identifier_terms, extract_task_terms
-from context_efficiency import estimate_tokens
-from selected_context import is_generated_or_ignored_path, is_secret_like_path
+from strata.core.context_matching import extract_identifier_terms, extract_task_terms
+from strata.core.context_efficiency import estimate_tokens
+from strata.core.selected_context import is_generated_or_ignored_path, is_secret_like_path
 
 
 DEFAULT_SYMBOL_HINT_LIMIT = 8

@@ -2,7 +2,7 @@ import json
 import re
 from pathlib import Path
 
-from context_matching import extract_identifier_terms, extract_task_terms
+from strata.core.context_matching import extract_identifier_terms, extract_task_terms
 
 
 DEFAULT_DECLARATION_HINT_LIMIT = 6

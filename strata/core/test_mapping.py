@@ -2,7 +2,7 @@ import ast
 import re
 from pathlib import Path
 
-from context_matching import extract_identifier_terms, extract_task_terms, _dedupe, _file_stem, _normalize_path
+from strata.core.context_matching import extract_identifier_terms, extract_task_terms, _dedupe, _file_stem, _normalize_path
 
 DEFAULT_TEST_HINT_FILE_LIMIT = 3
 DEFAULT_TEST_HINT_FUNCTION_LIMIT = 5

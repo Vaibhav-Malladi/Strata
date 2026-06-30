@@ -1,10 +1,16 @@
 import tempfile
 from pathlib import Path
 
+import context_budget as old_context_budget
+import strata.core.context_budget as new_context_budget
 from agent_export import generate_agent_prompt
 from context_budget import BudgetParseError, build_budget_report, build_budget_summary_rows, parse_budget_value
 from context_pack import build_context_pack
 from context_efficiency import estimate_tokens
+
+
+def test_core_context_budget_import_matches_compatibility_shim():
+    assert old_context_budget.build_budget_report is new_context_budget.build_budget_report
 
 
 def make_file(path: str, **overrides) -> dict:
@@ -237,6 +243,7 @@ def test_budget_summary_reports_symbol_snippets_with_clear_skip_wording():
 
 
 TESTS = [
+    test_core_context_budget_import_matches_compatibility_shim,
     test_parse_budget_value_supports_presets,
     test_parse_budget_value_supports_numeric_values,
     test_parse_budget_value_rejects_invalid_values,

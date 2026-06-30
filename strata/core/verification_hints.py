@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from context_matching import extract_task_terms
+from strata.core.context_matching import extract_task_terms
 
 
 VERIFICATION_COMMAND_LIMIT = 8

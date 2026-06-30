@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from context_matching import _normalize_path
+from strata.core.context_matching import _normalize_path
 
 
 EXECUTION_HINT_LIMIT = 8

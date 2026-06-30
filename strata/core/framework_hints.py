@@ -1,7 +1,7 @@
 import re
 from pathlib import Path
 
-from context_matching import (
+from strata.core.context_matching import (
     _normalize_path,
     expand_task_terms,
     extract_identifier_terms,
