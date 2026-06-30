@@ -2,7 +2,8 @@ import contextlib
 import tempfile
 from pathlib import Path
 
-import commands.run_command as run_command_module
+import commands.run_command as old_run_command
+import strata.commands.run_command as new_run_command
 from commands.run_command import write_run_command
 from workflow_config import default_config, save_config
 from tests.helpers import capture_output, change_directory
@@ -46,27 +47,27 @@ def _save_run_config(root: Path, **overrides) -> None:
 
 @contextlib.contextmanager
 def _patched_load_config(config: dict):
-    original = run_command_module.load_config
-    run_command_module.load_config = lambda root: config
+    original = new_run_command.load_config
+    new_run_command.load_config = lambda root: config
     try:
         yield
     finally:
-        run_command_module.load_config = original
+        new_run_command.load_config = original
 
 
 @contextlib.contextmanager
 def patched_input(value: str):
-    original = run_command_module.input
+    original = new_run_command.input
 
     def _fake_input(prompt: str = "") -> str:
         print(prompt, end="")
         return value
 
-    run_command_module.input = _fake_input
+    new_run_command.input = _fake_input
     try:
         yield
     finally:
-        run_command_module.input = original
+        new_run_command.input = original
 
 
 def _create_patch_file(root: Path, content: str) -> Path:
@@ -74,6 +75,10 @@ def _create_patch_file(root: Path, content: str) -> Path:
     patch_path.parent.mkdir(parents=True, exist_ok=True)
     patch_path.write_text(content, encoding="utf-8")
     return patch_path
+
+
+def test_new_run_command_import_matches_legacy_shim():
+    assert new_run_command.write_run_command is old_run_command.write_run_command
 
 
 def _valid_patch_text() -> str:
@@ -599,6 +604,7 @@ def test_run_outputs_single_banner():
 
 
 TESTS = [
+    test_new_run_command_import_matches_legacy_shim,
     test_run_dry_run_does_not_create_aidc,
     test_run_dry_run_command_adapter_shows_command_without_execution,
     test_run_dry_run_command_adapter_missing_command_returns_nonzero,

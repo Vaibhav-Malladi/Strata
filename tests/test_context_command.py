@@ -4,6 +4,8 @@ import os
 import tempfile
 from pathlib import Path
 
+import commands.context_command as context_command
+import strata.commands.context_command as new_context_command
 from commands.context_command import write_context
 from tests.helpers import capture_output
 
@@ -16,6 +18,10 @@ def change_directory(path: Path):
         yield
     finally:
         os.chdir(original)
+
+
+def test_new_context_command_import_matches_legacy_shim():
+    assert new_context_command.write_context is context_command.write_context
 
 
 def create_context_repo(root: Path, with_routes: bool = False) -> None:
@@ -306,6 +312,7 @@ def test_write_context_json_writes_valid_stable_payload_and_keeps_markdown_defau
 
 
 TESTS = [
+    test_new_context_command_import_matches_legacy_shim,
     test_write_context_creates_context_pack_file,
     test_write_context_prints_usage_when_task_missing,
     test_write_context_reports_budget_summary_when_budget_is_tight,

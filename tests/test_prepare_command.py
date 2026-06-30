@@ -4,6 +4,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+import commands.prepare_command as prepare_command
+import strata.commands.prepare_command as new_prepare_command
 from cli import main as cli_main
 from cli_help import print_usage
 from tests.helpers import capture_output, change_directory
@@ -18,6 +20,11 @@ def change_argv(args: list[str]):
         yield
     finally:
         sys.argv = original
+
+
+def test_new_prepare_command_import_matches_legacy_shim():
+    assert new_prepare_command.write_prepare_command is prepare_command.write_prepare_command
+    assert new_prepare_command.prepare_workflow is prepare_command.prepare_workflow
 
 
 def _create_prepare_repo(root: Path) -> None:
@@ -181,6 +188,7 @@ def test_help_mentions_prepare():
 
 
 TESTS = [
+    test_new_prepare_command_import_matches_legacy_shim,
     test_prepare_without_config_uses_defaults_and_creates_expected_files,
     test_prepare_respects_config_agent_and_mode,
     test_prepare_with_auto_snapshot_true_creates_snapshot,

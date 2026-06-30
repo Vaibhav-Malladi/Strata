@@ -3,6 +3,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+import commands.review_command as review_command
+import strata.commands.review_command as new_review_command
 from cli import main as cli_main
 from cli_core import build_graph
 from routes import collect_routes
@@ -19,6 +21,10 @@ def change_argv(args: list[str]):
         yield
     finally:
         sys.argv = original
+
+
+def test_new_review_command_import_matches_legacy_shim():
+    assert new_review_command.write_review_command is review_command.write_review_command
 
 
 def _create_review_repo(root: Path) -> None:
@@ -182,6 +188,7 @@ def test_help_mentions_review():
 
 
 TESTS = [
+    test_new_review_command_import_matches_legacy_shim,
     test_review_without_config_uses_defaults_and_runs_verify,
     test_review_respects_auto_verify_false,
     test_review_missing_snapshot_returns_nonzero,
