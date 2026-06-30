@@ -5,6 +5,8 @@ from pathlib import Path
 from agent_export import generate_agent_prompt
 from context_budget import build_budget_report, build_budget_summary_rows
 from context_pack import build_context_pack
+import javascript_project as old_js_project
+import strata.parsers.javascript_project as new_js_project
 from javascript_project import (
     build_javascript_project_hints_section,
     collect_javascript_project_hints,
@@ -22,6 +24,11 @@ def _graph(root: Path) -> dict:
         "files": [{"path": "src/LoginButton.tsx", "language": "typescript"}],
         "edges": [],
     }
+
+
+def test_new_javascript_project_import_matches_legacy_shim():
+    assert old_js_project.collect_javascript_project_hints is new_js_project.collect_javascript_project_hints
+    assert old_js_project.build_javascript_project_hints_section is new_js_project.build_javascript_project_hints_section
 
 
 def test_javascript_project_hints_are_compact_and_integrated():
@@ -183,6 +190,7 @@ def test_javascript_project_budget_summary_pluralizes_scripts():
 
 
 TESTS = [
+    test_new_javascript_project_import_matches_legacy_shim,
     test_javascript_project_hints_are_compact_and_integrated,
     test_package_manager_lockfile_detection,
     test_javascript_project_hints_suppress_empty_and_noisy_output,

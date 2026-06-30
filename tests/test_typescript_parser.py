@@ -3,6 +3,7 @@ from pathlib import Path
 
 from parsers.typescript_parser import parse_file
 import parsers.typescript_parser as old_typescript_parser
+import strata.parsers.javascript as new_js_impl
 import strata.parsers.typescript_parser as new_typescript_parser
 
 
@@ -14,6 +15,7 @@ def write_file(folder: str, name: str, content: str) -> Path:
 
 def test_new_typescript_parser_import_matches_legacy_shim():
     assert old_typescript_parser.parse_file is new_typescript_parser.parse_file
+    assert new_typescript_parser.parse_file is new_js_impl.parse_js_file
 
 
 def test_parses_typescript_imports():

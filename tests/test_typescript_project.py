@@ -1,6 +1,8 @@
 import tempfile
 from pathlib import Path
 
+import strata.parsers.typescript as new_ts_project
+import typescript_project as old_ts_project
 from typescript_project import (
     build_declaration_hints_section,
     build_typescript_project_hints_section,
@@ -23,6 +25,11 @@ def _graph(root: Path, paths: list[str]) -> dict:
         "files": [{"path": path, "language": "typescript"} for path in paths],
         "edges": [],
     }
+
+
+def test_new_typescript_project_import_matches_legacy_shim():
+    assert old_ts_project.collect_typescript_project_hints is new_ts_project.collect_typescript_project_hints
+    assert old_ts_project.collect_declaration_hints is new_ts_project.collect_declaration_hints
 
 
 def test_typescript_project_aliases_and_declarations_are_compact_and_confident():
@@ -90,6 +97,7 @@ def test_project_hint_summary_pluralizes_alias_cleanly():
 
 
 TESTS = [
+    test_new_typescript_project_import_matches_legacy_shim,
     test_typescript_project_aliases_and_declarations_are_compact_and_confident,
     test_project_hint_summary_pluralizes_alias_cleanly,
 ]
