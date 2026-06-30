@@ -7,6 +7,11 @@ from secret_redaction import (
     safe_env_status,
     validate_env_var_name,
 )
+from strata.utils.secrets import redact_text as redact_text_from_new_path
+
+
+def test_new_package_import_path_works():
+    assert redact_text_from_new_path("plain text") == "plain text"
 
 
 def test_looks_like_secret_detects_common_token_shapes():
@@ -63,6 +68,7 @@ def test_validate_env_var_name_accepts_only_valid_names():
 
 
 TESTS = [
+    test_new_package_import_path_works,
     test_looks_like_secret_detects_common_token_shapes,
     test_redact_text_masks_embedded_secrets_and_auth_headers,
     test_redact_secret_only_changes_secret_like_values,
