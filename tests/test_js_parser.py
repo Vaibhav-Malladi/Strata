@@ -1,6 +1,8 @@
 import tempfile
 from pathlib import Path
 
+import js_parser as old_js_impl
+import strata.parsers.javascript as new_js_impl
 from js_parser import parse_js_file, parse_js_source
 
 
@@ -13,6 +15,11 @@ def _parse_temp_file(filename: str, source: str) -> dict:
 
 def _names(items: list[dict]) -> list[str]:
     return [item["name"] for item in items]
+
+
+def test_new_js_parser_import_matches_legacy_shim():
+    assert old_js_impl.parse_js_file is new_js_impl.parse_js_file
+    assert old_js_impl.parse_js_source is new_js_impl.parse_js_source
 
 
 def test_js_default_import():
@@ -299,6 +306,7 @@ def test_js_parser_returns_fresh_deterministic_structures():
 
 
 TESTS = [
+    test_new_js_parser_import_matches_legacy_shim,
     test_js_default_import,
     test_js_named_import,
     test_js_relative_import_preserves_source_module,

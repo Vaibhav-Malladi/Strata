@@ -4,6 +4,8 @@ import json
 import tempfile
 from pathlib import Path
 
+import js_resolution as old_js_resolution
+import strata.parsers.js_resolution as new_js_resolution
 from js_resolution import (
     build_js_resolution_context,
     load_tsconfig_paths,
@@ -27,6 +29,11 @@ def write_json(root: Path, relative_path: str, data: dict) -> Path:
 
 def _resolve(root: Path, importer: str, source: str, context: dict | None = None) -> dict:
     return resolve_js_import(str(root), str(root / importer), source, context)
+
+
+def test_new_js_resolution_import_matches_legacy_shim():
+    assert old_js_resolution.build_js_resolution_context is new_js_resolution.build_js_resolution_context
+    assert old_js_resolution.resolve_js_import is new_js_resolution.resolve_js_import
 
 
 def test_js_resolution_resolves_relative_imports():
@@ -351,6 +358,7 @@ def test_js_resolution_returns_fresh_dicts_and_lists():
 
 
 TESTS = [
+    test_new_js_resolution_import_matches_legacy_shim,
     test_js_resolution_resolves_relative_imports,
     test_js_resolution_resolves_extensionless_relative_imports,
     test_js_resolution_resolves_index_imports,
