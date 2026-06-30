@@ -4,7 +4,17 @@ import textwrap
 from pathlib import Path
 
 import command_executor as command_executor_module
+import fs_utils as fs_utils_module
 from command_executor import execute_command_adapter, parse_command
+import strata.utils.paths as paths
+import strata.utils.shell as shell
+
+
+def test_new_utility_import_paths_match_compatibility_shims():
+    assert fs_utils_module.atomic_write_text is paths.atomic_write_text
+    assert fs_utils_module.atomic_write_json is paths.atomic_write_json
+    assert command_executor_module.parse_command is shell.parse_command
+    assert command_executor_module.execute_command_adapter is shell.execute_command_adapter
 
 
 def _write_script(root: Path, name: str, body: str) -> Path:
@@ -409,6 +419,7 @@ def test_executor_does_not_apply_patch():
 
 
 TESTS = [
+    test_new_utility_import_paths_match_compatibility_shims,
     test_parse_command_splits_simple_command,
     test_empty_command_returns_not_ready_and_executed_false,
     test_none_command_returns_not_ready_and_executed_false,
