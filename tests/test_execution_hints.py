@@ -1,6 +1,8 @@
 import tempfile
 from pathlib import Path
 
+import execution_hints as old_execution_hints
+import strata.core.execution_hints as new_execution_hints
 from context_pack import build_context_pack
 from execution_hints import collect_execution_path_hints
 from framework_hints import collect_angular_hints, collect_react_hints
@@ -20,6 +22,13 @@ def _file(path: str, language: str = "python", **extra) -> dict:
     }
     item.update(extra)
     return item
+
+
+def test_core_execution_hints_import_matches_compatibility_shim():
+    assert (
+        old_execution_hints.collect_execution_path_hints
+        is new_execution_hints.collect_execution_path_hints
+    )
 
 
 def _write(root: Path, path: str, content: str = "") -> None:
@@ -143,6 +152,7 @@ def test_angular_execution_hints_use_convention_wording_for_file_family():
 
 
 TESTS = [
+    test_core_execution_hints_import_matches_compatibility_shim,
     test_python_execution_hints_prioritize_selected_command_and_import_path,
     test_react_execution_hints_reference_test_without_repeating_react_section,
     test_angular_execution_hints_use_convention_wording_for_file_family,

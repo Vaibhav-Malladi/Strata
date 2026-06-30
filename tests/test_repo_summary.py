@@ -1,3 +1,5 @@
+import repo_summary as old_repo_summary
+import strata.core.repo_summary as new_repo_summary
 from repo_summary import summarize_graph
 
 
@@ -8,6 +10,10 @@ def _empty_frontend_buckets() -> dict:
         "modules": [],
         "routes": [],
     }
+
+
+def test_core_repo_summary_import_matches_compatibility_shim():
+    assert old_repo_summary.summarize_graph is new_repo_summary.summarize_graph
 
 
 def _make_file(path: str, language: str, **overrides) -> dict:
@@ -327,6 +333,7 @@ def test_fresh_deterministic_dict_and_list_behavior():
 
 
 TESTS = [
+    test_core_repo_summary_import_matches_compatibility_shim,
     test_empty_graph_summary_works,
     test_python_language_count_works,
     test_typescript_and_javascript_language_count_works,
