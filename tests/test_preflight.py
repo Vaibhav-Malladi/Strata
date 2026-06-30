@@ -1,6 +1,9 @@
 import tempfile
 from pathlib import Path
 
+import preflight as old_preflight
+import strata.core.preflight as new_preflight
+
 from cli import write_preflight
 from preflight import generate_preflight_report, write_preflight_report
 from tests.helpers import capture_output, change_directory, temporary_repo
@@ -85,6 +88,14 @@ def preflight_test_graph():
             },
         ],
     }
+
+
+def test_preflight_module_compatibility():
+    assert (
+        old_preflight.generate_preflight_report
+        is new_preflight.generate_preflight_report
+    )
+    assert old_preflight.write_preflight_report is new_preflight.write_preflight_report
 
 
 def test_generate_preflight_report_includes_main_sections():
@@ -288,6 +299,7 @@ def test_preflight_includes_backend_routes_section():
 
 
 TESTS = [
+    test_preflight_module_compatibility,
     test_generate_preflight_report_includes_main_sections,
     test_generate_preflight_report_groups_relevant_files,
     test_generate_preflight_report_includes_relevant_files,

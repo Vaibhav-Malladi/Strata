@@ -1,3 +1,6 @@
+import impact as old_impact
+import strata.core.impact as new_impact
+
 from cli import show_impact
 from impact import analyze_impact, format_impact_report
 from scanner import scan_repo
@@ -11,6 +14,11 @@ def _impact_repo():
             "main.py": "import helper\n",
         }
     )
+
+
+def test_impact_module_compatibility():
+    assert old_impact.analyze_impact is new_impact.analyze_impact
+    assert old_impact.format_impact_report is new_impact.format_impact_report
 
 
 def test_analyze_impact_reports_helper_dependents():
@@ -106,6 +114,7 @@ def test_cli_show_impact_returns_error_for_missing_file():
 
 
 TESTS = [
+    test_impact_module_compatibility,
     test_analyze_impact_reports_helper_dependents,
     test_analyze_impact_reports_main_dependencies,
     test_analyze_impact_reports_missing_file,

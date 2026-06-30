@@ -3,6 +3,9 @@ import os
 import tempfile
 from pathlib import Path
 
+import status as old_status
+import strata.core.status as new_status
+
 from commands.status_command import show_status
 from status import analyze_status, format_status_report
 from tests.helpers import capture_output, change_directory
@@ -27,6 +30,11 @@ GENERATED_FILE_PATHS = [
     ".aidc/cache/repo_snapshot.json",
     ".aidc/cache/repo_scan.json",
 ]
+
+
+def test_status_module_compatibility():
+    assert old_status.analyze_status is new_status.analyze_status
+    assert old_status.format_status_report is new_status.format_status_report
 
 
 def write_generated_files(root: Path) -> None:
@@ -419,6 +427,7 @@ def test_show_status_displays_interrupted_full_scan_state():
 
 
 TESTS = [
+    test_status_module_compatibility,
     test_analyze_status_reports_missing_generated_files,
     test_analyze_status_reports_current_when_outputs_exist,
     test_analyze_status_reports_stale_outputs,

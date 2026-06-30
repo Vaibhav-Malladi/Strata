@@ -1,7 +1,15 @@
+import health as old_health
+import strata.core.health as new_health
+
 from cli import show_health
 from health import analyze_health, format_health_report
 from scanner import scan_repo
 from tests.helpers import capture_output, change_directory, temporary_repo
+
+
+def test_health_module_compatibility():
+    assert old_health.analyze_health is new_health.analyze_health
+    assert old_health.format_health_report is new_health.format_health_report
 
 
 def test_analyze_health_reports_unresolved_import_warnings():
@@ -122,6 +130,7 @@ def test_cli_show_health_displays_report():
 
 
 TESTS = [
+    test_health_module_compatibility,
     test_analyze_health_reports_unresolved_import_warnings,
     test_analyze_health_reports_cycle_warning,
     test_format_health_report_includes_summary_and_warnings,
