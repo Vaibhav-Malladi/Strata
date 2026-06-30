@@ -6,6 +6,8 @@ from types import SimpleNamespace
 
 from tests.helpers import capture_output
 import tests.run as test_runner
+import strata.utils.output as output
+import ui
 from ui import (
     build_banner,
     color,
@@ -21,6 +23,11 @@ from ui import (
     strip_ansi,
     status_spinner,
 )
+
+
+def test_new_output_import_matches_legacy_ui_shim():
+    assert output.render_banner is ui.render_banner
+    assert output.status_spinner is ui.status_spinner
 
 
 @contextlib.contextmanager
@@ -245,6 +252,7 @@ def _exercise_spinner_exception():
 
 
 TESTS = [
+    test_new_output_import_matches_legacy_ui_shim,
     test_render_wordmark_includes_title_and_tagline_without_ansi,
     test_render_banner_defaults_to_wordmark,
     test_build_banner_defaults_to_compact_title_panel,
