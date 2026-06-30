@@ -4,8 +4,15 @@ import tempfile
 from pathlib import Path
 
 import patch_applier
+import strata.patch.applier as new_patch_applier
 from patch_applier import apply_patch_file, apply_patch_text, parse_unified_diff
 from tests.helpers import change_directory
+
+
+def test_patch_applier_module_compatibility():
+    assert patch_applier.apply_patch_file is new_patch_applier.apply_patch_file
+    assert patch_applier.apply_patch_text is new_patch_applier.apply_patch_text
+    assert patch_applier.parse_unified_diff is new_patch_applier.parse_unified_diff
 
 
 def _write_file(root: Path, relative_path: str, content: str) -> Path:
@@ -404,7 +411,7 @@ def test_apply_patch_text_returns_fresh_lists_each_time():
 
 
 def test_patch_applier_does_not_use_subprocess_or_git_execution():
-    source = inspect.getsource(patch_applier)
+    source = inspect.getsource(new_patch_applier)
     tree = ast.parse(source)
 
     imported_modules: set[str] = set()
@@ -447,6 +454,7 @@ def test_parse_unified_diff_returns_targets_for_valid_patch():
 
 
 TESTS = [
+    test_patch_applier_module_compatibility,
     test_apply_patch_file_modifies_existing_file,
     test_apply_patch_text_creates_new_file,
     test_apply_patch_text_deletes_file,

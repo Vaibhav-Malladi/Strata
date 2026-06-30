@@ -1,6 +1,9 @@
 import tempfile
 from pathlib import Path
 
+import patch_contract as old_patch_contract
+import strata.patch.contract as new_patch_contract
+
 from patch_contract import (
     DEFAULT_PATCH_METADATA_PATH,
     DEFAULT_PATCH_PATH,
@@ -10,6 +13,15 @@ from patch_contract import (
     resolve_patch_metadata_path,
     resolve_patch_path,
 )
+
+
+def test_patch_contract_module_compatibility():
+    assert (
+        old_patch_contract.resolve_patch_path
+        is new_patch_contract.resolve_patch_path
+    )
+    assert old_patch_contract.inspect_patch is new_patch_contract.inspect_patch
+    assert old_patch_contract.read_patch_text is new_patch_contract.read_patch_text
 
 
 def _create_patch_file(root: Path, content: str) -> Path:
@@ -165,6 +177,7 @@ def test_repeated_calls_return_fresh_deterministic_dicts():
 
 
 TESTS = [
+    test_patch_contract_module_compatibility,
     test_default_patch_path_resolution,
     test_default_metadata_path_resolution,
     test_relative_configured_patch_path,

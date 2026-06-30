@@ -1,7 +1,25 @@
 import tempfile
 from pathlib import Path
 
+import patch_validator as old_patch_validator
+import strata.patch.validator as new_patch_validator
+
 from patch_validator import extract_patch_targets, validate_patch_file, validate_patch_text
+
+
+def test_patch_validator_module_compatibility():
+    assert (
+        old_patch_validator.validate_patch_text
+        is new_patch_validator.validate_patch_text
+    )
+    assert (
+        old_patch_validator.validate_patch_file
+        is new_patch_validator.validate_patch_file
+    )
+    assert (
+        old_patch_validator.extract_patch_targets
+        is new_patch_validator.extract_patch_targets
+    )
 
 
 def _write_patch_file(root: Path, content: str) -> Path:
@@ -258,6 +276,7 @@ def test_validate_patch_text_returns_fresh_dicts_and_lists():
 
 
 TESTS = [
+    test_patch_validator_module_compatibility,
     test_missing_patch_file_returns_missing,
     test_empty_patch_file_returns_empty,
     test_valid_diff_git_patch_returns_valid,
