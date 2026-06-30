@@ -14,11 +14,17 @@ if TESTS_DIR not in sys.path:
 
 from languages import detect_language, parse_source_file
 from python_parser import parse_file
+import parsers.python_parser as old_python_parser
+import strata.parsers.python_parser as new_python_parser
 from tests.helpers import write_file
 
 
 def test_python_version():
     assert sys.version_info >= (3, 10), "Strata requires Python 3.10 or newer"
+
+
+def test_new_python_parser_import_matches_legacy_shim():
+    assert old_python_parser.parse_file is new_python_parser.parse_file
 
 
 def test_parse_current_parser_file():
@@ -112,6 +118,7 @@ def test_parses_python_backend_routes():
 
 TESTS = [
     test_python_version,
+    test_new_python_parser_import_matches_legacy_shim,
     test_parse_current_parser_file,
     test_parse_syntax_error_file,
     test_language_detection,

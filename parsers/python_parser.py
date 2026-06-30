@@ -1,4 +1,1 @@
-from python_parser import parse_file
-
-
-__all__ = ["parse_file"]
+from strata.parsers.python_parser import *

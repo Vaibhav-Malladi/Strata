@@ -2,12 +2,18 @@ import tempfile
 from pathlib import Path
 
 from parsers.javascript_parser import parse_file
+import parsers.javascript_parser as old_javascript_parser
+import strata.parsers.javascript_parser as new_javascript_parser
 
 
 def write_file(folder: str, name: str, content: str) -> Path:
     path = Path(folder) / name
     path.write_text(content, encoding="utf-8")
     return path
+
+
+def test_new_javascript_parser_import_matches_legacy_shim():
+    assert old_javascript_parser.parse_file is new_javascript_parser.parse_file
 
 
 def test_parses_javascript_imports():
@@ -151,6 +157,7 @@ api.patch("/users/:id", patchUser);
         } in parsed["routes"]
 
 TESTS = [
+    test_new_javascript_parser_import_matches_legacy_shim,
     test_parses_javascript_imports,
     test_parses_javascript_symbols,
     test_records_javascript_exports,

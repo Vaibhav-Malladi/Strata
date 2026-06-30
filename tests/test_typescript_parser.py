@@ -2,12 +2,18 @@ import tempfile
 from pathlib import Path
 
 from parsers.typescript_parser import parse_file
+import parsers.typescript_parser as old_typescript_parser
+import strata.parsers.typescript_parser as new_typescript_parser
 
 
 def write_file(folder: str, name: str, content: str) -> Path:
     path = Path(folder) / name
     path.write_text(content, encoding="utf-8")
     return path
+
+
+def test_new_typescript_parser_import_matches_legacy_shim():
+    assert old_typescript_parser.parse_file is new_typescript_parser.parse_file
 
 
 def test_parses_typescript_imports():
@@ -173,6 +179,7 @@ api.patch("/users/:id", patchUser);
         } in parsed["routes"]
 
 TESTS = [
+    test_new_typescript_parser_import_matches_legacy_shim,
     test_parses_typescript_imports,
     test_parses_typescript_symbols,
     test_detects_angular_framework_hint,
