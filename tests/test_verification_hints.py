@@ -1,4 +1,10 @@
+import strata.core.verification_hints as new_verification_hints
+import verification_hints as old_verification_hints
 from verification_hints import collect_verification_commands
+
+
+def test_core_verification_hints_import_matches_compatibility_shim():
+    assert old_verification_hints.collect_verification_commands is new_verification_hints.collect_verification_commands
 
 
 def _project(manager: str, *scripts: str) -> dict:
@@ -50,6 +56,7 @@ def test_e2e_is_only_included_when_task_context_calls_for_it():
 
 
 TESTS = [
+    test_core_verification_hints_import_matches_compatibility_shim,
     test_npm_verification_uses_only_available_package_scripts,
     test_pnpm_and_yarn_verification_use_detected_manager_style,
     test_e2e_is_only_included_when_task_context_calls_for_it,

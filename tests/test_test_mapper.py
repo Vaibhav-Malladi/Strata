@@ -1,6 +1,12 @@
+import strata.core.test_mapper as new_test_mapper
+import test_mapper as old_test_mapper
 from cli import show_tests_for
 from test_mapper import suggest_tests_for_file, format_test_suggestions
 from tests.helpers import capture_output, change_directory, temporary_repo
+
+
+def test_core_test_mapper_import_matches_compatibility_shim():
+    assert old_test_mapper.suggest_tests_for_file is new_test_mapper.suggest_tests_for_file
 
 
 def test_mapper_graph() -> dict:
@@ -159,6 +165,7 @@ def test_cli_show_tests_for_returns_error_for_missing_file():
 
 
 TESTS = [
+    test_core_test_mapper_import_matches_compatibility_shim,
     test_suggest_tests_for_map_writer,
     test_suggest_tests_for_impact,
     test_suggest_tests_for_missing_file,

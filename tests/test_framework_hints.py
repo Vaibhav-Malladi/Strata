@@ -1,6 +1,8 @@
 import tempfile
 from pathlib import Path
 
+import framework_hints as old_framework_hints
+import strata.core.framework_hints as new_framework_hints
 from agent_export import generate_agent_prompt
 from context_budget import build_budget_report
 from context_pack import build_context_pack, rank_relevant_files
@@ -10,6 +12,10 @@ from framework_hints import (
     collect_angular_hints,
     collect_react_hints,
 )
+
+
+def test_core_framework_hints_import_matches_compatibility_shim():
+    assert old_framework_hints.collect_react_hints is new_framework_hints.collect_react_hints
 
 
 def _write(path: Path, text: str = "") -> None:
@@ -225,6 +231,7 @@ def test_react_component_source_ranks_above_style_unless_style_is_requested():
 
 
 TESTS = [
+    test_core_framework_hints_import_matches_compatibility_shim,
     test_react_starting_file_ranking_prefers_direct_component_and_hook_matches,
     test_react_component_family_includes_tests_styles_and_tailwind_without_test_component,
     test_react_hints_exclude_test_and_spec_components,

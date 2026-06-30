@@ -1,10 +1,16 @@
 import tempfile
 from pathlib import Path
 
+import strata.core.test_mapping as new_test_mapping
+import test_mapping as old_test_mapping
 from agent_export import generate_agent_prompt
 from context_budget import build_budget_report, build_budget_summary_rows
 from context_pack import build_context_pack
 from test_mapping import collect_test_hints, build_test_hints_section, extract_python_test_functions
+
+
+def test_core_test_mapping_import_matches_compatibility_shim():
+    assert old_test_mapping.collect_test_hints is new_test_mapping.collect_test_hints
 
 
 def _write_file(path: Path, content: str) -> None:
@@ -381,6 +387,7 @@ def test_collect_test_hints_maps_js_ts_component_hook_and_angular_spec_files():
 
 
 TESTS = [
+    test_core_test_mapping_import_matches_compatibility_shim,
     test_extract_python_test_functions_returns_only_top_level_test_functions_and_line_ranges,
     test_extract_python_test_functions_handles_syntax_errors_safely,
     test_collect_test_hints_matches_filename_and_task_terms_conservatively,
