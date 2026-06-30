@@ -14,8 +14,10 @@ if TESTS_DIR not in sys.path:
 
 from languages import detect_language, parse_source_file
 from python_parser import parse_file
-import parsers.python_parser as old_python_parser
-import strata.parsers.python_parser as new_python_parser
+import python_parser as root_python_parser
+import parsers.python_parser as legacy_python_parser
+import strata.parsers.python as new_python_impl
+import strata.parsers.python_parser as package_python_parser
 from tests.helpers import write_file
 
 
@@ -24,13 +26,16 @@ def test_python_version():
 
 
 def test_new_python_parser_import_matches_legacy_shim():
-    assert old_python_parser.parse_file is new_python_parser.parse_file
+    assert root_python_parser.parse_file is new_python_impl.parse_file
+    assert legacy_python_parser.parse_file is new_python_impl.parse_file
+    assert package_python_parser.parse_file is new_python_impl.parse_file
 
 
 def test_parse_current_parser_file():
-    result = parse_file("python_parser.py")
+    parser_path = "strata/parsers/python.py"
+    result = parse_file(parser_path)
 
-    assert result["path"] == "python_parser.py"
+    assert result["path"] == parser_path
     assert result["language"] == "python"
     assert "ast" in result["imports"]
     assert result["classes"] == []
@@ -42,10 +47,11 @@ def test_parse_current_parser_file():
 
 
 def test_parse_source_file_routes_python_file():
-    result = parse_source_file("python_parser.py")
+    parser_path = "strata/parsers/python.py"
+    result = parse_source_file(parser_path)
 
     assert result is not None
-    assert result["path"] == "python_parser.py"
+    assert result["path"] == parser_path
     assert result["language"] == "python"
 
     function_names = [function["name"] for function in result["functions"]]
