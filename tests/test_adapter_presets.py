@@ -1,9 +1,15 @@
+import adapter_presets as old_adapter_presets
+import strata.adapters.presets as new_adapter_presets
 from adapter_presets import (
     build_aider_command,
     build_codex_cli_command,
     get_adapter_preset,
     supported_presets,
 )
+
+
+def test_adapter_presets_shim_exports_new_implementation_objects():
+    assert old_adapter_presets.get_adapter_preset is new_adapter_presets.get_adapter_preset
 
 
 def test_supported_presets_include_aider_and_codex_cli():
@@ -36,6 +42,7 @@ def test_codex_cli_preset_accepts_aliases_and_mentions_patch_output():
 
 
 TESTS = [
+    test_adapter_presets_shim_exports_new_implementation_objects,
     test_supported_presets_include_aider_and_codex_cli,
     test_aider_preset_returns_command_family_command_and_warning,
     test_codex_cli_preset_accepts_aliases_and_mentions_patch_output,

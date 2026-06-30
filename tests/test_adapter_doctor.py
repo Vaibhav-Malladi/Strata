@@ -4,9 +4,15 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+import adapter_doctor as old_adapter_doctor
+import strata.adapters.doctor as new_adapter_doctor
 from adapter_doctor import check_adapter
 from ollama_adapter import DEFAULT_OLLAMA_BASE_URL, DEFAULT_OLLAMA_MODEL
 from workflow_config import default_config, save_config
+
+
+def test_adapter_doctor_shim_exports_new_implementation_objects():
+    assert old_adapter_doctor.check_adapter is new_adapter_doctor.check_adapter
 
 
 def _write_prompt(root: Path, content: str = "prompt") -> Path:
@@ -405,6 +411,7 @@ def test_adapter_doctor_returns_fresh_deterministic_dicts_and_lists():
 
 
 TESTS = [
+    test_adapter_doctor_shim_exports_new_implementation_objects,
     test_adapter_doctor_prompt_file_ready_when_config_and_prompt_exist,
     test_adapter_doctor_prompt_file_not_ready_when_prompt_missing,
     test_adapter_doctor_command_ready_when_command_and_prompt_exist,

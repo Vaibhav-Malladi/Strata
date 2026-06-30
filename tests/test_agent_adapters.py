@@ -1,6 +1,8 @@
 import tempfile
 from pathlib import Path
 
+import agent_adapters as old_agent_adapters
+import strata.adapters.agent_adapters as new_agent_adapters
 from agent_adapters import (
     adapter_supports_dry_run,
     adapter_family,
@@ -19,6 +21,10 @@ from agent_adapters import (
     supported_adapters,
     validate_adapter_name,
 )
+
+
+def test_agent_adapters_shim_exports_new_implementation_objects():
+    assert old_agent_adapters.run_adapter is new_agent_adapters.run_adapter
 
 
 def test_supported_adapters_returns_fresh_set():
@@ -349,6 +355,7 @@ def test_run_adapter_invalid_adapter_raises():
 
 
 TESTS = [
+    test_agent_adapters_shim_exports_new_implementation_objects,
     test_supported_adapters_returns_fresh_set,
     test_implemented_adapters_only_prompt_file,
     test_normalize_adapter_name_handles_aliases,
