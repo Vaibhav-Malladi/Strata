@@ -2,6 +2,7 @@ import json
 import tempfile
 from pathlib import Path
 
+from strata.utils.config import default_config as package_default_config
 from workflow_config import (
     config_path,
     default_config,
@@ -10,6 +11,10 @@ from workflow_config import (
     save_config,
     validate_config,
 )
+
+
+def test_new_package_import_path_works():
+    assert package_default_config is default_config
 
 
 def _expect_value_error(function, *args, contains: str | None = None):
@@ -410,6 +415,7 @@ def test_unknown_extra_keys_are_preserved():
 
 
 TESTS = [
+    test_new_package_import_path_works,
     test_default_config_includes_adapter_fields,
     test_default_config_returns_fresh_copy,
     test_config_path_points_to_aidc_config_json,
