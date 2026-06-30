@@ -1,3 +1,5 @@
+import http_adapter_contract as old_http_contract
+import strata.adapters.http_contract as new_http_contract
 from http_adapter_contract import (
     build_http_contract_summary,
     build_openai_compatible_payload,
@@ -6,6 +8,10 @@ from http_adapter_contract import (
     extract_text_from_openai_compatible_response,
     normalize_base_url,
 )
+
+
+def test_http_contract_shim_exports_new_implementation_objects():
+    assert old_http_contract.normalize_base_url is new_http_contract.normalize_base_url
 
 
 def test_normalize_base_url_strips_trailing_slashes_and_preserves_scheme():
@@ -182,6 +188,7 @@ def test_build_http_contract_summary_reports_missing_base_url():
 
 
 TESTS = [
+    test_http_contract_shim_exports_new_implementation_objects,
     test_normalize_base_url_strips_trailing_slashes_and_preserves_scheme,
     test_normalize_base_url_rejects_invalid_values_and_schemes,
     test_build_openai_compatible_url_appends_the_expected_path,

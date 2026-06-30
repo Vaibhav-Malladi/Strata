@@ -10,8 +10,17 @@ import time
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 
+import http_executor as old_http_executor
+import strata.adapters.http_executor as new_http_executor
 from http_executor import build_http_headers, execute_openai_compatible_http_adapter
 from workflow_config import default_config, save_config
+
+
+def test_http_executor_shim_exports_new_implementation_objects():
+    assert (
+        old_http_executor.execute_openai_compatible_http_adapter
+        is new_http_executor.execute_openai_compatible_http_adapter
+    )
 
 
 class _ThreadedHTTPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
@@ -615,6 +624,7 @@ def test_result_uses_fresh_deterministic_dicts_and_lists():
 
 
 TESTS = [
+    test_http_executor_shim_exports_new_implementation_objects,
     test_missing_base_url_returns_missing_base_url,
     test_missing_prompt_returns_missing_prompt,
     test_missing_api_key_env_returns_missing_api_key_before_network_call,

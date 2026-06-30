@@ -10,6 +10,8 @@ import time
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 
+import ollama_adapter as old_ollama
+import strata.adapters.ollama as new_ollama
 from ollama_adapter import (
     DEFAULT_OLLAMA_BASE_URL,
     DEFAULT_OLLAMA_MODEL,
@@ -23,6 +25,10 @@ from ollama_adapter import (
     normalize_ollama_base_url,
 )
 from workflow_config import default_config
+
+
+def test_ollama_adapter_shim_exports_new_implementation_objects():
+    assert old_ollama.execute_ollama_adapter is new_ollama.execute_ollama_adapter
 
 
 class _ThreadedOllamaServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
@@ -582,6 +588,7 @@ def test_ollama_results_use_fresh_deterministic_dicts_and_lists():
 
 
 TESTS = [
+    test_ollama_adapter_shim_exports_new_implementation_objects,
     test_normalize_ollama_base_url_uses_the_default_base_url,
     test_normalize_ollama_base_url_strips_trailing_slashes,
     test_normalize_ollama_base_url_rejects_unsupported_schemes,
