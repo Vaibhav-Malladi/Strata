@@ -2,7 +2,16 @@ import json
 import tempfile
 from pathlib import Path
 
+import gate as old_gate
+import strata.core.gate as new_gate
+
 from gate import build_gate_markdown, evaluate_gate, write_gate_report
+
+
+def test_gate_module_compatibility():
+    assert old_gate.evaluate_gate is new_gate.evaluate_gate
+    assert old_gate.build_gate_markdown is new_gate.build_gate_markdown
+    assert old_gate.write_gate_report is new_gate.write_gate_report
 
 
 def clean_gate_graph() -> dict:
@@ -155,6 +164,7 @@ def test_write_gate_report_writes_json_and_markdown():
 
 
 TESTS = [
+    test_gate_module_compatibility,
     test_clean_fake_graph_produces_pass,
     test_graph_with_unresolved_imports_produces_fail,
     test_graph_with_file_error_field_produces_fail,

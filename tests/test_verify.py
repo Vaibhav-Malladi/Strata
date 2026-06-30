@@ -1,7 +1,22 @@
 import tempfile
 from pathlib import Path
 
+import strata.core.verify as new_verify
+import verify as old_verify
+
 from verify import build_verification_markdown, verify_diff, write_verification_report
+
+
+def test_verify_module_compatibility():
+    assert old_verify.verify_diff is new_verify.verify_diff
+    assert (
+        old_verify.build_verification_markdown
+        is new_verify.build_verification_markdown
+    )
+    assert (
+        old_verify.write_verification_report
+        is new_verify.write_verification_report
+    )
 
 
 def test_empty_diff_summary_produces_pass():
@@ -91,6 +106,7 @@ def test_write_verification_report_writes_json_and_markdown():
 
 
 TESTS = [
+    test_verify_module_compatibility,
     test_empty_diff_summary_produces_pass,
     test_unresolved_imports_added_produces_fail,
     test_files_removed_produces_warn,

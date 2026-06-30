@@ -2,6 +2,9 @@ import tempfile
 import os
 from pathlib import Path
 
+import diff_engine as old_diff_engine
+import strata.core.diff_engine as new_diff_engine
+
 from diff_engine import (
     build_diff_markdown,
     compare_graphs,
@@ -12,6 +15,12 @@ from diff_engine import (
     normalize_routes,
     write_diff_report,
 )
+
+
+def test_diff_engine_module_compatibility():
+    assert old_diff_engine.compare_graphs is new_diff_engine.compare_graphs
+    assert old_diff_engine.build_diff_markdown is new_diff_engine.build_diff_markdown
+    assert old_diff_engine.write_diff_report is new_diff_engine.write_diff_report
 
 
 def old_graph() -> dict:
@@ -246,6 +255,7 @@ def test_write_diff_report_writes_json_and_markdown():
 
 
 TESTS = [
+    test_diff_engine_module_compatibility,
     test_normalize_file_map_returns_path_keyed_mapping,
     test_normalize_edges_returns_hashable_signatures,
     test_extract_unresolved_imports_returns_sorted_lists,

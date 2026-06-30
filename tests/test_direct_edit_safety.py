@@ -4,6 +4,9 @@ import tempfile
 import textwrap
 from pathlib import Path
 
+import direct_edit as old_direct_edit
+import strata.core.direct_edit as new_direct_edit
+
 from cli import main as cli_main
 from direct_edit import detect_direct_edits, snapshot_working_files, write_direct_edit_diff
 from snapshot import write_snapshot
@@ -11,6 +14,18 @@ from tests.helpers import capture_output, change_directory
 from workflow_config import default_config, save_config
 from cli_core import build_graph
 from routes import collect_routes
+
+
+def test_direct_edit_module_compatibility():
+    assert (
+        old_direct_edit.snapshot_working_files
+        is new_direct_edit.snapshot_working_files
+    )
+    assert old_direct_edit.detect_direct_edits is new_direct_edit.detect_direct_edits
+    assert (
+        old_direct_edit.write_direct_edit_diff
+        is new_direct_edit.write_direct_edit_diff
+    )
 
 
 @contextlib.contextmanager
@@ -217,6 +232,7 @@ def test_ask_reports_direct_edit_when_adapter_changes_files_directly():
 
 
 TESTS = [
+    test_direct_edit_module_compatibility,
     test_snapshot_working_files_ignores_generated_dirs_and_is_stable,
     test_detect_direct_edits_detects_modified_file,
     test_detect_direct_edits_detects_new_file,
