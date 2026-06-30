@@ -107,4 +107,4 @@ py-modules = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["commands*", "parsers*"]
+include = ["commands*", "parsers*", "strata*"]

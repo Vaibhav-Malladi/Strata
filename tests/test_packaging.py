@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from pathlib import Path
+import subprocess
+import sys
 import tomllib
 
 
@@ -18,6 +20,22 @@ def test_distribution_name_and_console_script_are_distinct_and_correct():
 
     assert project["name"] == "strata-repo-intel"
     assert project["scripts"]["strata"] == "cli:main"
+
+
+def test_strata_package_import_and_module_entrypoint():
+    import strata
+
+    assert strata.__version__ == "0.3.3"
+
+    result = subprocess.run(
+        [sys.executable, "-m", "strata", "--help"],
+        cwd=PROJECT_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
 
 
 def test_all_runtime_top_level_modules_are_packaged():
@@ -109,6 +127,7 @@ def test_compatibility_workflow_tests_source_without_publishing():
 
 TESTS = [
     test_distribution_name_and_console_script_are_distinct_and_correct,
+    test_strata_package_import_and_module_entrypoint,
     test_all_runtime_top_level_modules_are_packaged,
     test_readme_python_and_generated_output_metadata_are_configured,
     test_public_docs_use_honest_install_runtime_and_support_wording,
