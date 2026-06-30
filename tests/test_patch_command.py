@@ -1,8 +1,14 @@
 import tempfile
 from pathlib import Path
 
+import commands.patch_command as old_patch_command
+import strata.commands.patch_command as new_patch_command
 from commands.patch_command import write_patch_command
 from tests.helpers import capture_output, change_directory
+
+
+def test_new_patch_command_import_matches_legacy_shim():
+    assert new_patch_command.write_patch_command is old_patch_command.write_patch_command
 
 
 def _create_patch_file(root: Path, content: str) -> Path:
@@ -85,6 +91,7 @@ def test_patch_command_optional_root_argument_works():
 
 
 TESTS = [
+    test_new_patch_command_import_matches_legacy_shim,
     test_patch_command_missing_returns_nonzero_and_does_not_create_aidc,
     test_patch_command_empty_returns_nonzero_and_prints_empty,
     test_patch_command_ready_returns_zero_and_prints_ready,

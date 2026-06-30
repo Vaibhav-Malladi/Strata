@@ -28,7 +28,7 @@ from strata.utils.output import (
 )
 from strata.utils.config import load_config
 
-from commands.agent_prompt_command import AGENT_PROMPT_FILE
+from strata.commands.agent_prompt_command import AGENT_PROMPT_FILE
 
 PREPARE_USAGE = 'Usage: strata prepare [--budget <preset|tokens>] "<task>" [root]'
 

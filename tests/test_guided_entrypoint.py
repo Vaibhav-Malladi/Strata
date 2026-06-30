@@ -3,7 +3,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-import commands.ask_command as ask_command_module
+import strata.commands.ask_command as ask_command_module
 from cli import main as cli_main
 from cli_help import print_usage
 from tests.helpers import capture_output, change_directory

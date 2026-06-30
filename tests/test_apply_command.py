@@ -6,8 +6,15 @@ import sys
 import tempfile
 from pathlib import Path
 
+import commands.apply_command as old_apply_command
+import strata.commands.apply_command as new_apply_command
 from cli import main as cli_main
 from tests.helpers import capture_output, change_directory
+
+
+def test_new_apply_command_import_matches_legacy_shim():
+    assert new_apply_command.write_apply_command is old_apply_command.write_apply_command
+    assert new_apply_command.write_apply_dry_run_command is old_apply_command.write_apply_dry_run_command
 
 
 def _create_patch_file(root: Path, content: str) -> Path:
@@ -397,6 +404,7 @@ def test_apply_unknown_flag_returns_nonzero_and_shows_usage():
 
 
 TESTS = [
+    test_new_apply_command_import_matches_legacy_shim,
     test_apply_dry_run_missing_returns_nonzero_and_prints_missing,
     test_apply_dry_run_empty_returns_nonzero_and_prints_empty,
     test_apply_dry_run_ready_returns_zero_and_prints_ready,

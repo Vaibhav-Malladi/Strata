@@ -5,8 +5,8 @@ from pathlib import Path
 from typing import Any, Sequence
 
 from strata.adapters.agent_adapters import run_adapter
-from commands.apply_command import write_apply_command
-from commands.ask_command import _build_inline_review_result, _execute_adapter
+from strata.commands.apply_command import write_apply_command
+from strata.commands.ask_command import _build_inline_review_result, _execute_adapter
 from strata.commands.prepare_command import prepare_workflow
 from strata.core.context_budget import BudgetParseError, build_budget_summary_rows, parse_budget_value
 from strata.core.full_scan import describe_full_scan_readiness, format_full_scan_status, load_full_scan_cache

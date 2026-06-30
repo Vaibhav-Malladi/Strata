@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 from cli_core import DIFF_REPORT_MD_FILE
-from commands.apply_command import inspect_apply_state
+from strata.commands.apply_command import inspect_apply_state
 from strata.core.diff_engine import compare_graphs, write_diff_report
 from strata.core.direct_edit import DIRECT_EDIT_REPORT_PATH
 from strata.core.gate import evaluate_gate, write_gate_report

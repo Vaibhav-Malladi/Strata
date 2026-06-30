@@ -4,10 +4,14 @@ import sys
 import tempfile
 from pathlib import Path
 
-import commands.ask_command as ask_command_module
+import commands.ask_command as old_ask_command
+import strata.commands.ask_command as new_ask_command
 from cli import main as cli_main
 from tests.helpers import capture_output, change_directory
 from workflow_config import default_config, save_config
+
+
+ask_command_module = new_ask_command
 
 
 @contextlib.contextmanager
@@ -18,6 +22,10 @@ def change_argv(args: list[str]):
         yield
     finally:
         sys.argv = original
+
+
+def test_new_ask_command_import_matches_legacy_shim():
+    assert new_ask_command.write_ask_command is old_ask_command.write_ask_command
 
 
 def _create_repo(root: Path) -> None:
@@ -330,6 +338,7 @@ def test_ask_missing_command_adapter_shows_setup_guidance_and_returns_nonzero():
 
 
 TESTS = [
+    test_new_ask_command_import_matches_legacy_shim,
     test_ask_prompt_file_manual_mode_stays_manual_and_recommends_review,
     test_ask_ready_patch_shows_inline_review_fields_and_warning,
     test_ask_does_not_apply_the_patch,

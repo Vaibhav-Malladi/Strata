@@ -7,13 +7,17 @@ import textwrap
 import re
 from pathlib import Path
 
-import commands.execute_command as execute_command_module
+import commands.execute_command as old_execute_command
+import strata.commands.execute_command as new_execute_command
 from cli import main as cli_main
 from command_executor import execute_command_adapter
 from tests.helpers import capture_output, change_directory
 from test_http_executor import _valid_patch_text, run_http_server
 from test_ollama_adapter import run_ollama_server
 from workflow_config import default_config, save_config
+
+
+execute_command_module = new_execute_command
 
 
 @contextlib.contextmanager
@@ -69,6 +73,10 @@ def _valid_patch_text() -> str:
         '-print("hello")\n'
         '+print("goodbye")\n'
     )
+
+
+def test_new_execute_command_import_matches_legacy_shim():
+    assert new_execute_command.write_execute_command is old_execute_command.write_execute_command
 
 
 def test_execute_prompt_file_ready_returns_nonzero_and_says_manual():
@@ -956,6 +964,7 @@ def test_execute_command_captures_stdout_and_stderr_and_does_not_apply_patch():
 
 
 TESTS = [
+    test_new_execute_command_import_matches_legacy_shim,
     test_execute_prompt_file_ready_returns_nonzero_and_says_manual,
     test_execute_optional_root_argument_works,
     test_execute_command_ready_returns_zero_when_valid_patch_produced,
