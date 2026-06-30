@@ -5,6 +5,8 @@ from pathlib import Path
 
 import status as old_status
 import strata.core.status as new_status
+import commands.status_command as status_command
+import strata.commands.status_command as new_status_command
 
 from commands.status_command import show_status
 from status import analyze_status, format_status_report
@@ -35,6 +37,10 @@ GENERATED_FILE_PATHS = [
 def test_status_module_compatibility():
     assert old_status.analyze_status is new_status.analyze_status
     assert old_status.format_status_report is new_status.format_status_report
+
+
+def test_new_status_command_import_matches_legacy_shim():
+    assert new_status_command.show_status is status_command.show_status
 
 
 def write_generated_files(root: Path) -> None:
@@ -428,6 +434,7 @@ def test_show_status_displays_interrupted_full_scan_state():
 
 TESTS = [
     test_status_module_compatibility,
+    test_new_status_command_import_matches_legacy_shim,
     test_analyze_status_reports_missing_generated_files,
     test_analyze_status_reports_current_when_outputs_exist,
     test_analyze_status_reports_stale_outputs,

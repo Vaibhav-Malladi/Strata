@@ -4,6 +4,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+import commands.config_command as config_command
+import strata.commands.config_command as new_config_command
 from cli import main as cli_main
 from commands.config_command import (
     write_config_command,
@@ -27,6 +29,12 @@ def change_argv(args: list[str]):
 def run_config_via_cli(*args: str):
     with change_argv(["cli.py", "config", *args]):
         return capture_output(cli_main)
+
+
+def test_new_config_command_import_matches_legacy_shim():
+    assert new_config_command.write_config_command is config_command.write_config_command
+    assert new_config_command.write_config_init_command is config_command.write_config_init_command
+    assert new_config_command.write_config_set_command is config_command.write_config_set_command
 
 
 def test_config_shows_defaults_without_creating_file():
@@ -647,6 +655,7 @@ def test_help_mentions_config():
 
 
 TESTS = [
+    test_new_config_command_import_matches_legacy_shim,
     test_config_shows_defaults_without_creating_file,
     test_config_init_creates_default_config,
     test_config_init_does_not_overwrite_existing_valid_config,

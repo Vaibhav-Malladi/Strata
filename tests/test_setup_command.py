@@ -8,6 +8,8 @@ from pathlib import Path
 from unittest import mock
 import sys
 
+import commands.setup_command as setup_command_module
+import strata.commands.setup_command as new_setup_command
 from cli import main as cli_main
 from cli_help import print_usage
 from commands.setup_command import (
@@ -79,6 +81,12 @@ def _save_config(root: Path, **overrides) -> None:
     config = default_config()
     config.update(overrides)
     save_config(config, root)
+
+
+def test_new_setup_command_import_matches_legacy_shim():
+    assert new_setup_command.setup_manual is setup_command_module.setup_manual
+    assert new_setup_command.write_setup_command is setup_command_module.write_setup_command
+
 
 def test_setup_manual_writes_prompt_file_adapter_and_clears_connection_fields():
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -432,7 +440,7 @@ def test_guided_http_setup_can_save_missing_key_to_user_environment_without_echo
         original = os.environ.get("OPENAI_API_KEY")
         os.environ.pop("OPENAI_API_KEY", None)
         try:
-            with mock.patch("commands.setup_command._save_user_environment_secret", return_value=True):
+            with mock.patch("strata.commands.setup_command._save_user_environment_secret", return_value=True):
                 with mock.patch("getpass.getpass", return_value=secret):
                     with patched_input(["2", "http://localhost:1234/v1", "gpt-test", "OPENAI_API_KEY", "y"]):
                         with change_directory(root):
@@ -650,6 +658,7 @@ def test_cli_help_includes_setup():
 
 
 TESTS = [
+    test_new_setup_command_import_matches_legacy_shim,
     test_setup_manual_writes_prompt_file_adapter_and_clears_connection_fields,
     test_setup_command_writes_adapter_and_saves_command_string,
     test_setup_command_without_command_returns_warning_and_keeps_configurable_state,
