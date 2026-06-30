@@ -5,6 +5,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+import commands.doctor_command as doctor_command
+import strata.commands.doctor_command as new_doctor_command
 from cli import main as cli_main
 from tests.helpers import capture_output, change_directory
 from workflow_config import default_config, save_config
@@ -54,6 +56,10 @@ def _assert_terms(text: str, *terms: object) -> None:
             missing.append(value)
 
     assert not missing, f"Missing expected concept(s): {', '.join(missing)}"
+
+
+def test_new_doctor_command_import_matches_legacy_shim():
+    assert new_doctor_command.write_doctor_command is doctor_command.write_doctor_command
 
 
 def test_doctor_adapter_ready_returns_zero():
@@ -440,6 +446,7 @@ def test_readme_install_section_mentions_package_install_paths_and_bootstrap():
 
 
 TESTS = [
+    test_new_doctor_command_import_matches_legacy_shim,
     test_doctor_adapter_ready_returns_zero,
     test_doctor_adapter_optional_root_argument_works,
     test_doctor_adapter_not_ready_returns_nonzero,

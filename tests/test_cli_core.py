@@ -5,6 +5,8 @@ import tempfile
 import sys
 from pathlib import Path
 
+import commands.show_command as show_command
+import strata.commands.show_command as new_show_command
 from cli import main as cli_main
 from cli import write_graph, show_file
 from cli_help import print_usage
@@ -29,6 +31,11 @@ def _create_cli_core_repo(root: Path) -> None:
         "    return helper()\n",
         encoding="utf-8",
     )
+
+
+def test_new_show_command_import_matches_legacy_shim():
+    assert new_show_command.show_file is show_command.show_file
+    assert new_show_command.show_graph_summary is show_command.show_graph_summary
 
 
 def _create_patch_file(root: Path, content: str) -> Path:
@@ -610,6 +617,7 @@ def test_cli_doctor_adapter_dispatches():
 
 
 TESTS = [
+    test_new_show_command_import_matches_legacy_shim,
     test_cli_write_graph_creates_output_file,
     test_cli_show_file_finds_saved_file,
     test_cli_show_file_returns_error_for_missing_file,
