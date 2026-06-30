@@ -4,6 +4,8 @@ from pathlib import Path
 from agent_export import generate_agent_prompt
 from context_budget import build_budget_report, build_budget_summary_rows
 from context_pack import build_context_pack
+import strata.parsers.symbol_slicing as new_symbol_slicing
+import symbol_slicing as old_symbol_slicing
 from symbol_slicing import (
     build_symbol_snippets,
     build_symbol_snippets_section,
@@ -42,6 +44,11 @@ def _make_graph(root: Path, paths: list[str]) -> dict:
         ],
         "edges": [],
     }
+
+
+def test_new_symbol_slicing_import_matches_legacy_shim():
+    assert old_symbol_slicing.extract_python_symbols is new_symbol_slicing.extract_python_symbols
+    assert old_symbol_slicing.collect_symbol_hints is new_symbol_slicing.collect_symbol_hints
 
 
 def test_extract_python_symbols_finds_functions_classes_and_methods():
@@ -868,6 +875,7 @@ def test_context_pack_and_agent_prompt_include_symbol_snippets_section():
 
 
 TESTS = [
+    test_new_symbol_slicing_import_matches_legacy_shim,
     test_extract_python_symbols_finds_functions_classes_and_methods,
     test_extract_python_symbols_returns_safe_error_for_syntax_error,
     test_extract_javascript_symbols_finds_functions_typed_arrows_components_hooks_and_methods,
