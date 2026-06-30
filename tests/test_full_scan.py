@@ -2,6 +2,8 @@ import json
 import tempfile
 from pathlib import Path
 
+import full_scan as old_full_scan
+import strata.core.full_scan as new_full_scan
 from full_scan import (
     FULL_SCAN_CACHE_FILE,
     FULL_SCAN_TEMP_FILE,
@@ -19,6 +21,10 @@ def _cache_path(root: Path) -> Path:
 
 def _temp_path(root: Path) -> Path:
     return root / FULL_SCAN_TEMP_FILE
+
+
+def test_full_scan_core_import_matches_compatibility_shim():
+    assert old_full_scan.load_full_scan_cache is new_full_scan.load_full_scan_cache
 
 
 def test_full_scan_temp_marker_is_detected_as_interrupted():
@@ -147,6 +153,7 @@ def test_build_full_scan_payload_marks_partial_and_stale_states():
 
 
 TESTS = [
+    test_full_scan_core_import_matches_compatibility_shim,
     test_full_scan_temp_marker_is_detected_as_interrupted,
     test_full_scan_cache_finalize_replaces_temp_marker,
     test_build_full_scan_payload_marks_partial_and_stale_states,

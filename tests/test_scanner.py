@@ -1,6 +1,8 @@
 import tempfile
 from pathlib import Path
 
+import scanner as old_scanner
+import strata.core.scanner as new_scanner
 from scanner import scan_repo
 
 
@@ -57,6 +59,10 @@ def get_file_by_name(graph: dict, file_name: str) -> dict:
             return file_info
 
     raise AssertionError(f"File not found in graph: {file_name}")
+
+
+def test_scanner_core_import_matches_compatibility_shim():
+    assert old_scanner.scan_repo is new_scanner.scan_repo
 
 
 def test_scan_repo_finds_python_files():
@@ -202,6 +208,7 @@ def test_scanner_records_frontend_framework_signals():
 
 
 TESTS = [
+    test_scanner_core_import_matches_compatibility_shim,
     test_scan_repo_finds_python_files,
     test_scan_repo_detects_imports,
     test_scan_repo_creates_import_edges,

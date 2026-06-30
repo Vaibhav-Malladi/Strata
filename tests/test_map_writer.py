@@ -3,6 +3,8 @@ import os
 import tempfile
 from pathlib import Path
 
+import map_writer as old_map_writer
+import strata.core.map_writer as new_map_writer
 from cli import write_map
 from map_writer import generate_project_map
 from scanner import scan_repo
@@ -29,7 +31,6 @@ def _create_map_repo(root: Path) -> None:
         "    return True\n",
         encoding="utf-8",
     )
-
     (root / "main.py").write_text(
         "import os\n"
         "import helper\n"
@@ -38,6 +39,10 @@ def _create_map_repo(root: Path) -> None:
         "    return helper.help_user()\n",
         encoding="utf-8",
     )
+
+
+def test_map_writer_core_import_matches_compatibility_shim():
+    assert old_map_writer.generate_project_map is new_map_writer.generate_project_map
 
 
 def test_project_map_generation_includes_repo_summary():
@@ -134,6 +139,7 @@ def test_cli_write_map_creates_project_map_file():
 
 
 TESTS = [
+    test_map_writer_core_import_matches_compatibility_shim,
     test_project_map_generation_includes_repo_summary,
     test_project_map_generation_includes_files_symbols_and_imports,
     test_project_map_generation_includes_dependencies_and_warnings,
