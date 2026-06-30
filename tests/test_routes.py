@@ -3,6 +3,8 @@ import tempfile
 from pathlib import Path
 from commands.routes_command import write_routes
 
+import routes as old_routes
+import strata.core.routes as new_routes
 from routes import (
     collect_routes,
     find_duplicate_routes,
@@ -12,6 +14,10 @@ from routes import (
     write_routes_report,
 )
 from tests.helpers import capture_output, change_directory
+
+
+def test_routes_core_import_matches_compatibility_shim():
+    assert old_routes.collect_routes is new_routes.collect_routes
 
 
 def route_test_graph() -> dict:
@@ -194,6 +200,7 @@ def test_cli_write_routes_creates_route_outputs():
         assert payload["routes"][0]["path"] == "/health"
 
 TESTS = [
+    test_routes_core_import_matches_compatibility_shim,
     test_collect_routes_returns_all_backend_routes,
     test_find_duplicate_routes_reports_same_method_and_path,
     test_route_files_with_unresolved_imports_are_reported,

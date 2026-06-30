@@ -1,7 +1,13 @@
 from cli import show_cycles
+import cycles as old_cycles
+import strata.core.cycles as new_cycles
 from cycles import find_cycles, has_cycles, format_cycles
 from scanner import scan_repo
 from tests.helpers import capture_output, change_directory, temporary_repo
+
+
+def test_cycles_core_import_matches_compatibility_shim():
+    assert old_cycles.find_cycles is new_cycles.find_cycles
 
 
 def test_find_cycles_returns_empty_for_repo_without_cycles():
@@ -102,6 +108,7 @@ def test_cli_show_cycles_returns_error_for_cycle_graph():
 
 
 TESTS = [
+    test_cycles_core_import_matches_compatibility_shim,
     test_find_cycles_returns_empty_for_repo_without_cycles,
     test_find_cycles_detects_simple_cycle,
     test_format_cycles_displays_cycle_chain,

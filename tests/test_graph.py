@@ -1,5 +1,11 @@
+import graph as old_graph
+import strata.core.graph as new_graph
 from graph import validate_graph
 from scanner import scan_repo
+
+
+def test_graph_core_import_matches_compatibility_shim():
+    assert old_graph.validate_graph is new_graph.validate_graph
 
 
 def test_validate_scanned_graph():
@@ -35,6 +41,7 @@ def test_validate_graph_rejects_wrong_schema_version():
 
 
 TESTS = [
+    test_graph_core_import_matches_compatibility_shim,
     test_validate_scanned_graph,
     test_validate_graph_requires_schema_version,
     test_validate_graph_rejects_wrong_schema_version,
