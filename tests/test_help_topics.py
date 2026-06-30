@@ -1,6 +1,12 @@
 import contextlib
 import sys
 
+import cli_help
+import cli_ui
+import help_topics
+import strata.commands.cli_help as new_cli_help
+import strata.commands.cli_ui as new_cli_ui
+import strata.commands.help_topics as new_help_topics
 from cli import main as cli_main
 from cli_help import print_usage
 from tests.helpers import capture_output
@@ -37,6 +43,12 @@ def _assert_terms(text: str, *terms: object) -> None:
             missing.append(value)
 
     assert not missing, f"Missing expected concept(s): {', '.join(missing)}"
+
+
+def test_new_command_support_imports_match_legacy_shims():
+    assert new_help_topics.print_help_topic is help_topics.print_help_topic
+    assert new_cli_help.print_usage is cli_help.print_usage
+    assert new_cli_ui.bold is cli_ui.bold
 
 
 def test_help_usage_mentions_all_ai_modes_and_beginner_topics():
@@ -380,6 +392,7 @@ def test_help_unknown_topic_returns_nonzero_and_suggests_help():
 
 
 TESTS = [
+    test_new_command_support_imports_match_legacy_shims,
     test_help_usage_mentions_all_ai_modes_and_beginner_topics,
     test_help_setup_topic_is_beginner_friendly,
     test_help_manual_topic_is_step_by_step,

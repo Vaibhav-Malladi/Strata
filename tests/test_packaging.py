@@ -64,8 +64,8 @@ def test_readme_python_and_generated_output_metadata_are_configured():
 def test_public_docs_use_honest_install_runtime_and_support_wording():
     readme = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
     help_text = (
-        (PROJECT_ROOT / "cli_help.py").read_text(encoding="utf-8")
-        + (PROJECT_ROOT / "help_topics.py").read_text(encoding="utf-8")
+        (PROJECT_ROOT / "strata" / "commands" / "cli_help.py").read_text(encoding="utf-8")
+        + (PROJECT_ROOT / "strata" / "commands" / "help_topics.py").read_text(encoding="utf-8")
     )
     public_text = readme + help_text
     normalized = public_text.lower()
