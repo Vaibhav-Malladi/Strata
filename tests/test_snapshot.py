@@ -2,12 +2,25 @@ import tempfile
 from datetime import datetime
 from pathlib import Path
 
+import snapshot as old_snapshot
+import strata.core.snapshot as new_snapshot
+
 from snapshot import (
     build_snapshot_summary_markdown,
     make_snapshot_timestamp,
     summarize_snapshot,
     write_snapshot,
 )
+
+
+def test_snapshot_module_compatibility():
+    assert old_snapshot.make_snapshot_timestamp is new_snapshot.make_snapshot_timestamp
+    assert old_snapshot.summarize_snapshot is new_snapshot.summarize_snapshot
+    assert old_snapshot.write_snapshot is new_snapshot.write_snapshot
+    assert (
+        old_snapshot.build_snapshot_summary_markdown
+        is new_snapshot.build_snapshot_summary_markdown
+    )
 
 
 def snapshot_graph() -> dict:
@@ -193,6 +206,7 @@ def test_write_snapshot_handles_routes_data_list():
 
 
 TESTS = [
+    test_snapshot_module_compatibility,
     test_make_snapshot_timestamp_uses_windows_safe_format,
     test_summarize_snapshot_counts_core_metadata,
     test_write_snapshot_writes_core_files_and_summary,

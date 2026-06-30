@@ -2,6 +2,9 @@ import json
 import tempfile
 from pathlib import Path
 
+import snapshot_cache as old_snapshot_cache
+import strata.core.snapshot_cache as new_snapshot_cache
+
 from snapshot_cache import (
     SNAPSHOT_CACHE_FILE,
     capture_repo_snapshot,
@@ -9,6 +12,25 @@ from snapshot_cache import (
     load_repo_snapshot_cache,
     write_repo_snapshot_cache,
 )
+
+
+def test_snapshot_cache_module_compatibility():
+    assert (
+        old_snapshot_cache.capture_repo_snapshot
+        is new_snapshot_cache.capture_repo_snapshot
+    )
+    assert (
+        old_snapshot_cache.write_repo_snapshot_cache
+        is new_snapshot_cache.write_repo_snapshot_cache
+    )
+    assert (
+        old_snapshot_cache.load_repo_snapshot_cache
+        is new_snapshot_cache.load_repo_snapshot_cache
+    )
+    assert (
+        old_snapshot_cache.format_snapshot_cache_status
+        is new_snapshot_cache.format_snapshot_cache_status
+    )
 
 
 def _create_repo(root: Path) -> None:
@@ -182,6 +204,7 @@ def test_ignored_directories_are_not_included():
 
 
 TESTS = [
+    test_snapshot_cache_module_compatibility,
     test_write_repo_snapshot_cache_creates_cache_file_with_metadata,
     test_first_time_snapshot_reports_missing_previous_cache,
     test_unchanged_repo_reports_fresh_cache_on_refresh,

@@ -1,3 +1,6 @@
+import strata.core.workflow_planner as new_workflow_planner
+import workflow_planner as old_workflow_planner
+
 from workflow_planner import (
     DEFAULT_TASK_TYPE,
     SUPPORTED_TASK_TYPES,
@@ -9,6 +12,16 @@ from workflow_planner import (
     summarize_plan,
     validate_task_type,
 )
+
+
+def test_workflow_planner_module_compatibility():
+    assert (
+        old_workflow_planner.supported_task_types
+        is new_workflow_planner.supported_task_types
+    )
+    assert old_workflow_planner.classify_task is new_workflow_planner.classify_task
+    assert old_workflow_planner.build_step_plan is new_workflow_planner.build_step_plan
+    assert old_workflow_planner.summarize_plan is new_workflow_planner.summarize_plan
 
 
 def _expect_value_error(function, *args, contains: str | None = None):
@@ -261,6 +274,7 @@ def test_build_step_plan_does_not_mutate_constants():
 
 
 TESTS = [
+    test_workflow_planner_module_compatibility,
     test_supported_task_types_returns_fresh_set,
     test_normalize_task_type_handles_aliases,
     test_validate_task_type_rejects_unknown,
