@@ -1,4 +1,10 @@
+import agent_export as old_agent_export
+import strata.adapters.export as new_agent_export
 from agent_export import generate_agent_prompt, normalize_agent, write_agent_prompt
+
+
+def test_agent_export_shim_exports_new_implementation_objects():
+    assert old_agent_export.generate_agent_prompt is new_agent_export.generate_agent_prompt
 
 
 def fake_graph():
@@ -162,6 +168,7 @@ def test_write_agent_prompt_redacts_secret_like_task_text():
 
 
 TESTS = [
+    test_agent_export_shim_exports_new_implementation_objects,
     test_normalize_agent_accepts_supported_agent,
     test_normalize_agent_rejects_unsupported_agent,
     test_generate_generic_agent_prompt_contains_task_and_rules,
