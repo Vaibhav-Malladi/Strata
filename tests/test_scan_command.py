@@ -3,6 +3,8 @@ import json
 import tempfile
 from pathlib import Path
 
+import commands.scan_command as old_scan_command
+import strata.commands.scan_command as new_scan_command
 from cli import write_graph
 from tests.helpers import capture_output
 
@@ -17,6 +19,10 @@ def change_directory(path: Path):
         yield
     finally:
         os.chdir(original)
+
+
+def test_new_scan_command_import_matches_legacy_shim():
+    assert new_scan_command.write_graph is old_scan_command.write_graph
 
 
 def _create_repo(root: Path, *, unresolved: bool = False) -> None:
@@ -260,6 +266,7 @@ def test_scan_command_force_reports_forced_rescan():
 
 
 TESTS = [
+    test_new_scan_command_import_matches_legacy_shim,
     test_scan_command_writes_graph_and_formats_terminal_output,
     test_scan_command_reports_unresolved_imports,
     test_scan_command_ignores_generated_directories_and_egg_info,

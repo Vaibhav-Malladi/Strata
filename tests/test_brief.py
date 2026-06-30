@@ -2,6 +2,8 @@ import os
 
 import brief as old_brief
 import strata.core.brief as new_brief
+import commands.brief_command as old_brief_command
+import strata.commands.brief_command as new_brief_command
 from brief import generate_task_brief, score_relevant_files
 from cli import write_brief
 from tests.helpers import capture_output, change_directory, temporary_repo
@@ -9,6 +11,10 @@ from tests.helpers import capture_output, change_directory, temporary_repo
 
 def test_core_brief_import_matches_compatibility_shim():
     assert old_brief.generate_task_brief is new_brief.generate_task_brief
+
+
+def test_new_brief_command_import_matches_legacy_shim():
+    assert new_brief_command.write_brief is old_brief_command.write_brief
 
 
 def brief_test_graph():
@@ -195,6 +201,7 @@ def test_generate_task_brief_redacts_secret_like_task_text():
 
 TESTS = [
     test_core_brief_import_matches_compatibility_shim,
+    test_new_brief_command_import_matches_legacy_shim,
     test_task_brief_generation_includes_main_sections,
     test_task_brief_relevance_for_map_command_tests_is_focused,
     test_task_brief_generation_includes_prompt_and_tests,

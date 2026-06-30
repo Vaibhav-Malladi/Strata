@@ -1,6 +1,8 @@
 import json
 import tempfile
 from pathlib import Path
+import commands.routes_command as old_routes_command
+import strata.commands.routes_command as new_routes_command
 from commands.routes_command import write_routes
 
 import routes as old_routes
@@ -18,6 +20,10 @@ from tests.helpers import capture_output, change_directory
 
 def test_routes_core_import_matches_compatibility_shim():
     assert old_routes.collect_routes is new_routes.collect_routes
+
+
+def test_new_routes_command_import_matches_legacy_shim():
+    assert new_routes_command.write_routes is old_routes_command.write_routes
 
 
 def route_test_graph() -> dict:
@@ -201,6 +207,7 @@ def test_cli_write_routes_creates_route_outputs():
 
 TESTS = [
     test_routes_core_import_matches_compatibility_shim,
+    test_new_routes_command_import_matches_legacy_shim,
     test_collect_routes_returns_all_backend_routes,
     test_find_duplicate_routes_reports_same_method_and_path,
     test_route_files_with_unresolved_imports_are_reported,

@@ -3,10 +3,16 @@ from pathlib import Path
 
 import preflight as old_preflight
 import strata.core.preflight as new_preflight
+import commands.preflight_command as old_preflight_command
+import strata.commands.preflight_command as new_preflight_command
 
 from cli import write_preflight
 from preflight import generate_preflight_report, write_preflight_report
 from tests.helpers import capture_output, change_directory, temporary_repo
+
+
+def test_new_preflight_command_import_matches_legacy_shim():
+    assert new_preflight_command.write_preflight is old_preflight_command.write_preflight
 
 
 def preflight_test_graph():
@@ -300,6 +306,7 @@ def test_preflight_includes_backend_routes_section():
 
 TESTS = [
     test_preflight_module_compatibility,
+    test_new_preflight_command_import_matches_legacy_shim,
     test_generate_preflight_report_includes_main_sections,
     test_generate_preflight_report_groups_relevant_files,
     test_generate_preflight_report_includes_relevant_files,

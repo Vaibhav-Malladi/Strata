@@ -5,6 +5,8 @@ from pathlib import Path
 
 import map_writer as old_map_writer
 import strata.core.map_writer as new_map_writer
+import commands.map_command as old_map_command
+import strata.commands.map_command as new_map_command
 from cli import write_map
 from map_writer import generate_project_map
 from scanner import scan_repo
@@ -19,6 +21,10 @@ def change_directory(path: Path):
         yield
     finally:
         os.chdir(original)
+
+
+def test_new_map_command_import_matches_legacy_shim():
+    assert new_map_command.write_map is old_map_command.write_map
 
 
 def _create_map_repo(root: Path) -> None:
@@ -140,6 +146,7 @@ def test_cli_write_map_creates_project_map_file():
 
 TESTS = [
     test_map_writer_core_import_matches_compatibility_shim,
+    test_new_map_command_import_matches_legacy_shim,
     test_project_map_generation_includes_repo_summary,
     test_project_map_generation_includes_files_symbols_and_imports,
     test_project_map_generation_includes_dependencies_and_warnings,
