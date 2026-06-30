@@ -1,4 +1,11 @@
+import languages as old_languages
+import strata.parsers.languages as new_languages
 from languages import detect_language, parse_source_file
+
+
+def test_new_languages_import_matches_legacy_shim():
+    assert old_languages.detect_language is new_languages.detect_language
+    assert old_languages.parse_source_file is new_languages.parse_source_file
 
 
 def test_detects_python_files():
@@ -52,6 +59,7 @@ def test_javascript_and_typescript_parsers_are_registered():
     assert ts_result["error"]["type"] == "read_error"
 
 TESTS = [
+    test_new_languages_import_matches_legacy_shim,
     test_detects_python_files,
     test_detects_javascript_files,
     test_detects_typescript_files,
