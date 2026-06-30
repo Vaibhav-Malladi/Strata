@@ -1,5 +1,11 @@
+import brief_impact as old_brief_impact
+import strata.core.brief_impact as new_brief_impact
 from brief import generate_task_brief, score_relevant_files
 from brief_impact import generate_impact_notes
+
+
+def test_core_brief_impact_import_matches_compatibility_shim():
+    assert old_brief_impact.generate_impact_notes is new_brief_impact.generate_impact_notes
 
 
 def brief_impact_graph() -> dict:
@@ -75,6 +81,7 @@ def test_generate_task_brief_includes_impact_notes():
 
 
 TESTS = [
+    test_core_brief_impact_import_matches_compatibility_shim,
     test_generate_impact_notes_includes_main_section,
     test_generate_impact_notes_reports_helper_dependency_impact,
     test_generate_task_brief_includes_impact_notes,

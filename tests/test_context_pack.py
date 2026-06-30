@@ -1,8 +1,14 @@
+import context_pack as old_context_pack
+import strata.core.context_pack as new_context_pack
 from context_pack import (
     build_context_pack,
     find_dependency_neighbors,
     rank_relevant_files,
 )
+
+
+def test_core_context_pack_import_matches_compatibility_shim():
+    assert old_context_pack.build_context_pack is new_context_pack.build_context_pack
 
 
 def _assert_terms(text: str, *terms: object) -> None:
@@ -351,6 +357,7 @@ def test_build_context_pack_redacts_secret_like_task_text():
 
 
 TESTS = [
+    test_core_context_pack_import_matches_compatibility_shim,
     test_rank_relevant_files_does_not_fill_with_hint_only_noise,
     test_rank_relevant_files_prefers_source_over_test_with_direct_fixture_terms,
     test_rank_relevant_files_keeps_backend_route_above_unrelated_component,
