@@ -88,6 +88,7 @@ import test_guided_entrypoint
 import test_test_quality
 import test_help_topics
 import test_packaging
+import test_architecture_invariants
 import test_scan_command
 import test_repo_ignore
 import test_repo_summary
@@ -173,6 +174,7 @@ TEST_MODULES = [
     test_test_quality,
     test_help_topics,
     test_packaging,
+    test_architecture_invariants,
     test_scan_command,
     test_repo_ignore,
     test_repo_summary,
