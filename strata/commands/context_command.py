@@ -1,5 +1,6 @@
 import json
 import os
+from pathlib import Path
 
 from strata.core.context_budget import (
     BudgetParseError,
@@ -21,6 +22,7 @@ from strata.core.repo_summary import build_repo_intelligence_rows, summarize_gra
 from strata.core.routes import collect_routes
 from strata.utils.secrets import redact_text
 from strata.utils.output import build_banner, build_kv_table, build_section, format_error, format_path, print_status_card
+from strata.utils.artifacts import write_artifact_text
 
 
 def write_context(root_path: str = ".", *args: str) -> int:
@@ -66,13 +68,7 @@ def write_context(root_path: str = ".", *args: str) -> int:
         output_file = CONTEXT_PACK_FILE
     budget_report["budgeted_context_tokens"] = estimate_tokens(content)
 
-    output_dir = os.path.dirname(output_file)
-
-    if output_dir:
-        os.makedirs(output_dir, exist_ok=True)
-
-    with open(output_file, "w", encoding="utf-8") as file:
-        file.write(content)
+    write_artifact_text(".", Path(output_file).name, content)
 
     relevant_files = budget_report["included_entries"]
     routes_count = _count_routes(routes_data)

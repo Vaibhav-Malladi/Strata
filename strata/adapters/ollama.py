@@ -13,6 +13,7 @@ from strata.adapters.http_contract import extract_patch_from_text
 from patch_contract import inspect_patch, resolve_patch_path
 from patch_validator import validate_patch_file
 from strata.utils.config import load_config
+from strata.utils.artifacts import write_artifact_text
 
 DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
 DEFAULT_OLLAMA_MODEL = "qwen2.5-coder"
@@ -439,10 +440,7 @@ def execute_ollama_adapter(root: str | Path = ".", config: Mapping[str, Any] | N
 
 
 def write_patch_text(root: str | Path, patch_text: str) -> Path:
-    patch_path = resolve_patch_path(root)
-    patch_path.parent.mkdir(parents=True, exist_ok=True)
-    patch_path.write_text(patch_text, encoding="utf-8")
-    return patch_path
+    return write_artifact_text(root, "agent_patch.diff", patch_text)
 
 
 def _request_json(

@@ -27,6 +27,7 @@ from strata.utils.output import (
     print_status_card,
 )
 from strata.utils.config import load_config
+from strata.utils.artifacts import write_artifact_text
 
 from strata.commands.agent_prompt_command import AGENT_PROMPT_FILE
 
@@ -177,8 +178,6 @@ def _write_context_pack(
     selected_paths: list[str],
     budget_value: str | None,
 ) -> str:
-    output_path = Path(CONTEXT_PACK_FILE)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
     content = build_context_pack(
         graph,
         task,
@@ -186,7 +185,7 @@ def _write_context_pack(
         selected_paths=selected_paths,
         budget_value=budget_value,
     )
-    output_path.write_text(content, encoding="utf-8")
+    write_artifact_text(".", "context_pack.md", content)
     return content
 
 

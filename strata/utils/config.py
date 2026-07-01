@@ -9,6 +9,7 @@ from typing import Any
 
 from agent_adapters import validate_adapter_name
 from secret_redaction import validate_env_var_name
+from strata.utils.artifacts import write_artifact_json
 
 CONFIG_DIR_NAME = ".aidc"
 CONFIG_FILE_NAME = "config.json"
@@ -31,9 +32,14 @@ DEFAULT_CONFIG = {
 
 _ALLOWED_MODES = {"manual", "hybrid", "auto"}
 _ALLOWED_AGENTS = {"manual", "local", "codex", "aider"}
-_CONFIG_KEY_ALIASES = {
+SUPPORTED_CONFIG_KEYS = frozenset(DEFAULT_CONFIG)
+CONFIG_KEY_ALIASES = {
     "timeout": "command_timeout_seconds",
     "http_timeout": "http_timeout_seconds",
+    "require_gate": "require_gate_pass_before_commit",
+    "require_gate_pass": "require_gate_pass_before_commit",
+    "snapshot": "auto_snapshot",
+    "verify": "auto_verify",
 }
 _SAFETY_FLAGS = {
     "auto_snapshot",
@@ -79,22 +85,12 @@ def save_config(config: Mapping[str, Any], root: str | Path = ".") -> Path:
     """Validate and persist a workflow config as pretty JSON."""
 
     normalized = validate_config(config)
-    path = config_path(root)
-    path.parent.mkdir(parents=True, exist_ok=True)
-
     try:
-        payload = json.dumps(
-            normalized,
-            indent=2,
-            sort_keys=True,
-            ensure_ascii=False,
-            allow_nan=False,
-        )
+        json.dumps(normalized, ensure_ascii=False, allow_nan=False)
     except (TypeError, ValueError) as error:
         raise ValueError(f"Config contains values that are not JSON-compatible: {error}") from error
 
-    path.write_text(payload + "\n", encoding="utf-8")
-    return path
+    return write_artifact_json(root, CONFIG_FILE_NAME, normalized)
 
 
 def validate_config(config: Mapping[str, Any]) -> dict:
@@ -109,7 +105,11 @@ def validate_config(config: Mapping[str, Any]) -> dict:
         if not isinstance(key, str):
             raise ValueError("config keys must be strings")
 
-        canonical_key = _CONFIG_KEY_ALIASES.get(key, key)
+        canonical_key = CONFIG_KEY_ALIASES.get(key, key)
+
+        if canonical_key not in SUPPORTED_CONFIG_KEYS:
+            supported = ", ".join(sorted(SUPPORTED_CONFIG_KEYS))
+            raise ValueError(f"Unsupported config key: {key}. Supported keys: {supported}")
 
         if canonical_key == "mode":
             normalized[canonical_key] = _validate_mode(value)
@@ -134,7 +134,7 @@ def validate_config(config: Mapping[str, Any]) -> dict:
         elif canonical_key in _SAFETY_FLAGS:
             normalized[canonical_key] = _validate_bool(canonical_key, value)
         else:
-            normalized[canonical_key] = _normalize_json_value(value, canonical_key)
+            raise ValueError(f"Unsupported config key: {key}")
 
     return normalized
 

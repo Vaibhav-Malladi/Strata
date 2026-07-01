@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 
 from strata.utils.secrets import redact_text
+from strata.utils.artifacts import write_artifact_json, write_artifact_text
 
 
 _SYMBOL_CATEGORIES = (
@@ -304,17 +305,13 @@ def write_diff_report(root: str | Path, diff: dict) -> dict:
     """Write diff JSON and Markdown reports under .aidc."""
 
     root_path = Path(root)
-    output_dir = root_path / ".aidc"
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    json_path = output_dir / "diff_report.json"
-    markdown_path = output_dir / "diff_report.md"
-
-    json_path.write_text(
-        redact_text(json.dumps(diff, indent=2, sort_keys=True)),
-        encoding="utf-8",
+    redacted_diff = json.loads(redact_text(json.dumps(diff)))
+    json_path = write_artifact_json(root_path, "diff_report.json", redacted_diff)
+    markdown_path = write_artifact_text(
+        root_path,
+        "diff_report.md",
+        redact_text(build_diff_markdown(diff)),
     )
-    markdown_path.write_text(redact_text(build_diff_markdown(diff)), encoding="utf-8")
 
     return {
         "root": str(root_path),

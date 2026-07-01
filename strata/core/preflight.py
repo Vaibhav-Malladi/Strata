@@ -1,10 +1,12 @@
 import os
+from pathlib import Path
 
 from strata.core.brief import explain_relevance, score_relevant_files
 from strata.core.brief_impact import generate_impact_notes
 from strata.core.health import analyze_health
 from strata.core.test_mapper import suggest_tests_for_file
 from strata.utils.secrets import redact_text
+from strata.utils.artifacts import write_artifact_output_path
 
 
 def generate_preflight_report(graph: dict, task: str, max_files: int = 5) -> str:
@@ -133,12 +135,15 @@ def generate_preflight_report(graph: dict, task: str, max_files: int = 5) -> str
 def write_preflight_report(graph: dict, task: str, output_path: str) -> None:
     """Write a preflight report to disk."""
 
-    directory = os.path.dirname(output_path)
+    content = generate_preflight_report(graph, task)
 
+    if ".aidc" in Path(output_path).parts:
+        write_artifact_output_path(output_path, redact_text(content))
+        return
+
+    directory = os.path.dirname(output_path)
     if directory:
         os.makedirs(directory, exist_ok=True)
-
-    content = generate_preflight_report(graph, task)
 
     with open(output_path, "w", encoding="utf-8") as file:
         file.write(redact_text(content))

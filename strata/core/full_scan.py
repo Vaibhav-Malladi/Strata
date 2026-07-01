@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from strata.utils.paths import atomic_write_json
+from strata.utils.artifacts import write_artifact_json
 
 FULL_SCAN_CACHE_FILE = Path(".aidc") / "cache" / "repo_scan.json"
 FULL_SCAN_TEMP_FILE = Path(".aidc") / "cache" / "repo_scan.tmp.json"
@@ -198,15 +198,13 @@ def build_full_scan_payload(
 def write_full_scan_temp_marker(root: str | Path, payload: dict[str, Any]) -> Path:
     root_path = Path(root)
     temp_path = root_path / FULL_SCAN_TEMP_FILE
-    temp_path.parent.mkdir(parents=True, exist_ok=True)
-    temp_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    return temp_path
+    return write_artifact_json(root_path, Path("cache") / "repo_scan.tmp.json", payload)
 
 
 def finalize_full_scan_cache(root: str | Path, payload: dict[str, Any]) -> Path:
     root_path = Path(root)
     cache_path = root_path / FULL_SCAN_CACHE_FILE
-    atomic_write_json(cache_path, payload)
+    cache_path = write_artifact_json(root_path, Path("cache") / "repo_scan.json", payload)
     (root_path / FULL_SCAN_TEMP_FILE).unlink(missing_ok=True)
     return cache_path
 

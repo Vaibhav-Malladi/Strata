@@ -4,7 +4,7 @@ import os
 from strata.commands.cli_ui import print_title, print_kv, red
 from strata.core.graph import validate_graph
 from strata.core.scanner import scan_repo
-from strata.utils.paths import atomic_write_json
+from strata.utils.artifacts import write_artifact_json
 
 
 OUTPUT_DIR = ".aidc"
@@ -61,8 +61,7 @@ def build_graph(
 
 
 def save_graph(graph: dict) -> None:
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-    atomic_write_json(OUTPUT_FILE, graph)
+    write_artifact_json(".", "graph.json", graph)
 
 
 def load_saved_graph() -> dict | None:

@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from strata.core.repo_ignore import should_ignore_directory, should_ignore_file
-from strata.utils.paths import atomic_write_json
+from strata.utils.artifacts import write_artifact_json
 from strata.utils.shell import run_argv
 
 SNAPSHOT_CACHE_FILE = Path(".aidc") / "cache" / "repo_snapshot.json"
@@ -44,8 +44,6 @@ def write_repo_snapshot_cache(
 
     root_path = Path(root)
     cache_path = root_path / SNAPSHOT_CACHE_FILE
-    cache_path.parent.mkdir(parents=True, exist_ok=True)
-
     previous_cache = load_repo_snapshot_cache(root_path)
     changed_during_scan = _diff_fingerprints(
         before_snapshot.get("file_fingerprints", {}),
@@ -85,7 +83,7 @@ def write_repo_snapshot_cache(
         "changed_since_snapshot": changed_since_snapshot,
     }
 
-    atomic_write_json(cache_path, payload)
+    cache_path = write_artifact_json(root_path, Path("cache") / "repo_snapshot.json", payload)
 
     return {
         "cache_path": str(cache_path),

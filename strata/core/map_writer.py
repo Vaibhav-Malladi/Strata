@@ -1,5 +1,7 @@
 import os
+from pathlib import Path
 
+from strata.utils.artifacts import write_artifact_output_path
 from strata.utils.paths import atomic_write_text
 
 
@@ -109,12 +111,13 @@ def generate_project_map(graph: dict) -> str:
 def write_project_map(graph: dict, output_path: str) -> None:
     """Write a Markdown project map to disk."""
 
+    content = generate_project_map(graph)
+    if ".aidc" in Path(output_path).parts:
+        write_artifact_output_path(output_path, content)
+        return
     output_dir = os.path.dirname(output_path)
-
     if output_dir:
         os.makedirs(output_dir, exist_ok=True)
-
-    content = generate_project_map(graph)
     atomic_write_text(output_path, content)
 
 

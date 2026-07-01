@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from strata.utils.secrets import redact_text
+from strata.utils.artifacts import write_artifact_json, write_artifact_text
 
 
 def verify_diff(diff: dict) -> dict:
@@ -150,17 +151,13 @@ def write_verification_report(root: str | Path, report: dict) -> dict:
     """Write verification JSON and Markdown reports under .aidc."""
 
     root_path = Path(root)
-    output_dir = root_path / ".aidc"
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    json_path = output_dir / "verification_report.json"
-    markdown_path = output_dir / "verification_report.md"
-
-    json_path.write_text(
-        redact_text(json.dumps(report, indent=2, sort_keys=True)),
-        encoding="utf-8",
+    redacted_report = json.loads(redact_text(json.dumps(report)))
+    json_path = write_artifact_json(root_path, "verification_report.json", redacted_report)
+    markdown_path = write_artifact_text(
+        root_path,
+        "verification_report.md",
+        redact_text(build_verification_markdown(report)),
     )
-    markdown_path.write_text(redact_text(build_verification_markdown(report)), encoding="utf-8")
 
     return {
         "root": str(root_path),

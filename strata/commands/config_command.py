@@ -9,54 +9,17 @@ from strata.utils.output import (
     format_path,
     format_success,
 )
-from strata.utils.config import config_path, ensure_config, load_config, save_config, validate_config
-
-_SUPPORTED_KEYS = {
-    "mode",
-    "agent",
-    "adapter",
-    "prompt_path",
-    "model",
-    "command",
-    "base_url",
-    "api_key_env",
-    "command_timeout_seconds",
-    "http_timeout_seconds",
-    "auto_snapshot",
-    "auto_verify",
-    "require_gate_pass_before_commit",
-}
-
-_VALID_KEYS = (
-    "mode",
-    "agent",
-    "adapter",
-    "prompt_path",
-    "model",
-    "command",
-    "base_url",
-    "api_key_env",
-    "command_timeout_seconds",
-    "http_timeout_seconds",
-    "auto_snapshot",
-    "auto_verify",
-    "require_gate_pass_before_commit",
-    "timeout",
-    "http_timeout",
-    "require_gate",
-    "require_gate_pass",
-    "snapshot",
-    "verify",
+from strata.utils.config import (
+    CONFIG_KEY_ALIASES,
+    SUPPORTED_CONFIG_KEYS,
+    config_path,
+    ensure_config,
+    load_config,
+    save_config,
+    validate_config,
 )
 
-_KEY_ALIASES = {
-    "timeout": "command_timeout_seconds",
-    "http_timeout": "http_timeout_seconds",
-    "require_gate": "require_gate_pass_before_commit",
-    "require_gate_pass": "require_gate_pass_before_commit",
-    "snapshot": "auto_snapshot",
-    "verify": "auto_verify",
-}
+_VALID_KEYS = tuple(sorted({*SUPPORTED_CONFIG_KEYS, *CONFIG_KEY_ALIASES}))
 
 _BOOL_TRUE = {"true", "yes", "on", "1"}
 _BOOL_FALSE = {"false", "no", "off", "0"}
@@ -244,9 +207,9 @@ def _bool_text(value: object) -> str:
 
 def _normalize_key(key: str) -> str:
     normalized = key.strip().lower()
-    canonical = _KEY_ALIASES.get(normalized, normalized)
+    canonical = CONFIG_KEY_ALIASES.get(normalized, normalized)
 
-    if canonical not in _SUPPORTED_KEYS:
+    if canonical not in SUPPORTED_CONFIG_KEYS:
         valid = ", ".join(_VALID_KEYS)
         raise ValueError(f"Unsupported config key: {key}. Valid keys: {valid}")
 

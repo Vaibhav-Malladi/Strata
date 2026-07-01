@@ -393,9 +393,10 @@ def test_ensure_config_preserves_existing_valid_config():
         assert loaded["http_timeout_seconds"] == 120
 
 
-def test_unknown_extra_keys_are_preserved():
+def test_unknown_extra_keys_are_rejected():
     with tempfile.TemporaryDirectory() as temp_dir:
-        save_config(
+        _expect_value_error(
+            save_config,
             {
                 "future_option": "x",
                 "mode": "auto",
@@ -404,14 +405,24 @@ def test_unknown_extra_keys_are_preserved():
                 "prompt_path": "custom/prompt.md",
             },
             temp_dir,
+            contains="Unsupported config key: future_option",
         )
 
-        loaded = load_config(temp_dir)
 
-        assert loaded["future_option"] == "x"
-        assert loaded["mode"] == "auto"
-        assert loaded["agent"] == "local"
-        assert loaded["adapter"] == "prompt_file"
+def test_load_config_rejects_unknown_file_keys_before_runtime_use():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        path = config_path(temp_dir)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            '{"mode": "auto", "future_option": "unsafe"}\n',
+            encoding="utf-8",
+        )
+
+        _expect_value_error(
+            load_config,
+            temp_dir,
+            contains="Unsupported config key: future_option",
+        )
 
 
 TESTS = [
@@ -451,5 +462,6 @@ TESTS = [
     test_save_config_writes_adapter_fields,
     test_ensure_config_creates_new_schema,
     test_ensure_config_preserves_existing_valid_config,
-    test_unknown_extra_keys_are_preserved,
+    test_unknown_extra_keys_are_rejected,
+    test_load_config_rejects_unknown_file_keys_before_runtime_use,
 ]

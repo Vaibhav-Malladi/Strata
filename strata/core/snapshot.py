@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
-from strata.utils.paths import atomic_write_json, atomic_write_text
+from strata.utils.artifacts import write_artifact_json, write_artifact_text
 
 
 def make_snapshot_timestamp(now: datetime | None = None) -> str:
@@ -52,27 +52,21 @@ def write_snapshot(
     snapshot_timestamp = timestamp or make_snapshot_timestamp()
     snapshots_dir = root_path / ".aidc" / "snapshots"
     snapshot_dir = snapshots_dir / snapshot_timestamp
-    graph_path = snapshot_dir / "graph.json"
-    routes_path = snapshot_dir / "routes.json"
-    summary_path = snapshot_dir / "summary.md"
-    latest_path = snapshots_dir / "latest.txt"
-
-    snapshot_dir.mkdir(parents=True, exist_ok=True)
-    snapshots_dir.mkdir(parents=True, exist_ok=True)
 
     graph_payload = graph if isinstance(graph, dict) else {}
     routes_payload = _normalize_routes_payload(routes_data)
 
-    atomic_write_json(graph_path, graph_payload)
-    atomic_write_json(routes_path, routes_payload)
+    snapshot_artifact_dir = Path("snapshots") / snapshot_timestamp
+    graph_path = write_artifact_json(root_path, snapshot_artifact_dir / "graph.json", graph_payload)
+    routes_path = write_artifact_json(root_path, snapshot_artifact_dir / "routes.json", routes_payload)
 
     summary = summarize_snapshot(graph_payload, routes_payload)
     summary["timestamp"] = snapshot_timestamp
     summary["root"] = str(root_path)
 
     summary_markdown = build_snapshot_summary_markdown(summary)
-    atomic_write_text(summary_path, summary_markdown)
-    atomic_write_text(latest_path, snapshot_timestamp)
+    summary_path = write_artifact_text(root_path, snapshot_artifact_dir / "summary.md", summary_markdown)
+    latest_path = write_artifact_text(root_path, Path("snapshots") / "latest.txt", snapshot_timestamp)
 
     return {
         "root": str(root_path),

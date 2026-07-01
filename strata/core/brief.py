@@ -1,9 +1,11 @@
 import os
 import re
+from pathlib import Path
 
 from secret_redaction import redact_text
 from strata.core.brief_impact import generate_impact_notes
 from strata.utils.prompt_safety import UNTRUSTED_CONTENT_WARNING, wrap_repository_content
+from strata.utils.artifacts import write_artifact_output_path
 
 
 TASK_WORD_STOP_WORDS = {
@@ -134,12 +136,15 @@ def generate_task_brief(graph: dict, task: str, max_files: int = 5) -> str:
 def write_task_brief(graph: dict, task: str, output_path: str) -> None:
     """Write a task-specific brief to disk."""
 
-    directory = os.path.dirname(output_path)
+    content = generate_task_brief(graph, task)
 
+    if ".aidc" in Path(output_path).parts:
+        write_artifact_output_path(output_path, redact_text(content))
+        return
+
+    directory = os.path.dirname(output_path)
     if directory:
         os.makedirs(directory, exist_ok=True)
-
-    content = generate_task_brief(graph, task)
 
     with open(output_path, "w", encoding="utf-8") as file:
         file.write(redact_text(content))

@@ -1,5 +1,8 @@
 import json
 import os
+from pathlib import Path
+
+from strata.utils.artifacts import write_artifact_output_path
 
 
 def collect_routes(graph: dict) -> list[dict]:
@@ -193,12 +196,15 @@ def generate_routes_report(graph: dict) -> str:
 def write_routes_report(graph: dict, output_path: str) -> None:
     """Write the Markdown route map report to disk."""
 
-    output_dir = os.path.dirname(output_path)
+    content = generate_routes_report(graph)
 
+    if ".aidc" in Path(output_path).parts:
+        write_artifact_output_path(output_path, content)
+        return
+
+    output_dir = os.path.dirname(output_path)
     if output_dir:
         os.makedirs(output_dir, exist_ok=True)
-
-    content = generate_routes_report(graph)
 
     with open(output_path, "w", encoding="utf-8") as file:
         file.write(content)
@@ -206,11 +212,6 @@ def write_routes_report(graph: dict, output_path: str) -> None:
 
 def write_routes_json(graph: dict, output_path: str) -> None:
     """Write collected route data to JSON."""
-
-    output_dir = os.path.dirname(output_path)
-
-    if output_dir:
-        os.makedirs(output_dir, exist_ok=True)
 
     routes = collect_routes(graph)
     duplicates = find_duplicate_routes(routes)
@@ -224,5 +225,14 @@ def write_routes_json(graph: dict, output_path: str) -> None:
         "route_import_risks": route_import_risks,
     }
 
+    content = json.dumps(payload, indent=2)
+    if ".aidc" in Path(output_path).parts:
+        write_artifact_output_path(output_path, content)
+        return
+
+    output_dir = os.path.dirname(output_path)
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
+
     with open(output_path, "w", encoding="utf-8") as file:
-        json.dump(payload, file, indent=2)
+        file.write(content)

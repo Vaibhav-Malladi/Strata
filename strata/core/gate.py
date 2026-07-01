@@ -5,6 +5,7 @@ from pathlib import Path
 
 from strata.core.graph import validate_graph
 from strata.utils.secrets import redact_text
+from strata.utils.artifacts import write_artifact_json, write_artifact_text
 
 
 RECOMMENDED_COMMANDS = [
@@ -142,19 +143,14 @@ def write_gate_report(root: str | Path, report: dict) -> dict:
     """Write the gate report JSON and Markdown files under .aidc."""
 
     root_path = Path(root)
-    aidc_dir = root_path / ".aidc"
-    json_path = aidc_dir / "gate_report.json"
-    markdown_path = aidc_dir / "gate_report.md"
-
-    aidc_dir.mkdir(parents=True, exist_ok=True)
-
     payload = report if isinstance(report, dict) else {}
-
-    json_path.write_text(
-        redact_text(json.dumps(payload, indent=2, sort_keys=True)),
-        encoding="utf-8",
+    redacted_payload = json.loads(redact_text(json.dumps(payload)))
+    json_path = write_artifact_json(root_path, "gate_report.json", redacted_payload)
+    markdown_path = write_artifact_text(
+        root_path,
+        "gate_report.md",
+        redact_text(build_gate_markdown(payload)),
     )
-    markdown_path.write_text(redact_text(build_gate_markdown(payload)), encoding="utf-8")
 
     return {
         "root": str(root_path),

@@ -93,6 +93,7 @@ import test_scan_command
 import test_repo_ignore
 import test_repo_summary
 import test_setup_command
+import test_artifact_safety
 from tests import test_languages
 from tests import test_js_resolution
 from tests import test_js_parser
@@ -179,6 +180,7 @@ TEST_MODULES = [
     test_repo_ignore,
     test_repo_summary,
     test_setup_command,
+    test_artifact_safety,
     test_languages,
     test_js_resolution,
     test_js_parser,

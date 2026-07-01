@@ -7,6 +7,7 @@ import subprocess
 from pathlib import Path
 
 from strata.utils.shell import run_argv
+from strata.utils.artifacts import write_artifact_text
 
 DIRECT_EDIT_REPORT_PATH = Path(".aidc") / "direct_edit.diff"
 
@@ -69,10 +70,10 @@ def write_direct_edit_diff(root: str | Path, changed_paths: list[str]) -> Path:
 
     diff_text = _git_diff_text(root_path, changed_paths)
     if diff_text is None:
-        report_path.write_text(_build_text_report(changed_paths), encoding="utf-8")
+        write_artifact_text(root_path, "direct_edit.diff", _build_text_report(changed_paths))
         return report_path
 
-    report_path.write_text(diff_text, encoding="utf-8")
+    write_artifact_text(root_path, "direct_edit.diff", diff_text)
     return report_path
 
 

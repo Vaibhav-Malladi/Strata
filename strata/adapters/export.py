@@ -26,6 +26,7 @@ from strata.parsers.typescript import (
 from execution_hints import build_execution_path_hints_section
 from verification_hints import build_verification_plan_section
 from strata.utils.prompt_safety import UNTRUSTED_CONTENT_WARNING, wrap_repository_content
+from strata.utils.artifacts import write_artifact_output_path
 
 
 SUPPORTED_AGENTS = {"generic", "local", "aider", "chatgpt"}
@@ -121,9 +122,7 @@ def write_agent_prompt(
         budget_value=budget_value,
     )
 
-    output_path = Path(output_path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(redact_text(prompt), encoding="utf-8")
+    write_artifact_output_path(output_path, redact_text(prompt))
     return prompt
 
 
