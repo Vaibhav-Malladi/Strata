@@ -9,6 +9,8 @@ import commands.show_command as show_command
 import strata.commands.show_command as new_show_command
 import commands.agent_prompt_command as old_agent_prompt_command
 import strata.commands.agent_prompt_command as new_agent_prompt_command
+import cli_core as old_cli_core
+import strata.commands.cli_core as new_cli_core
 from cli import main as cli_main
 from cli import write_graph, show_file
 from cli_help import print_usage
@@ -42,6 +44,10 @@ def test_new_show_command_import_matches_legacy_shim():
 
 def test_new_agent_prompt_command_import_matches_legacy_shim():
     assert new_agent_prompt_command.write_agent_prompt_command is old_agent_prompt_command.write_agent_prompt_command
+
+
+def test_new_cli_core_import_matches_legacy_shim():
+    assert new_cli_core.build_graph is old_cli_core.build_graph
 
 
 def _create_patch_file(root: Path, content: str) -> Path:
@@ -623,6 +629,7 @@ def test_cli_doctor_adapter_dispatches():
 
 
 TESTS = [
+    test_new_cli_core_import_matches_legacy_shim,
     test_new_show_command_import_matches_legacy_shim,
     test_new_agent_prompt_command_import_matches_legacy_shim,
     test_cli_write_graph_creates_output_file,
