@@ -5,7 +5,9 @@ import tempfile
 from pathlib import Path
 
 from cli import main as cli_main
+import commands.gate_command as old_gate_command
 from commands.gate_command import write_gate_command
+import strata.commands.gate_command as new_gate_command
 from tests.helpers import capture_output
 
 
@@ -46,6 +48,10 @@ def create_gate_repo(
             "    return 2\n",
             encoding="utf-8",
         )
+
+
+def test_gate_command_shim_exports_new_implementation():
+    assert old_gate_command.write_gate_command is new_gate_command.write_gate_command
 
 
 def run_gate_via_cli(root: Path):
@@ -184,6 +190,7 @@ def test_gate_command_invalid_root_prints_clear_message_and_does_not_crash():
 
 
 TESTS = [
+    test_gate_command_shim_exports_new_implementation,
     test_gate_command_writes_reports_and_formats_terminal_output,
     test_gate_command_markdown_contains_required_sections,
     test_gate_command_json_contains_expected_fields,

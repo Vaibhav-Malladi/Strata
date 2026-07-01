@@ -5,8 +5,10 @@ import tempfile
 from pathlib import Path
 
 from cli_core import build_graph
+import commands.diff_command as old_diff_command
 from commands.diff_command import write_diff_command
 from routes import collect_routes
+import strata.commands.diff_command as new_diff_command
 from tests.helpers import capture_output
 
 
@@ -43,6 +45,10 @@ def create_repo(root: Path, include_new_file: bool = False) -> None:
             "    return 1\n",
             encoding="utf-8",
         )
+
+
+def test_diff_command_shim_exports_new_implementation():
+    assert old_diff_command.write_diff_command is new_diff_command.write_diff_command
 
 
 def write_snapshot_state(root: Path, *, timestamp: str, graph: dict, routes=None, include_routes_file: bool = True) -> None:
@@ -219,6 +225,7 @@ def test_diff_command_detects_added_file_after_snapshot():
 
 
 TESTS = [
+    test_diff_command_shim_exports_new_implementation,
     test_diff_command_missing_snapshot_prints_clear_message,
     test_diff_command_writes_diff_reports_from_latest_snapshot,
     test_diff_command_handles_missing_routes_json,

@@ -3,7 +3,9 @@ import os
 import tempfile
 from pathlib import Path
 
+import commands.snapshot_command as old_snapshot_command
 from commands.snapshot_command import write_snapshot_command
+import strata.commands.snapshot_command as new_snapshot_command
 from tests.helpers import capture_output
 
 
@@ -35,6 +37,10 @@ def create_snapshot_repo(root: Path, with_routes: bool = False) -> None:
         "    return True\n",
         encoding="utf-8",
     )
+
+
+def test_snapshot_command_shim_exports_new_implementation():
+    assert old_snapshot_command.write_snapshot_command is new_snapshot_command.write_snapshot_command
 
 
 def test_snapshot_command_writes_timestamped_snapshot_directory():
@@ -118,6 +124,7 @@ def test_snapshot_command_works_with_no_backend_routes():
 
 
 TESTS = [
+    test_snapshot_command_shim_exports_new_implementation,
     test_snapshot_command_writes_timestamped_snapshot_directory,
     test_snapshot_command_latest_points_to_created_snapshot,
     test_snapshot_command_rejects_missing_root_without_crashing,

@@ -6,6 +6,8 @@ from pathlib import Path
 
 from cli import main as cli_main
 from cli_help import print_usage
+import commands.start_command as old_start_command
+import strata.commands.start_command as new_start_command
 from tests.helpers import capture_output, change_directory
 from workflow_config import default_config, save_config
 
@@ -18,6 +20,10 @@ def change_argv(args: list[str]):
         yield
     finally:
         sys.argv = original
+
+
+def test_start_command_shim_exports_new_implementation():
+    assert old_start_command.write_start_command is new_start_command.write_start_command
 
 
 @contextlib.contextmanager
@@ -523,6 +529,7 @@ def test_apply_defaults_to_no_without_yes_flag():
 
 
 TESTS = [
+    test_start_command_shim_exports_new_implementation,
     test_help_lists_main_workflow_before_advanced_commands,
     test_start_reports_repo_readiness_and_intelligence,
     test_start_without_config_shows_connect_ai_guidance,

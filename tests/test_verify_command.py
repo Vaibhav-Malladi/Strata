@@ -5,8 +5,10 @@ import tempfile
 from pathlib import Path
 
 from cli_core import build_graph
+import commands.verify_command as old_verify_command
 from commands.verify_command import write_verify_command
 from routes import collect_routes
+import strata.commands.verify_command as new_verify_command
 from tests.helpers import capture_output
 
 
@@ -35,6 +37,10 @@ def _file_entry(path: str, imports: list[str] | None = None) -> dict:
         "enums": [],
         "exports": [],
     }
+
+
+def test_verify_command_shim_exports_new_implementation():
+    assert old_verify_command.write_verify_command is new_verify_command.write_verify_command
 
 
 def _create_repo(root: Path, *, add_file: bool = False, unresolved: bool = False) -> None:
@@ -301,6 +307,7 @@ def test_verify_command_reports_fail_when_unresolved_imports_are_added():
 
 
 TESTS = [
+    test_verify_command_shim_exports_new_implementation,
     test_verify_command_missing_snapshot_prints_clear_message_and_does_not_crash,
     test_verify_command_writes_reports_from_latest_snapshot,
     test_verify_command_markdown_contains_required_sections,
