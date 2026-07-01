@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import shlex
 import subprocess
+from collections.abc import Sequence
 from pathlib import Path
 
 from secret_redaction import redact_text
@@ -12,12 +13,51 @@ from patch_validator import validate_patch_file
 DEFAULT_TIMEOUT_SECONDS = 120
 
 
+def run_argv(
+    argv: Sequence[str],
+    *,
+    cwd: str | Path | None = None,
+    timeout: int | None = None,
+    encoding: str | None = None,
+    errors: str | None = None,
+) -> subprocess.CompletedProcess[str]:
+    if isinstance(argv, (str, bytes)):
+        raise TypeError("Command argv must be a sequence of arguments, not a command string.")
+
+    command = [str(argument) for argument in argv]
+    if not command:
+        raise ValueError("Command argv must not be empty.")
+
+    return subprocess.run(
+        command,
+        cwd=str(cwd) if cwd is not None else None,
+        capture_output=True,
+        text=True,
+        encoding=encoding,
+        errors=errors,
+        timeout=timeout,
+        check=False,
+        shell=False,
+    )
+
+
 def parse_command(command: str) -> list[str]:
     if os.name == "nt":
         parts = shlex.split(command, posix=False)
         return [_strip_wrapping_quotes(part) for part in parts]
 
     return shlex.split(command)
+
+
+def run_shell_compatible_adapter_command(
+    argv: Sequence[str],
+    *,
+    cwd: str | Path,
+    timeout: int,
+) -> subprocess.CompletedProcess[str]:
+    # Intentionally supports command-adapter strings parsed with shell-like quoting.
+    # Execution remains argv-only through run_argv; shell operators are not interpreted.
+    return run_argv(argv, cwd=cwd, timeout=timeout)
 
 
 def execute_command_adapter(root=".", command=None, timeout_seconds=DEFAULT_TIMEOUT_SECONDS) -> dict:
@@ -80,13 +120,10 @@ def execute_command_adapter(root=".", command=None, timeout_seconds=DEFAULT_TIME
     timed_out = False
 
     try:
-        completed = subprocess.run(
+        completed = run_shell_compatible_adapter_command(
             argv,
             cwd=str(root_path),
-            capture_output=True,
-            text=True,
             timeout=effective_timeout,
-            check=False,
         )
     except subprocess.TimeoutExpired as error:
         timed_out = True

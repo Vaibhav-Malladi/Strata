@@ -1,6 +1,8 @@
 import subprocess
 from pathlib import Path
 
+from strata.utils.shell import run_argv
+
 from strata.patch.applier import apply_patch_file
 from strata.patch.contract import inspect_patch, resolve_patch_path
 from strata.patch.validator import validate_patch_file
@@ -363,14 +365,11 @@ def _inspect_git_state(root_path: str) -> dict:
 
 def _run_git(root: str, *args: str) -> str | None:
     try:
-        result = subprocess.run(
+        result = run_argv(
             ["git", "-C", root, *args],
-            capture_output=True,
-            text=True,
             encoding="utf-8",
             errors="replace",
             timeout=_GIT_TIMEOUT_SECONDS,
-            check=False,
         )
     except (OSError, subprocess.SubprocessError):
         return None

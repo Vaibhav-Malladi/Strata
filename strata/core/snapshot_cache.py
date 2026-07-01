@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from strata.core.repo_ignore import should_ignore_directory, should_ignore_file
 from strata.utils.paths import atomic_write_json
+from strata.utils.shell import run_argv
 
 SNAPSHOT_CACHE_FILE = Path(".aidc") / "cache" / "repo_snapshot.json"
 
@@ -209,13 +209,10 @@ def _git_head(root_path: Path) -> str | None:
         return None
 
     try:
-        result = subprocess.run(
+        result = run_argv(
             ["git", "rev-parse", "HEAD"],
             cwd=root_path,
-            capture_output=True,
-            text=True,
             encoding="utf-8",
-            check=False,
         )
     except OSError:
         return None

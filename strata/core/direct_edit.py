@@ -6,6 +6,8 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from strata.utils.shell import run_argv
+
 DIRECT_EDIT_REPORT_PATH = Path(".aidc") / "direct_edit.diff"
 
 _IGNORED_DIRECTORY_NAMES = {
@@ -141,13 +143,9 @@ def _git_diff_text(root_path: Path, changed_paths: list[str]) -> str | None:
 
 def _run_git_command(root_path: Path, args: list[str]) -> subprocess.CompletedProcess[str] | None:
     try:
-        return subprocess.run(
+        return run_argv(
             ["git", *args],
             cwd=str(root_path),
-            capture_output=True,
-            text=True,
-            shell=False,
-            check=False,
         )
     except (OSError, ValueError):
         return None

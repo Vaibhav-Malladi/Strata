@@ -1,3 +1,4 @@
+import ast
 import sys
 import tempfile
 import textwrap
@@ -39,6 +40,143 @@ def _valid_patch_text() -> str:
 
 def test_parse_command_splits_simple_command():
     assert parse_command("python -m module") == ["python", "-m", "module"]
+
+
+def test_run_argv_always_uses_list_without_shell():
+    captured = {}
+
+    def _fake_run(argv, **kwargs):
+        captured["argv"] = argv
+        captured["kwargs"] = kwargs
+
+        class _Completed:
+            returncode = 0
+            stdout = ""
+            stderr = ""
+
+        return _Completed()
+
+    original_run = shell.subprocess.run
+    shell.subprocess.run = _fake_run
+    try:
+        shell.run_argv(("python", "--version"), cwd=".", timeout=5)
+    finally:
+        shell.subprocess.run = original_run
+
+    assert captured["argv"] == ["python", "--version"]
+    assert captured["kwargs"]["shell"] is False
+    assert captured["kwargs"]["check"] is False
+    assert captured["kwargs"]["timeout"] == 5
+
+
+def test_run_argv_rejects_command_strings():
+    try:
+        shell.run_argv("python --version")
+    except TypeError as error:
+        assert "sequence of arguments" in str(error)
+    else:
+        raise AssertionError("run_argv accepted a command string")
+
+
+def test_command_adapter_uses_named_shell_compatible_path():
+    captured = {}
+
+    def _fake_adapter_run(argv, **kwargs):
+        captured["argv"] = list(argv)
+        captured["kwargs"] = kwargs
+
+        class _Completed:
+            returncode = 0
+            stdout = ""
+            stderr = ""
+
+        return _Completed()
+
+    original_run = shell.run_shell_compatible_adapter_command
+    shell.run_shell_compatible_adapter_command = _fake_adapter_run
+    try:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            result = shell.execute_command_adapter(
+                temp_dir,
+                command='python "fake ai.py" --prompt .aidc/agent_prompt.md',
+            )
+    finally:
+        shell.run_shell_compatible_adapter_command = original_run
+
+    assert result["status"] == "missing_patch"
+    assert captured["argv"] == [
+        "python",
+        "fake ai.py",
+        "--prompt",
+        ".aidc/agent_prompt.md",
+    ]
+    assert captured["kwargs"]["timeout"] == 120
+
+
+def test_product_code_limits_subprocess_execution_to_safe_wrapper():
+    product_root = Path(__file__).resolve().parents[1] / "strata"
+    violations = []
+
+    for source_path in sorted(product_root.rglob("*.py")):
+        source = source_path.read_text(encoding="utf-8")
+        tree = ast.parse(source, filename=str(source_path))
+        relative_path = source_path.relative_to(product_root.parent).as_posix()
+        allowed_calls = set()
+        module_aliases = {}
+        execution_aliases = {}
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.name in {"os", "subprocess"}:
+                        module_aliases[alias.asname or alias.name] = alias.name
+            elif isinstance(node, ast.ImportFrom) and node.module in {"os", "subprocess"}:
+                for alias in node.names:
+                    execution_aliases[alias.asname or alias.name] = f"{node.module}.{alias.name}"
+
+        if relative_path == "strata/utils/shell.py":
+            for node in tree.body:
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == "run_argv":
+                    allowed_calls = {id(child) for child in ast.walk(node) if isinstance(child, ast.Call)}
+                    break
+
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+
+            function_name = _ast_call_name(node.func)
+            root_name, separator, remainder = function_name.partition(".")
+            if root_name in module_aliases:
+                function_name = module_aliases[root_name] + (separator + remainder if separator else "")
+            elif function_name in execution_aliases:
+                function_name = execution_aliases[function_name]
+            location = f"{relative_path}:{node.lineno}"
+
+            if function_name in {
+                "os.system",
+                "os.popen",
+                "subprocess.call",
+                "subprocess.check_call",
+                "subprocess.check_output",
+                "subprocess.Popen",
+                "subprocess.run",
+            } and id(node) not in allowed_calls:
+                violations.append(f"{location}: unexpected execution call {function_name}")
+
+            for keyword in node.keywords:
+                if keyword.arg == "shell" and isinstance(keyword.value, ast.Constant) and keyword.value.value is True:
+                    violations.append(f"{location}: shell=True is forbidden")
+
+    assert not violations, "Unexpected product shell execution:\n" + "\n".join(violations)
+
+
+def _ast_call_name(node: ast.expr) -> str:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        parent = _ast_call_name(node.value)
+        return f"{parent}.{node.attr}" if parent else node.attr
+    return ""
 
 
 def test_empty_command_returns_not_ready_and_executed_false():
@@ -421,6 +559,10 @@ def test_executor_does_not_apply_patch():
 TESTS = [
     test_new_utility_import_paths_match_compatibility_shims,
     test_parse_command_splits_simple_command,
+    test_run_argv_always_uses_list_without_shell,
+    test_run_argv_rejects_command_strings,
+    test_command_adapter_uses_named_shell_compatible_path,
+    test_product_code_limits_subprocess_execution_to_safe_wrapper,
     test_empty_command_returns_not_ready_and_executed_false,
     test_none_command_returns_not_ready_and_executed_false,
     test_invalid_command_returns_invalid_command,
