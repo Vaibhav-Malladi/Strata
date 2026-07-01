@@ -3,15 +3,7 @@ import tempfile
 from pathlib import Path
 
 import strata.utils.artifacts as artifacts
-
-
-def _create_symlink(link: Path, target: Path, *, target_is_directory: bool) -> bool:
-    try:
-        link.symlink_to(target, target_is_directory=target_is_directory)
-    except (NotImplementedError, OSError) as error:
-        print(f"SKIP: symlink creation is not permitted on this platform: {error}")
-        return False
-    return True
+from tests.helpers import try_symlink_or_skip
 
 
 def test_safe_artifact_write_stays_under_aidc():
@@ -132,7 +124,7 @@ def test_artifact_write_rejects_aidc_symlink():
         root.mkdir()
         outside.mkdir()
 
-        if not _create_symlink(root / ".aidc", outside, target_is_directory=True):
+        if not try_symlink_or_skip(root / ".aidc", outside, target_is_directory=True):
             return
 
         try:
@@ -153,7 +145,11 @@ def test_artifact_write_rejects_symlink_target():
         outside_target = outside / "result.md"
         outside_target.write_text("outside\n", encoding="utf-8")
 
-        if not _create_symlink(root / ".aidc" / "result.md", outside_target, target_is_directory=False):
+        if not try_symlink_or_skip(
+            root / ".aidc" / "result.md",
+            outside_target,
+            target_is_directory=False,
+        ):
             return
 
         try:

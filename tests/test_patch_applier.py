@@ -6,7 +6,7 @@ from pathlib import Path
 import patch_applier
 import strata.patch.applier as new_patch_applier
 from patch_applier import apply_patch_file, apply_patch_text, parse_unified_diff
-from tests.helpers import change_directory
+from tests.helpers import change_directory, try_symlink_or_skip
 
 
 def test_patch_applier_module_compatibility():
@@ -27,15 +27,6 @@ def _write_patch_file(root: Path, content: str) -> Path:
     patch_path.parent.mkdir(parents=True, exist_ok=True)
     patch_path.write_text(content, encoding="utf-8")
     return patch_path
-
-
-def _create_symlink(link: Path, target: Path) -> bool:
-    try:
-        link.symlink_to(target)
-    except (NotImplementedError, OSError) as error:
-        print(f"SKIP: symlink creation is not permitted on this platform: {error}")
-        return False
-    return True
 
 
 def test_apply_patch_file_modifies_existing_file():
@@ -372,7 +363,7 @@ def test_apply_patch_text_rejects_symlink_file_target():
         root.mkdir()
         outside_path = temp_root / "outside.py"
         outside_path.write_text('print("old")\n', encoding="utf-8")
-        if not _create_symlink(root / "linked.py", outside_path):
+        if not try_symlink_or_skip(root / "linked.py", outside_path):
             return
 
         patch = (

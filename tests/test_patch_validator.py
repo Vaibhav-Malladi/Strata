@@ -5,6 +5,7 @@ import patch_validator as old_patch_validator
 import strata.patch.validator as new_patch_validator
 
 from patch_validator import extract_patch_targets, validate_patch_file, validate_patch_text
+from tests.helpers import try_symlink_or_skip
 
 
 def test_patch_validator_module_compatibility():
@@ -27,15 +28,6 @@ def _write_patch_file(root: Path, content: str) -> Path:
     patch_path.parent.mkdir(parents=True, exist_ok=True)
     patch_path.write_text(content, encoding="utf-8")
     return patch_path
-
-
-def _create_symlink(link: Path, target: Path, *, target_is_directory: bool) -> bool:
-    try:
-        link.symlink_to(target, target_is_directory=target_is_directory)
-    except (NotImplementedError, OSError) as error:
-        print(f"SKIP: symlink creation is not permitted on this platform: {error}")
-        return False
-    return True
 
 
 def test_missing_patch_file_returns_missing():
@@ -167,7 +159,7 @@ def test_rejects_target_resolving_through_symlink_outside_repo():
         root.mkdir()
         outside.mkdir()
         (outside / "external.py").write_text("old\n", encoding="utf-8")
-        if not _create_symlink(root / "linked", outside, target_is_directory=True):
+        if not try_symlink_or_skip(root / "linked", outside, target_is_directory=True):
             return
 
         patch = (

@@ -4,19 +4,11 @@ from pathlib import Path
 import scanner as old_scanner
 import strata.core.scanner as new_scanner
 from scanner import scan_repo
+from tests.helpers import try_symlink_or_skip
 
 
 def _write_file(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
-
-
-def _create_symlink(link: Path, target: Path, *, target_is_directory: bool) -> bool:
-    try:
-        link.symlink_to(target, target_is_directory=target_is_directory)
-    except (NotImplementedError, OSError) as error:
-        print(f"SKIP: symlink creation is not permitted on this platform: {error}")
-        return False
-    return True
 
 
 def _create_scanner_repo(root: Path, *, include_unresolved: bool = True) -> None:
@@ -186,9 +178,9 @@ def test_scan_repo_skips_symlinked_external_directory_and_file():
         outside.mkdir()
         _write_file(root / "normal.py", "value = 'inside'\n")
         _write_file(outside / "external.py", "value = 'outside'\n")
-        if not _create_symlink(root / "linked_dir", outside, target_is_directory=True):
+        if not try_symlink_or_skip(root / "linked_dir", outside, target_is_directory=True):
             return
-        if not _create_symlink(
+        if not try_symlink_or_skip(
             root / "linked_file.py",
             outside / "external.py",
             target_is_directory=False,

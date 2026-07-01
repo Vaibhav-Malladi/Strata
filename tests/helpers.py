@@ -28,6 +28,20 @@ def write_file(path, content):
         file.write(content)
 
 
+def try_symlink_or_skip(
+    link: Path,
+    target: Path,
+    *,
+    target_is_directory: bool = False,
+) -> bool:
+    try:
+        link.symlink_to(target, target_is_directory=target_is_directory)
+    except (NotImplementedError, OSError) as error:
+        print(f"SKIP: symlink creation is not permitted on this platform: {error}")
+        return False
+    return True
+
+
 @contextlib.contextmanager
 def change_directory(path: Path):
     original = Path.cwd()
