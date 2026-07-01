@@ -2,9 +2,11 @@ from pathlib import Path
 from unittest.mock import patch
 
 from strata.core.candidates import (
+    DEFAULT_SHORTLIST_LIMIT,
     normalize_task_tokens,
     rank_candidates,
     score_candidate,
+    shortlist_candidates,
 )
 from strata.core.inventory import InventoryRecord
 
@@ -147,6 +149,81 @@ def test_task_normalization_removes_stopwords_and_duplicates():
     assert normalize_task_tokens("Fix the Auth auth service bug") == ("auth", "service")
 
 
+def test_shortlist_returns_highest_scores_first_and_preserves_reasons():
+    records = [
+        _record("src/zeta.ts"),
+        _record("src/auth_service.ts"),
+        _record("src/alpha.ts"),
+    ]
+
+    shortlist = shortlist_candidates(records, "fix auth service bug")
+
+    assert [candidate.path for candidate in shortlist.candidates] == [
+        "src/auth_service.ts",
+        "src/alpha.ts",
+        "src/zeta.ts",
+    ]
+    expected = score_candidate(records[1], "fix auth service bug")
+    assert shortlist.candidates[0].reasons == expected.reasons
+
+
+def test_shortlist_respects_cap_and_reports_truncation():
+    records = [
+        _record("src/auth_service.ts"),
+        _record("src/auth_controller.ts"),
+        _record("src/auth_model.ts"),
+    ]
+
+    shortlist = shortlist_candidates(records, "auth", limit=2)
+
+    assert len(shortlist.candidates) == 2
+    assert shortlist.files_considered == 3
+    assert shortlist.candidates_returned == 2
+    assert shortlist.cap == 2
+    assert shortlist.truncated is True
+
+
+def test_empty_shortlist_has_complete_summary_metadata():
+    shortlist = shortlist_candidates([], "auth")
+
+    assert shortlist.candidates == ()
+    assert shortlist.files_considered == 0
+    assert shortlist.candidates_returned == 0
+    assert shortlist.cap == DEFAULT_SHORTLIST_LIMIT
+    assert shortlist.truncated is False
+
+
+def test_shortlist_rejects_invalid_limits():
+    for invalid_limit in (0, -1):
+        try:
+            shortlist_candidates([], "auth", limit=invalid_limit)
+        except ValueError as error:
+            assert str(error) == "limit must be greater than zero"
+        else:
+            raise AssertionError(f"limit {invalid_limit} should be rejected")
+
+    for invalid_limit in (True, 1.5):
+        try:
+            shortlist_candidates([], "auth", limit=invalid_limit)
+        except TypeError as error:
+            assert str(error) == "limit must be an integer"
+        else:
+            raise AssertionError(f"limit {invalid_limit!r} should be rejected")
+
+
+def test_shortlist_does_not_stat_or_open_inventory_paths():
+    records = [_record("missing/auth_service.ts"), _record("missing/routes.ts")]
+
+    with (
+        patch.object(Path, "open", side_effect=AssertionError("opened candidate")),
+        patch.object(Path, "stat", side_effect=AssertionError("statted candidate")),
+    ):
+        shortlist = shortlist_candidates(records, "auth service", limit=1)
+
+    assert shortlist.files_considered == 2
+    assert shortlist.candidates[0].path == records[0].path
+
+
 TESTS = [
     test_filename_keyword_match_ranks_above_unrelated_file,
     test_folder_segment_match_contributes_an_explainable_reason,
@@ -156,4 +233,9 @@ TESTS = [
     test_language_and_extension_relevance_are_transparent,
     test_scoring_does_not_stat_or_open_inventory_paths,
     test_task_normalization_removes_stopwords_and_duplicates,
+    test_shortlist_returns_highest_scores_first_and_preserves_reasons,
+    test_shortlist_respects_cap_and_reports_truncation,
+    test_empty_shortlist_has_complete_summary_metadata,
+    test_shortlist_rejects_invalid_limits,
+    test_shortlist_does_not_stat_or_open_inventory_paths,
 ]

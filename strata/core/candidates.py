@@ -80,6 +80,7 @@ _EXTENSION_MATCH_SCORE = 2
 _TEST_PENALTY = -12
 _TEST_TASK_BOOST = 8
 _GENERATED_PENALTY = -100
+DEFAULT_SHORTLIST_LIMIT = 300
 
 
 @dataclass(frozen=True, slots=True)
@@ -87,6 +88,18 @@ class CandidateScore:
     path: str
     score: int
     reasons: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class CandidateShortlist:
+    candidates: tuple[CandidateScore, ...]
+    files_considered: int
+    cap: int
+    truncated: bool
+
+    @property
+    def candidates_returned(self) -> int:
+        return len(self.candidates)
 
 
 def normalize_task_tokens(task: str) -> tuple[str, ...]:
@@ -169,6 +182,27 @@ def rank_candidates(
 
     candidates = [score_candidate(record, task) for record in records]
     return sorted(candidates, key=lambda candidate: (-candidate.score, candidate.path.lower()))
+
+
+def shortlist_candidates(
+    records: Iterable[InventoryRecord],
+    task: str,
+    limit: int = DEFAULT_SHORTLIST_LIMIT,
+) -> CandidateShortlist:
+    """Return a bounded summary of the strongest cheap candidates."""
+
+    if isinstance(limit, bool) or not isinstance(limit, int):
+        raise TypeError("limit must be an integer")
+    if limit <= 0:
+        raise ValueError("limit must be greater than zero")
+
+    ranked = rank_candidates(records, task)
+    return CandidateShortlist(
+        candidates=tuple(ranked[:limit]),
+        files_considered=len(ranked),
+        cap=limit,
+        truncated=len(ranked) > limit,
+    )
 
 
 def _path_signals(path: str) -> tuple[set[str], set[str], set[str]]:
