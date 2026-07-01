@@ -14,7 +14,13 @@ _WINDOWS_ABSOLUTE_PATH = re.compile(r"^[A-Za-z]:[\\/]")
 
 
 def resolve_artifact_path(root: str | Path, artifact_name: str | Path) -> Path:
-    root_path = Path(root).resolve()
+    public_path, _resolved_path = _artifact_paths(root, artifact_name)
+    return public_path
+
+
+def _artifact_paths(root: str | Path, artifact_name: str | Path) -> tuple[Path, Path]:
+    root_path = Path(root)
+    resolved_root = root_path.resolve()
     raw_name = str(artifact_name)
     relative_path = Path(raw_name.replace("\\", "/"))
 
@@ -23,7 +29,8 @@ def resolve_artifact_path(root: str | Path, artifact_name: str | Path) -> Path:
     if not relative_path.parts or ".." in relative_path.parts:
         raise ValueError(f"Artifact path must not contain parent traversal: {artifact_name}")
 
-    aidc_path = root_path / AIDC_DIRECTORY_NAME
+    public_path = root_path / AIDC_DIRECTORY_NAME / relative_path
+    aidc_path = resolved_root / AIDC_DIRECTORY_NAME
     if aidc_path.is_symlink():
         raise ValueError("Artifact directory must not be a symbolic link: .aidc")
 
@@ -33,17 +40,17 @@ def resolve_artifact_path(root: str | Path, artifact_name: str | Path) -> Path:
         raise ValueError(f"Artifact target must not be a symbolic link: {artifact_name}")
 
     try:
-        resolved_aidc.relative_to(root_path)
+        resolved_aidc.relative_to(resolved_root)
         resolved_candidate = candidate.resolve(strict=False)
         resolved_candidate.relative_to(resolved_aidc)
     except (OSError, RuntimeError, ValueError) as error:
         raise ValueError(f"Artifact path must stay inside repo/.aidc: {artifact_name}") from error
 
-    return resolved_candidate
+    return public_path, resolved_candidate
 
 
 def write_artifact_text(root: str | Path, artifact_name: str | Path, content: str) -> Path:
-    target_path = resolve_artifact_path(root, artifact_name)
+    public_path, target_path = _artifact_paths(root, artifact_name)
     target_path.parent.mkdir(parents=True, exist_ok=True)
 
     with NamedTemporaryFile(
@@ -64,7 +71,7 @@ def write_artifact_text(root: str | Path, artifact_name: str | Path, content: st
         temp_path.unlink(missing_ok=True)
         raise
 
-    return target_path
+    return public_path
 
 
 def write_artifact_json(root: str | Path, artifact_name: str | Path, payload: Any) -> Path:

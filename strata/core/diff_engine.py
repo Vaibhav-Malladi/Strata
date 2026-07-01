@@ -306,14 +306,12 @@ def write_diff_report(root: str | Path, diff: dict) -> dict:
 
     root_path = Path(root)
     redacted_diff = json.loads(redact_text(json.dumps(diff)))
-    write_artifact_json(root_path, "diff_report.json", redacted_diff)
-    write_artifact_text(
+    json_path = write_artifact_json(root_path, "diff_report.json", redacted_diff)
+    markdown_path = write_artifact_text(
         root_path,
         "diff_report.md",
         redact_text(build_diff_markdown(diff)),
     )
-    json_path = root_path / ".aidc" / "diff_report.json"
-    markdown_path = root_path / ".aidc" / "diff_report.md"
 
     return {
         "root": str(root_path),

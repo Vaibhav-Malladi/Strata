@@ -145,14 +145,12 @@ def write_gate_report(root: str | Path, report: dict) -> dict:
     root_path = Path(root)
     payload = report if isinstance(report, dict) else {}
     redacted_payload = json.loads(redact_text(json.dumps(payload)))
-    write_artifact_json(root_path, "gate_report.json", redacted_payload)
-    write_artifact_text(
+    json_path = write_artifact_json(root_path, "gate_report.json", redacted_payload)
+    markdown_path = write_artifact_text(
         root_path,
         "gate_report.md",
         redact_text(build_gate_markdown(payload)),
     )
-    json_path = root_path / ".aidc" / "gate_report.json"
-    markdown_path = root_path / ".aidc" / "gate_report.md"
 
     return {
         "root": str(root_path),

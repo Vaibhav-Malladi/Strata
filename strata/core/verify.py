@@ -152,14 +152,12 @@ def write_verification_report(root: str | Path, report: dict) -> dict:
 
     root_path = Path(root)
     redacted_report = json.loads(redact_text(json.dumps(report)))
-    write_artifact_json(root_path, "verification_report.json", redacted_report)
-    write_artifact_text(
+    json_path = write_artifact_json(root_path, "verification_report.json", redacted_report)
+    markdown_path = write_artifact_text(
         root_path,
         "verification_report.md",
         redact_text(build_verification_markdown(report)),
     )
-    json_path = root_path / ".aidc" / "verification_report.json"
-    markdown_path = root_path / ".aidc" / "verification_report.md"
 
     return {
         "root": str(root_path),
