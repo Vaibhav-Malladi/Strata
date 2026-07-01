@@ -118,6 +118,28 @@ def test_config_shows_existing_config():
         assert "codex" in output
 
 
+def test_config_output_redacts_command_secrets_and_preserves_prompt_path():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        prompt_path = "/Users/Example/Projects/strata2026/source/prompts/AgentPrompt.md"
+        secret = "plain-token-value"
+        save_config(
+            {
+                "command": f"my-ai --token={secret} --prompt {prompt_path}",
+                "prompt_path": prompt_path,
+            },
+            root,
+        )
+
+        with change_directory(root):
+            exit_code, output = capture_output(write_config_command, ".")
+
+        assert exit_code == 0
+        assert secret not in output
+        assert "--token=<redacted>" in output
+        assert prompt_path in output
+
+
 def test_config_set_mode_creates_config():
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
@@ -660,6 +682,7 @@ TESTS = [
     test_config_init_creates_default_config,
     test_config_init_does_not_overwrite_existing_valid_config,
     test_config_shows_existing_config,
+    test_config_output_redacts_command_secrets_and_preserves_prompt_path,
     test_config_set_mode_creates_config,
     test_config_set_agent_updates_existing_config,
     test_config_set_adapter_prompt_file,

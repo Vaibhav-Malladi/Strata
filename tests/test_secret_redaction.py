@@ -1,4 +1,5 @@
 import os
+import json
 
 from secret_redaction import (
     looks_like_secret,
@@ -23,12 +24,14 @@ def test_looks_like_secret_detects_common_token_shapes():
 
 
 def test_redact_text_masks_embedded_secrets_and_auth_headers():
+    generic_secret = "AbCdEfGhIjKlMnOpQrStUvWxYz0123456789_TOKEN"
     text = redact_text(
         "\n".join(
             [
                 "Authorization: Bearer sk-testsecret-123456",
                 "OPENAI_API_KEY=sk-testsecret-123456",
                 "token=github_pat_abcdefghijklmnopqrstuvwxyz123456",
+                f"Generic secret: {generic_secret}.",
                 "plain text is preserved",
             ]
         )
@@ -36,6 +39,7 @@ def test_redact_text_masks_embedded_secrets_and_auth_headers():
 
     assert "sk-testsecret-123456" not in text
     assert "github_pat_abcdefghijklmnopqrstuvwxyz123456" not in text
+    assert generic_secret not in text
     assert "plain text is preserved" in text
     assert "<redacted>" in text
 
@@ -62,15 +66,33 @@ def test_redact_text_masks_cli_secret_options_and_assignment_styles():
     assert "src/tokenizer.py" in text
 
 
-def test_redact_text_preserves_common_macos_paths():
+def test_redact_text_preserves_normal_project_paths():
     paths = [
         "/private/var/folders/zz/repo",
         "/var/folders/zz/repo",
         "/Users/example/Projects/strata",
+        "/Users/Example/Projects/strata2026/source/components/LongWidget.tsx",
+        "C:\\Users\\Example\\Projects\\strata2026\\VeryLongComponentName2026_WithDetails.tsx",
+        "src/Components/Feature2026/VeryLongWidgetName",
     ]
 
     for path in paths:
         assert redact_text(path) == path
+        assert not looks_like_secret(path)
+
+
+def test_redacted_json_remains_valid_and_preserves_paths():
+    path = "/Users/Example/Projects/strata2026/source/components/LongWidget.tsx"
+    payload = {
+        "token": "sk-testsecret-123456",
+        "path": path,
+    }
+
+    redacted_text = redact_text(json.dumps(payload))
+    redacted_payload = json.loads(redacted_text)
+
+    assert redacted_payload["token"] == "<redacted>"
+    assert redacted_payload["path"] == path
 
 
 def test_redact_secret_only_changes_secret_like_values():
@@ -105,7 +127,8 @@ TESTS = [
     test_looks_like_secret_detects_common_token_shapes,
     test_redact_text_masks_embedded_secrets_and_auth_headers,
     test_redact_text_masks_cli_secret_options_and_assignment_styles,
-    test_redact_text_preserves_common_macos_paths,
+    test_redact_text_preserves_normal_project_paths,
+    test_redacted_json_remains_valid_and_preserves_paths,
     test_redact_secret_only_changes_secret_like_values,
     test_safe_env_status_reports_found_and_missing_without_value_leakage,
     test_validate_env_var_name_accepts_only_valid_names,

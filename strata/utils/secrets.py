@@ -96,6 +96,9 @@ def _looks_like_generic_secret(candidate: str) -> bool:
     if not _GENERIC_SECRET_RE.fullmatch(candidate):
         return False
 
+    if "/" in candidate and "+" not in candidate and "=" not in candidate:
+        return False
+
     has_lower = any(char.islower() for char in candidate)
     has_upper = any(char.isupper() for char in candidate)
     has_digit = any(char.isdigit() for char in candidate)
@@ -106,4 +109,10 @@ def _looks_like_generic_secret(candidate: str) -> bool:
 
 def _redact_generic_match(match: re.Match[str]) -> str:
     candidate = match.group(0)
+    before = match.string[match.start() - 1] if match.start() else ""
+    after = match.string[match.end()] if match.end() < len(match.string) else ""
+    following = match.string[match.end():]
+    has_file_extension = bool(re.match(r"^\.[A-Za-z0-9]{1,10}(?:\b|$)", following))
+    if before in "/\\" or after in "/\\" or has_file_extension:
+        return candidate
     return "<redacted>" if _looks_like_generic_secret(candidate) else candidate

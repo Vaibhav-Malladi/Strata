@@ -124,6 +124,22 @@ def test_render_status_card_includes_status_and_rows():
     assert ".aidc/agent_prompt.md" in card
 
 
+def test_table_and_status_output_redact_secrets_but_preserve_paths():
+    path = "/Users/Example/Projects/strata2026/source/components/LongWidget.tsx"
+    secret = "sk-testsecret-123456"
+
+    with _forced_env(STRATA_PLAIN="1", STRATA_NO_COLOR="1", CI=None):
+        table = render_kv_table([("Path", path), ("Token", secret)])
+        card = render_status_card("Result", [("Path", path)], status=secret)
+
+    assert secret not in table
+    assert secret not in card
+    assert "<redacted>" in table
+    assert "<redacted>" in card
+    assert path in table
+    assert path in card
+
+
 def test_render_lifecycle_includes_numbered_steps():
     with _forced_env(STRATA_PLAIN="1", STRATA_NO_COLOR="1", CI=None):
         lifecycle = render_lifecycle(
@@ -259,6 +275,7 @@ TESTS = [
     test_render_command_header_compact_shows_command_and_subtitle,
     test_render_kv_table_aligns_keys_and_values,
     test_render_status_card_includes_status_and_rows,
+    test_table_and_status_output_redact_secrets_but_preserve_paths,
     test_render_lifecycle_includes_numbered_steps,
     test_color_disabled_returns_plain_text,
     test_color_respects_no_color_env,
