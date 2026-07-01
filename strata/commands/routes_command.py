@@ -1,4 +1,4 @@
-from cli_core import (
+from strata.commands.cli_core import (
     ROUTES_JSON_FILE,
     ROUTES_MD_FILE,
     build_graph,

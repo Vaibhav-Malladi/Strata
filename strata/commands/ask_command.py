@@ -5,7 +5,7 @@ from typing import Sequence
 
 from strata.adapters.doctor import check_adapter
 from strata.utils.shell import DEFAULT_TIMEOUT_SECONDS, execute_command_adapter
-from cli_core import CONTEXT_PACK_FILE
+from strata.commands.cli_core import CONTEXT_PACK_FILE
 from strata.core.context_budget import BudgetParseError, build_budget_summary_rows, parse_budget_value
 from strata.commands.prepare_command import prepare_workflow
 from strata.core.context_efficiency import compute_context_efficiency, estimate_graph_source_chars

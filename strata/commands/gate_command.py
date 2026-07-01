@@ -1,4 +1,4 @@
-from cli_core import (
+from strata.commands.cli_core import (
     GATE_REPORT_JSON_FILE,
     GATE_REPORT_MD_FILE,
     build_graph,

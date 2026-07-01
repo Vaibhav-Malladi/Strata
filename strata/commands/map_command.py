@@ -1,4 +1,4 @@
-from cli_core import (
+from strata.commands.cli_core import (
     OUTPUT_FILE,
     PROJECT_MAP_FILE,
     build_graph,

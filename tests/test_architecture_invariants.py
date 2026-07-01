@@ -49,30 +49,6 @@ TEMPORARY_ROOT_IMPORT_ALLOWLIST = {
     "utils/shell.py": {"patch_contract", "patch_validator", "secret_redaction"},
 }
 
-TEMPORARY_CLI_CORE_IMPORTERS = {
-    "commands/agent_prompt_command.py",
-    "commands/ask_command.py",
-    "commands/brief_command.py",
-    "commands/context_command.py",
-    "commands/cycles_command.py",
-    "commands/diff_command.py",
-    "commands/gate_command.py",
-    "commands/health_command.py",
-    "commands/impact_command.py",
-    "commands/map_command.py",
-    "commands/preflight_command.py",
-    "commands/prepare_command.py",
-    "commands/review_command.py",
-    "commands/routes_command.py",
-    "commands/scan_command.py",
-    "commands/show_command.py",
-    "commands/snapshot_command.py",
-    "commands/start_command.py",
-    "commands/status_command.py",
-    "commands/tests_for_command.py",
-    "commands/verify_command.py",
-}
-
 IMPORTANT_ROOT_SHIMS = {
     "cli.py": "strata.commands.cli",
     "strata.py": "strata.cli",
@@ -168,8 +144,6 @@ def test_package_modules_avoid_new_root_compatibility_imports():
             if module not in migrated_modules:
                 continue
             root_name = module
-            if root_name == "cli_core" and relative_path in TEMPORARY_CLI_CORE_IMPORTERS:
-                continue
             if root_name in allowed:
                 continue
             violations.append(

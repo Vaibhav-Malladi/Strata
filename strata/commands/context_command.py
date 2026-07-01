@@ -8,7 +8,7 @@ from strata.core.context_budget import (
     parse_budget_value,
 )
 from strata.core.context_efficiency import compute_context_efficiency, estimate_graph_source_chars, estimate_tokens
-from cli_core import (
+from strata.commands.cli_core import (
     CONTEXT_PACK_FILE,
     CONTEXT_PACK_JSON_FILE,
     OUTPUT_FILE,

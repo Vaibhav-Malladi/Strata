@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from cli_core import OUTPUT_FILE, build_graph, count_unresolved_imports, save_graph
+from strata.commands.cli_core import OUTPUT_FILE, build_graph, count_unresolved_imports, save_graph
 from strata.core.full_scan import (
     LARGE_REPO_THRESHOLD,
     build_full_scan_payload,

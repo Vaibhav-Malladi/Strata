@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from strata.adapters.export import write_agent_prompt
-from cli_core import OUTPUT_DIR, build_graph
+from strata.commands.cli_core import OUTPUT_DIR, build_graph
 from strata.utils.output import build_banner, build_kv_table, build_section, format_path
 
 

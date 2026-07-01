@@ -1,4 +1,4 @@
-from cli_core import load_saved_graph, normalize_path
+from strata.commands.cli_core import load_saved_graph, normalize_path
 from strata.commands.cli_ui import (
     green,
     yellow,

@@ -1,4 +1,4 @@
-from cli_core import OUTPUT_FILE, build_graph, save_graph
+from strata.commands.cli_core import OUTPUT_FILE, build_graph, save_graph
 from strata.core.health import analyze_health, format_health_report
 from strata.utils.output import build_banner, build_kv_table, build_section, format_path
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from cli_core import DIFF_REPORT_MD_FILE
+from strata.commands.cli_core import DIFF_REPORT_MD_FILE
 from strata.commands.apply_command import inspect_apply_state
 from strata.core.diff_engine import compare_graphs, write_diff_report
 from strata.core.direct_edit import DIRECT_EDIT_REPORT_PATH

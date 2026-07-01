@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from strata.adapters.doctor import check_adapter
-from cli_core import OUTPUT_FILE, build_graph, save_graph
+from strata.commands.cli_core import OUTPUT_FILE, build_graph, save_graph
 from strata.core.full_scan import (
     LARGE_REPO_THRESHOLD,
     describe_full_scan_readiness,

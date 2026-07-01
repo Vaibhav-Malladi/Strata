@@ -1,6 +1,6 @@
 import json
 
-from cli_core import OUTPUT_FILE
+from strata.commands.cli_core import OUTPUT_FILE
 from strata.core.full_scan import format_full_scan_status
 from strata.core.repo_summary import build_repo_intelligence_rows, summarize_graph
 from strata.core.status import analyze_status, format_status_report

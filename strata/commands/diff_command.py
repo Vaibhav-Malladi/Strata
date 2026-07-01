@@ -2,7 +2,7 @@ import json
 import os
 from pathlib import Path
 
-from cli_core import (
+from strata.commands.cli_core import (
     DIFF_REPORT_JSON_FILE,
     DIFF_REPORT_MD_FILE,
     build_graph,

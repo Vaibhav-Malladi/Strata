@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from strata.adapters.export import generate_agent_prompt, write_agent_prompt
-from cli_core import CONTEXT_PACK_FILE, OUTPUT_FILE, PREFLIGHT_FILE, build_graph, save_graph
+from strata.commands.cli_core import CONTEXT_PACK_FILE, OUTPUT_FILE, PREFLIGHT_FILE, build_graph, save_graph
 from strata.core.context_pack import build_context_pack
 from strata.core.context_budget import build_budget_report, build_budget_summary_rows, BudgetParseError, parse_budget_value
 from strata.core.context_efficiency import estimate_tokens

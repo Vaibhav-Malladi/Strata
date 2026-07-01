@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from cli_core import (
+from strata.commands.cli_core import (
     VERIFICATION_REPORT_JSON_FILE,
     VERIFICATION_REPORT_MD_FILE,
     build_graph,

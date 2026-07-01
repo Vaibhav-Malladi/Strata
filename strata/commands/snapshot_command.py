@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from cli_core import build_graph
+from strata.commands.cli_core import build_graph
 from strata.core.routes import collect_routes
 from strata.core.snapshot import write_snapshot
 from strata.utils.output import build_banner, build_kv_table, build_section, format_path
