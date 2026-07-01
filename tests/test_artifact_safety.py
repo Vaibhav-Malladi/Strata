@@ -43,9 +43,52 @@ def test_artifact_write_returns_relative_root_shape():
             os.chdir(previous)
 
 
+def test_artifact_write_accepts_mixed_separators_and_preserves_public_shape():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir) / "repo"
+        root.mkdir()
+
+        path = artifacts.write_artifact_text(root, "reports\\nested/result.md", "safe\n")
+
+        assert path == root / ".aidc" / "reports" / "nested" / "result.md"
+        assert path.read_text(encoding="utf-8") == "safe\n"
+
+
+def test_artifact_resolution_keeps_canonical_path_internal():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        previous = Path.cwd()
+        try:
+            os.chdir(temp_dir)
+            Path("repo").mkdir()
+            root = Path("parent") / ".." / "repo"
+
+            resolved = artifacts.resolve_artifact_path(root, "reports\\result.md")
+            written = artifacts.write_artifact_text(root, "reports\\result.md", "safe\n")
+            expected = root / ".aidc" / "reports" / "result.md"
+            json_expected = root / ".aidc" / "reports" / "result.json"
+            output_expected = root / ".aidc" / "reports" / "output.md"
+            json_written = artifacts.write_artifact_json(root, "reports/result.json", {"safe": True})
+            output_written = artifacts.write_artifact_output_path(output_expected, "safe\n")
+
+            assert resolved == expected
+            assert written == expected
+            assert json_written == json_expected
+            assert output_written == output_expected
+            assert ".." in written.parts
+            assert written.resolve() == (Path("repo") / ".aidc" / "reports" / "result.md").resolve()
+        finally:
+            os.chdir(previous)
+
+
 def test_artifact_write_rejects_parent_traversal():
     with tempfile.TemporaryDirectory() as temp_dir:
-        for name in ("../outside.txt", "..\\outside.txt", "reports/..\\outside.txt"):
+        for name in (
+            "../outside.txt",
+            "..\\outside.txt",
+            "reports/../outside.txt",
+            "reports\\..\\outside.txt",
+            "reports/..\\outside.txt",
+        ):
             try:
                 artifacts.write_artifact_text(temp_dir, name, "unsafe")
             except ValueError as error:
@@ -59,7 +102,10 @@ def test_artifact_write_rejects_absolute_name():
         absolute_names = [
             Path(temp_dir).resolve() / "outside.txt",
             "C:\\outside.txt",
+            "C:/outside.txt",
+            "D:\\reports/outside.txt",
             "/outside.txt",
+            "\\outside.txt",
             "\\\\server\\share\\outside.txt",
         ]
 
@@ -130,6 +176,8 @@ def test_artifact_file_permissions_are_owner_only_on_posix():
 TESTS = [
     test_safe_artifact_write_stays_under_aidc,
     test_artifact_write_returns_relative_root_shape,
+    test_artifact_write_accepts_mixed_separators_and_preserves_public_shape,
+    test_artifact_resolution_keeps_canonical_path_internal,
     test_artifact_write_rejects_parent_traversal,
     test_artifact_write_rejects_absolute_name,
     test_artifact_write_preserves_utf8_and_newlines,

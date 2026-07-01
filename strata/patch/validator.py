@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 from strata.patch.contract import resolve_patch_path
+from strata.utils.paths import is_absolute_path_string
 
 _UNIFIED_DIFF_PREFIX = "diff --git "
 _OLD_FILE_PREFIX = "--- "
@@ -15,8 +15,6 @@ _AIDC_PREFIX = ".aidc/"
 _AIDC_CONFIG = ".aidc/config.json"
 _DANGEROUS_FILES = {".env", ".env.local"}
 _DANGEROUS_DIRS = {".ssh"}
-_ABSOLUTE_WINDOWS_RE = re.compile(r"^[A-Za-z]:[\\/]")
-_ABSOLUTE_UNIX_RE = re.compile(r"^/")
 
 
 def validate_patch_text(patch_text: str, root: str | Path | None = None) -> dict:
@@ -385,7 +383,7 @@ def _is_aidc_generated_report(target: str) -> bool:
 
 
 def _is_absolute_path(path: str) -> bool:
-    return bool(_ABSOLUTE_WINDOWS_RE.match(path) or _ABSOLUTE_UNIX_RE.match(path))
+    return is_absolute_path_string(path)
 
 
 def _build_result(

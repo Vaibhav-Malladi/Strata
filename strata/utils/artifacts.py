@@ -2,15 +2,15 @@ from __future__ import annotations
 
 import json
 import os
-import re
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Any
 
+from strata.utils.paths import is_absolute_path_string
+
 
 AIDC_DIRECTORY_NAME = ".aidc"
 GENERATED_FILE_MODE = 0o600
-_WINDOWS_ABSOLUTE_PATH = re.compile(r"^[A-Za-z]:[\\/]")
 
 
 def resolve_artifact_path(root: str | Path, artifact_name: str | Path) -> Path:
@@ -24,12 +24,7 @@ def _artifact_paths(root: str | Path, artifact_name: str | Path) -> tuple[Path, 
     raw_name = str(artifact_name)
     relative_path = Path(raw_name.replace("\\", "/"))
 
-    if (
-        relative_path.is_absolute()
-        or _WINDOWS_ABSOLUTE_PATH.match(raw_name)
-        or raw_name.startswith("/")
-        or raw_name.startswith("\\")
-    ):
+    if is_absolute_path_string(raw_name):
         raise ValueError(f"Artifact path must be relative to .aidc: {artifact_name}")
     if not relative_path.parts or ".." in relative_path.parts:
         raise ValueError(f"Artifact path must not contain parent traversal: {artifact_name}")
