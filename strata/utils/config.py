@@ -90,7 +90,8 @@ def save_config(config: Mapping[str, Any], root: str | Path = ".") -> Path:
     except (TypeError, ValueError) as error:
         raise ValueError(f"Config contains values that are not JSON-compatible: {error}") from error
 
-    return write_artifact_json(root, CONFIG_FILE_NAME, normalized)
+    write_artifact_json(root, CONFIG_FILE_NAME, normalized)
+    return config_path(root)
 
 
 def validate_config(config: Mapping[str, Any]) -> dict:
