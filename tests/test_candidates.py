@@ -12,6 +12,7 @@ from strata.core.candidates import (
     score_candidate_value,
     select_candidates,
     shortlist_candidates,
+    summarize_candidate_selection,
 )
 from strata.core.inventory import InventoryRecord
 
@@ -413,6 +414,113 @@ def test_select_candidates_does_not_stat_or_open_inventory_paths():
     assert selection.files_considered == 2
 
 
+def test_candidate_summary_includes_selection_metadata():
+    selection = select_candidates(
+        [_record("src/auth_service.ts"), _record("src/auth_model.ts")],
+        "auth",
+        limit=1,
+    )
+
+    summary = summarize_candidate_selection(selection)
+
+    assert summary.files_considered == 2
+    assert summary.candidates_selected == 1
+    assert summary.cap == 1
+    assert summary.truncated is True
+
+
+def test_candidate_summary_caps_candidates_and_reasons():
+    selection = select_candidates(
+        [
+            _record("src/auth_service.ts"),
+            _record("src/auth_controller.ts"),
+            _record("src/auth_model.ts"),
+        ],
+        "typescript auth service",
+    )
+
+    summary = summarize_candidate_selection(
+        selection,
+        top_n=2,
+        reasons_per_candidate=2,
+    )
+
+    assert len(summary.top_candidates) == 2
+    assert all(len(candidate.reasons) <= 2 for candidate in summary.top_candidates)
+    assert [candidate.path for candidate in summary.top_candidates] == [
+        candidate.path for candidate in selection.candidates[:2]
+    ]
+
+
+def test_empty_candidate_selection_has_valid_summary():
+    selection = select_candidates([], "auth")
+
+    summary = summarize_candidate_selection(selection)
+
+    assert summary.files_considered == 0
+    assert summary.candidates_selected == 0
+    assert summary.cap == DEFAULT_SHORTLIST_LIMIT
+    assert summary.truncated is False
+    assert summary.top_candidates == ()
+
+
+def test_candidate_summary_rejects_invalid_bounds():
+    selection = select_candidates([], "auth")
+    invalid_values = (0, -1, True, 1.5)
+
+    for invalid_value in invalid_values:
+        try:
+            summarize_candidate_selection(selection, top_n=invalid_value)
+        except (TypeError, ValueError):
+            pass
+        else:
+            raise AssertionError(f"top_n {invalid_value!r} should be rejected")
+
+        try:
+            summarize_candidate_selection(
+                selection,
+                reasons_per_candidate=invalid_value,
+            )
+        except (TypeError, ValueError):
+            pass
+        else:
+            raise AssertionError(
+                f"reasons_per_candidate {invalid_value!r} should be rejected"
+            )
+
+
+def test_candidate_summary_preserves_scores_and_bounded_reasons():
+    selection = select_candidates(
+        [_record("src/auth_service.ts", size=3 * 1024 * 1024)],
+        "typescript auth service",
+    )
+
+    summary = summarize_candidate_selection(
+        selection,
+        reasons_per_candidate=2,
+    )
+    source = selection.candidates[0]
+    item = summary.top_candidates[0]
+
+    assert item.path == source.path
+    assert item.cheap_score == source.cheap_score
+    assert item.analysis_cost == source.analysis_cost
+    assert item.value_score == source.value_score
+    assert item.reasons == source.reasons[:2]
+
+
+def test_candidate_summary_does_not_stat_or_open_paths():
+    selection = select_candidates([_record("missing/auth_service.ts")], "auth")
+
+    with (
+        patch.object(Path, "open", side_effect=AssertionError("opened candidate")),
+        patch.object(Path, "stat", side_effect=AssertionError("statted candidate")),
+    ):
+        summary = summarize_candidate_selection(selection)
+
+    assert summary.top_candidates[0].path == "missing/auth_service.ts"
+
+
 TESTS = [
     test_filename_keyword_match_ranks_above_unrelated_file,
     test_folder_segment_match_contributes_an_explainable_reason,
@@ -441,4 +549,10 @@ TESTS = [
     test_select_candidates_preserves_cheap_cost_and_value_reasons,
     test_select_candidates_keeps_generated_records_eligible_but_low_value,
     test_select_candidates_does_not_stat_or_open_inventory_paths,
+    test_candidate_summary_includes_selection_metadata,
+    test_candidate_summary_caps_candidates_and_reasons,
+    test_empty_candidate_selection_has_valid_summary,
+    test_candidate_summary_rejects_invalid_bounds,
+    test_candidate_summary_preserves_scores_and_bounded_reasons,
+    test_candidate_summary_does_not_stat_or_open_paths,
 ]

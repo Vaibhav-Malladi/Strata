@@ -81,6 +81,8 @@ _TEST_PENALTY = -12
 _TEST_TASK_BOOST = 8
 _GENERATED_PENALTY = -100
 DEFAULT_SHORTLIST_LIMIT = 300
+DEFAULT_SUMMARY_CANDIDATES = 5
+DEFAULT_SUMMARY_REASONS = 3
 
 
 @dataclass(frozen=True, slots=True)
@@ -121,6 +123,24 @@ class CandidateSelection:
     @property
     def candidates_returned(self) -> int:
         return len(self.candidates)
+
+
+@dataclass(frozen=True, slots=True)
+class CandidateSummaryItem:
+    path: str
+    cheap_score: int
+    analysis_cost: int
+    value_score: float
+    reasons: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class CandidateSummary:
+    files_considered: int
+    candidates_selected: int
+    cap: int
+    truncated: bool
+    top_candidates: tuple[CandidateSummaryItem, ...]
 
 
 def normalize_task_tokens(task: str) -> tuple[str, ...]:
@@ -298,6 +318,34 @@ def select_candidates(
     )
 
 
+def summarize_candidate_selection(
+    selection: CandidateSelection,
+    top_n: int = DEFAULT_SUMMARY_CANDIDATES,
+    reasons_per_candidate: int = DEFAULT_SUMMARY_REASONS,
+) -> CandidateSummary:
+    """Build a bounded, structured summary from an existing selection."""
+
+    _validate_positive_integer(top_n, "top_n")
+    _validate_positive_integer(reasons_per_candidate, "reasons_per_candidate")
+    top_candidates = tuple(
+        CandidateSummaryItem(
+            path=candidate.path,
+            cheap_score=candidate.cheap_score,
+            analysis_cost=candidate.analysis_cost,
+            value_score=candidate.value_score,
+            reasons=candidate.reasons[:reasons_per_candidate],
+        )
+        for candidate in selection.candidates[:top_n]
+    )
+    return CandidateSummary(
+        files_considered=selection.files_considered,
+        candidates_selected=selection.candidates_returned,
+        cap=selection.cap,
+        truncated=selection.truncated,
+        top_candidates=top_candidates,
+    )
+
+
 def _analysis_cost(record: InventoryRecord) -> tuple[int, tuple[str, ...]]:
     size = max(record.size, 0)
     if size <= 16 * 1024:
@@ -327,10 +375,14 @@ def _analysis_cost(record: InventoryRecord) -> tuple[int, tuple[str, ...]]:
 
 
 def _validate_limit(limit: int) -> None:
-    if isinstance(limit, bool) or not isinstance(limit, int):
-        raise TypeError("limit must be an integer")
-    if limit <= 0:
-        raise ValueError("limit must be greater than zero")
+    _validate_positive_integer(limit, "limit")
+
+
+def _validate_positive_integer(value: int, name: str) -> None:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise TypeError(f"{name} must be an integer")
+    if value <= 0:
+        raise ValueError(f"{name} must be greater than zero")
 
 
 def _path_signals(path: str) -> tuple[set[str], set[str], set[str]]:
