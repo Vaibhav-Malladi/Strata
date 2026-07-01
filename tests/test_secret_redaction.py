@@ -62,6 +62,17 @@ def test_redact_text_masks_cli_secret_options_and_assignment_styles():
     assert "src/tokenizer.py" in text
 
 
+def test_redact_text_preserves_common_macos_paths():
+    paths = [
+        "/private/var/folders/zz/repo",
+        "/var/folders/zz/repo",
+        "/Users/example/Projects/strata",
+    ]
+
+    for path in paths:
+        assert redact_text(path) == path
+
+
 def test_redact_secret_only_changes_secret_like_values():
     assert redact_secret("sk-testsecret-123456") == "<redacted>"
     assert redact_secret("OPENAI_API_KEY") == "OPENAI_API_KEY"
@@ -94,6 +105,7 @@ TESTS = [
     test_looks_like_secret_detects_common_token_shapes,
     test_redact_text_masks_embedded_secrets_and_auth_headers,
     test_redact_text_masks_cli_secret_options_and_assignment_styles,
+    test_redact_text_preserves_common_macos_paths,
     test_redact_secret_only_changes_secret_like_values,
     test_safe_env_status_reports_found_and_missing_without_value_leakage,
     test_validate_env_var_name_accepts_only_valid_names,

@@ -145,6 +145,38 @@ def test_project_map_redacts_secret_like_graph_values():
     assert "src/config.py" in content
 
 
+def test_project_map_preserves_macos_root_while_redacting_metadata():
+    root = (
+        "/private/var/folders/zz/"
+        "aB3dE5fG7hJ9kL2mN4pQ6rS8tU0vW1xY2zA3bC4dE5fG6hI7jK8/T/repo"
+    )
+    secret = "sk-testsecret-123456"
+    graph = {
+        "schema_version": 1,
+        "root": root,
+        "files": [
+            {
+                "path": f"{root}/config.py",
+                "language": "python",
+                "classes": [],
+                "functions": [],
+                "imports": [f"API_KEY={secret}"],
+                "external_imports": [],
+                "unresolved_import_details": [],
+                "routes": [],
+            }
+        ],
+        "edges": [],
+    }
+
+    content = generate_project_map(graph)
+
+    assert f"Project root: `{root}`" in content
+    assert f"### `{root}/config.py`" in content
+    assert secret not in content
+    assert "API_KEY= <redacted>" in content
+
+
 def test_cli_write_map_creates_project_map_file():
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_root = Path(temp_dir)
@@ -187,5 +219,6 @@ TESTS = [
     test_project_map_generation_includes_files_symbols_and_imports,
     test_project_map_generation_includes_dependencies_and_warnings,
     test_project_map_redacts_secret_like_graph_values,
+    test_project_map_preserves_macos_root_while_redacting_metadata,
     test_cli_write_map_creates_project_map_file,
 ]

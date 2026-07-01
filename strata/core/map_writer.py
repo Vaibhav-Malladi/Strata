@@ -24,7 +24,7 @@ def generate_project_map(graph: dict) -> str:
     lines.append("## Summary")
     lines.append("")
     lines.append(f"- Project root: `{graph.get('root', '')}`")
-    lines.append(f"- Schema version: `{graph.get('schema_version', '')}`")
+    lines.append(f"- Schema version: `{redact_text(graph.get('schema_version', ''))}`")
     lines.append(f"- Files: `{len(files)}`")
     lines.append(f"- Dependency edges: `{len(edges)}`")
     lines.append(f"- Backend routes: `{_count_routes(files)}`")
@@ -47,11 +47,11 @@ def generate_project_map(graph: dict) -> str:
 
         language = file_info.get("language")
         if language:
-            lines.append(f"- Language: `{language}`")
+            lines.append(f"- Language: `{redact_text(language)}`")
 
         framework = file_info.get("framework")
         if framework:
-            lines.append(f"- Framework hint: `{framework}`")
+            lines.append(f"- Framework hint: `{redact_text(framework)}`")
 
         _add_named_items(lines, "Classes", file_info.get("classes", []))
         _add_named_items(lines, "Functions", file_info.get("functions", []))
@@ -64,7 +64,7 @@ def generate_project_map(graph: dict) -> str:
         _add_unresolved_imports(lines, file_info.get("unresolved_import_details", []))
 
         if file_info.get("error"):
-            lines.append(f"- Parse warning: `{file_info.get('error')}`")
+            lines.append(f"- Parse warning: `{redact_text(file_info.get('error'))}`")
 
         _add_dependency_section(
             lines,
@@ -94,11 +94,15 @@ def generate_project_map(graph: dict) -> str:
         for item in unresolved:
             name = item.get("name", "")
             line = item.get("line", "")
-            lines.append(f"- `{path}` has unresolved import `{name}` at line `{line}`")
+            lines.append(
+                f"- `{path}` has unresolved import `{redact_text(name)}` at line `{line}`"
+            )
             warning_count += 1
 
         if file_info.get("error"):
-            lines.append(f"- `{path}` has parse warning: `{file_info.get('error')}`")
+            lines.append(
+                f"- `{path}` has parse warning: `{redact_text(file_info.get('error'))}`"
+            )
             warning_count += 1
 
     if warning_count == 0:
@@ -106,7 +110,7 @@ def generate_project_map(graph: dict) -> str:
 
     lines.append("")
 
-    return redact_text("\n".join(lines))
+    return "\n".join(lines)
 
 
 def write_project_map(graph: dict, output_path: str) -> None:
@@ -114,12 +118,12 @@ def write_project_map(graph: dict, output_path: str) -> None:
 
     content = generate_project_map(graph)
     if ".aidc" in Path(output_path).parts:
-        write_artifact_output_path(output_path, redact_text(content))
+        write_artifact_output_path(output_path, content)
         return
     output_dir = os.path.dirname(output_path)
     if output_dir:
         os.makedirs(output_dir, exist_ok=True)
-    atomic_write_text(output_path, redact_text(content))
+    atomic_write_text(output_path, content)
 
 
 def _group_edges_by_key(edges: list[dict], key: str) -> dict:
@@ -185,11 +189,11 @@ def _add_backend_routes_section(lines: list[str], files: list[dict]) -> None:
             item.get("path", ""),
         ),
     ):
-        method = route.get("method", "")
+        method = redact_text(route.get("method", ""))
         route_path = route.get("path", "")
         file_path = route.get("file", "")
         line = route.get("line", "")
-        source = route.get("source", "")
+        source = redact_text(route.get("source", ""))
 
         lines.append(
             f"| `{method}` | `{route_path}` | `{file_path}:{line}` | `{source}` |"
@@ -211,14 +215,18 @@ def _add_named_items(lines: list[str], label: str, items: list[dict]) -> None:
             names.append(name)
 
     if names:
-        lines.append(f"- {label}: {', '.join(f'`{name}`' for name in names)}")
+        lines.append(
+            f"- {label}: {', '.join(f'`{redact_text(name)}`' for name in names)}"
+        )
 
 
 def _add_simple_items(lines: list[str], label: str, items: list[str]) -> None:
     if not items:
         return
 
-    lines.append(f"- {label}: {', '.join(f'`{item}`' for item in items)}")
+    lines.append(
+        f"- {label}: {', '.join(f'`{redact_text(item)}`' for item in items)}"
+    )
 
 
 def _add_routes(lines: list[str], routes: list[dict]) -> None:
@@ -232,7 +240,9 @@ def _add_routes(lines: list[str], routes: list[dict]) -> None:
         route_path = route.get("path", "")
         line = route.get("line", "")
 
-        formatted_routes.append(f"`{method} {route_path}` at line `{line}`")
+        formatted_routes.append(
+            f"`{redact_text(method)} {route_path}` at line `{line}`"
+        )
 
     if formatted_routes:
         lines.append(f"- Routes: {', '.join(formatted_routes)}")
@@ -247,7 +257,7 @@ def _add_unresolved_imports(lines: list[str], items: list[dict]) -> None:
     for item in items:
         name = item.get("name", "")
         line = item.get("line", "")
-        formatted_items.append(f"`{name}` at line `{line}`")
+        formatted_items.append(f"`{redact_text(name)}` at line `{line}`")
 
     if formatted_items:
         lines.append(f"- Unresolved imports: {', '.join(formatted_items)}")
@@ -265,7 +275,7 @@ def _add_dependency_section(
     lines.append(f"- {label}:")
 
     for edge in sorted(edges, key=lambda item: (item.get("to", ""), item.get("from", ""))):
-        import_name = edge.get("import", "")
+        import_name = redact_text(edge.get("import", ""))
 
         if direction == "outgoing":
             target = edge.get("to", "")
