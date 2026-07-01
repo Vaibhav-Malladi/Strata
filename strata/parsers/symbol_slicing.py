@@ -2,6 +2,8 @@ import ast
 import re
 from pathlib import Path
 
+from strata.utils.prompt_safety import wrap_context_file
+
 from strata.core.context_matching import extract_identifier_terms, extract_task_terms
 from strata.core.context_efficiency import estimate_tokens
 from strata.core.selected_context import is_generated_or_ignored_path, is_secret_like_path
@@ -481,12 +483,19 @@ def build_symbol_snippets_section(snippet_report: dict | None) -> list[str]:
         lines.append("")
         lines.append(f"Lines {start_line}-{end_line}. Reason: {reason}.")
         lines.append("")
-        lines.append(f"```{_snippet_language(file_path)}")
+        content_lines = [f"```{_snippet_language(file_path)}"]
         if snippet_text:
-            lines.extend(snippet_text.splitlines())
+            content_lines.extend(snippet_text.splitlines())
         else:
-            lines.append("")
-        lines.append("```")
+            content_lines.append("")
+        content_lines.append("```")
+        lines.extend(
+            wrap_context_file(
+                file_path,
+                content_lines,
+                symbol=symbol_name,
+            )
+        )
         lines.append("")
 
     if skipped_count:

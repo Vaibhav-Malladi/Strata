@@ -53,6 +53,7 @@ from typescript_project import (
 )
 from strata.core.execution_hints import build_execution_path_hints_section
 from strata.core.verification_hints import build_verification_plan_section
+from strata.utils.prompt_safety import UNTRUSTED_CONTENT_WARNING, wrap_repository_content
 
 
 MAX_RELEVANT_FILES = 10
@@ -238,10 +239,13 @@ def build_context_pack(
     lines = []
     lines.append("# Strata Context Pack")
     lines.append("")
+    lines.append(UNTRUSTED_CONTENT_WARNING)
+    lines.append("")
     lines.append("## Task")
     lines.append("")
     lines.append(task)
     lines.append("")
+    repository_context_start = len(lines)
     lines.extend(build_selected_file_section(selected_paths))
     lines.extend(build_structured_intent_section(task))
     lines.extend(build_change_boundary_section(selected_paths, budget_report))
@@ -399,6 +403,8 @@ def build_context_pack(
 
     lines.append("")
     lines.extend(build_verification_plan_section(verification))
+    repository_lines = lines[repository_context_start:]
+    lines[repository_context_start:] = wrap_repository_content(repository_lines)
     lines.append("## AI Editing Instructions")
     lines.append("")
     if selected_paths:
