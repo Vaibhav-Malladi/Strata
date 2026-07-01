@@ -19,7 +19,7 @@ def test_distribution_name_and_console_script_are_distinct_and_correct():
     project = pyproject["project"]
 
     assert project["name"] == "strata-repo-intel"
-    assert project["scripts"]["strata"] == "cli:main"
+    assert project["scripts"]["strata"] == "strata.cli:main"
 
 
 def test_strata_package_import_and_module_entrypoint():

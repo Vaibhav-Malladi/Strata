@@ -39,7 +39,7 @@ Repository = "https://github.com/Vaibhav-Malladi/Strata"
 Issues = "https://github.com/Vaibhav-Malladi/Strata/issues"
 
 [project.scripts]
-strata = "cli:main"
+strata = "strata.cli:main"
 
 [tool.setuptools]
 package-dir = {"" = "."}

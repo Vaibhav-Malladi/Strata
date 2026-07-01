@@ -11,6 +11,9 @@ import commands.agent_prompt_command as old_agent_prompt_command
 import strata.commands.agent_prompt_command as new_agent_prompt_command
 import cli_core as old_cli_core
 import strata.commands.cli_core as new_cli_core
+import cli as old_cli_module
+import strata.commands.cli as new_cli_module
+import strata.cli as new_strata_cli
 from cli import main as cli_main
 from cli import write_graph, show_file
 from cli_help import print_usage
@@ -48,6 +51,11 @@ def test_new_agent_prompt_command_import_matches_legacy_shim():
 
 def test_new_cli_core_import_matches_legacy_shim():
     assert new_cli_core.build_graph is old_cli_core.build_graph
+
+
+def test_new_cli_entrypoint_imports_match_legacy_shims():
+    assert old_cli_module.main is new_cli_module.main
+    assert new_strata_cli.main is new_cli_module.main
 
 
 def _create_patch_file(root: Path, content: str) -> Path:
@@ -227,7 +235,7 @@ def test_cli_agent_prompt_command_smoke():
     import sys
     from pathlib import Path
 
-    cli_path = Path(__file__).resolve().parents[1] / "cli.py"
+    cli_path = Path(__file__).resolve().parents[1] / "strata" / "commands" / "cli.py"
 
     with tempfile.TemporaryDirectory() as temp_dir:
         project_root = Path(temp_dir)
@@ -269,7 +277,7 @@ def test_cli_status_command_smoke():
     import sys
     from pathlib import Path
 
-    cli_path = Path(__file__).resolve().parents[1] / "cli.py"
+    cli_path = Path(__file__).resolve().parents[1] / "strata" / "commands" / "cli.py"
 
     with tempfile.TemporaryDirectory() as temp_dir:
         project_root = Path(temp_dir)
@@ -311,7 +319,7 @@ def test_cli_scan_force_command_smoke():
     import sys
     from pathlib import Path
 
-    cli_path = Path(__file__).resolve().parents[1] / "cli.py"
+    cli_path = Path(__file__).resolve().parents[1] / "strata" / "commands" / "cli.py"
 
     with tempfile.TemporaryDirectory() as temp_dir:
         project_root = Path(temp_dir)
@@ -423,7 +431,7 @@ def test_cli_run_command_smoke():
     import sys
     from pathlib import Path
 
-    cli_path = Path(__file__).resolve().parents[1] / "cli.py"
+    cli_path = Path(__file__).resolve().parents[1] / "strata" / "commands" / "cli.py"
 
     with tempfile.TemporaryDirectory() as temp_dir:
         project_root = Path(temp_dir)
@@ -629,6 +637,7 @@ def test_cli_doctor_adapter_dispatches():
 
 
 TESTS = [
+    test_new_cli_entrypoint_imports_match_legacy_shims,
     test_new_cli_core_import_matches_legacy_shim,
     test_new_show_command_import_matches_legacy_shim,
     test_new_agent_prompt_command_import_matches_legacy_shim,
