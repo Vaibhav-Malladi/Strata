@@ -209,8 +209,17 @@ def _validate_target(target: str, root_path: Path | None = None) -> str | None:
     if ".." in parts:
         return _unsafe_path_error(target)
 
-    if root_path is not None and _resolve_target_path(root_path, target) is None:
-        return _unsafe_path_error(target)
+    if root_path is not None:
+        try:
+            lexical_target = root_path.resolve() / Path(target)
+        except (OSError, RuntimeError):
+            return _unsafe_path_error(target)
+
+        if lexical_target.is_symlink():
+            return _symlink_path_error(target)
+
+        if _resolve_target_path(root_path, target) is None:
+            return _unsafe_path_error(target)
 
     if ".git" in parts:
         return f"Patch targets forbidden .git path '{target}'."
@@ -336,8 +345,11 @@ def _normalize_header_path(raw_path: str) -> str | None:
 
 
 def _resolve_target_path(root_path: Path, target: str) -> Path | None:
-    resolved_root = root_path.resolve()
-    resolved_target = (resolved_root / Path(target)).resolve()
+    try:
+        resolved_root = root_path.resolve()
+        resolved_target = (resolved_root / Path(target)).resolve()
+    except (OSError, RuntimeError):
+        return None
 
     try:
         resolved_target.relative_to(resolved_root)
@@ -351,6 +363,10 @@ def _unsafe_path_error(target: str) -> str:
     return (
         f"Unsafe patch path '{target}': patch paths must stay inside the repository."
     )
+
+
+def _symlink_path_error(target: str) -> str:
+    return f"Unsafe patch path '{target}': patch targets must not be symbolic links."
 
 
 def _unsafe_path_result(target: str) -> dict:

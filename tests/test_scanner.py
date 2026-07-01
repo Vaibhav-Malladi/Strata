@@ -10,6 +10,15 @@ def _write_file(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
 
 
+def _create_symlink(link: Path, target: Path, *, target_is_directory: bool) -> bool:
+    try:
+        link.symlink_to(target, target_is_directory=target_is_directory)
+    except (NotImplementedError, OSError) as error:
+        print(f"SKIP: symlink creation is not permitted on this platform: {error}")
+        return False
+    return True
+
+
 def _create_scanner_repo(root: Path, *, include_unresolved: bool = True) -> None:
     root.mkdir(parents=True, exist_ok=True)
 
@@ -121,6 +130,30 @@ def test_scan_repo_includes_schema_version():
     assert result["schema_version"] == 1
 
 
+def test_scan_repo_skips_symlinked_external_directory_and_file():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_root = Path(temp_dir)
+        root = temp_root / "repo"
+        outside = temp_root / "outside"
+        root.mkdir()
+        outside.mkdir()
+        _write_file(root / "normal.py", "value = 'inside'\n")
+        _write_file(outside / "external.py", "value = 'outside'\n")
+        if not _create_symlink(root / "linked_dir", outside, target_is_directory=True):
+            return
+        if not _create_symlink(
+            root / "linked_file.py",
+            outside / "external.py",
+            target_is_directory=False,
+        ):
+            return
+
+        result = new_scanner.scan_repo(str(root))
+        paths = [Path(file_info["path"]).name for file_info in result["files"]]
+
+        assert paths == ["normal.py"]
+
+
 def test_scan_repo_classifies_imports():
     result = _scan_temp_repo_result()
     main_file = _main_file(result)
@@ -214,6 +247,7 @@ TESTS = [
     test_scan_repo_creates_import_edges,
     test_scan_repo_resolves_same_folder_imports_from_project_root,
     test_scan_repo_includes_schema_version,
+    test_scan_repo_skips_symlinked_external_directory_and_file,
     test_scan_repo_classifies_imports,
     test_scan_repo_records_unresolved_import_line_number,
     test_scanner_records_frontend_framework_signals,

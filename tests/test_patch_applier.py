@@ -29,6 +29,15 @@ def _write_patch_file(root: Path, content: str) -> Path:
     return patch_path
 
 
+def _create_symlink(link: Path, target: Path) -> bool:
+    try:
+        link.symlink_to(target)
+    except (NotImplementedError, OSError) as error:
+        print(f"SKIP: symlink creation is not permitted on this platform: {error}")
+        return False
+    return True
+
+
 def test_apply_patch_file_modifies_existing_file():
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
@@ -356,6 +365,35 @@ def test_apply_patch_text_rejects_traversal_before_writing_any_file():
         assert not outside_path.exists()
 
 
+def test_apply_patch_text_rejects_symlink_file_target():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_root = Path(temp_dir)
+        root = temp_root / "repo"
+        root.mkdir()
+        outside_path = temp_root / "outside.py"
+        outside_path.write_text('print("old")\n', encoding="utf-8")
+        if not _create_symlink(root / "linked.py", outside_path):
+            return
+
+        patch = (
+            "diff --git a/linked.py b/linked.py\n"
+            "--- a/linked.py\n"
+            "+++ b/linked.py\n"
+            "@@ -1 +1 @@\n"
+            '-print("old")\n'
+            '+print("new")\n'
+        )
+
+        result = new_patch_applier.apply_patch_text(root, patch)
+
+        assert result["status"] == "failed"
+        assert result["applied"] is False
+        assert result["errors"] == [
+            "Unsafe patch path 'linked.py': patch targets must not be symbolic links."
+        ]
+        assert outside_path.read_text(encoding="utf-8") == 'print("old")\n'
+
+
 def test_apply_patch_text_failure_writes_nothing_and_stays_atomic():
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
@@ -469,6 +507,7 @@ TESTS = [
     test_apply_patch_text_fails_safely_for_invalid_patch_text,
     test_apply_patch_text_fails_safely_for_unsafe_path_rejected_by_validator,
     test_apply_patch_text_rejects_traversal_before_writing_any_file,
+    test_apply_patch_text_rejects_symlink_file_target,
     test_apply_patch_text_failure_writes_nothing_and_stays_atomic,
     test_apply_patch_text_returns_fresh_lists_each_time,
     test_patch_applier_does_not_use_subprocess_or_git_execution,

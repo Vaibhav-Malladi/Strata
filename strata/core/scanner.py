@@ -5,6 +5,7 @@ import importlib.util
 import sys
 import sysconfig
 import time
+from pathlib import Path
 from typing import Any, Callable
 
 from strata.parsers.js_resolution import build_js_resolution_context, resolve_js_import
@@ -197,14 +198,19 @@ def scan_repo(
     )
 
     for current_dir, dir_names, file_names in os.walk(root_path):
-        dir_names[:] = [name for name in sorted(dir_names) if not should_ignore_directory(name)]
+        dir_names[:] = [
+            name
+            for name in sorted(dir_names)
+            if not should_ignore_directory(name)
+            and not (Path(current_dir) / name).is_symlink()
+        ]
         file_names.sort()
 
         for file_name in file_names:
             file_path = os.path.join(current_dir, file_name)
             file_path = os.path.normpath(file_path)
 
-            if should_ignore_file(file_path):
+            if os.path.islink(file_path) or should_ignore_file(file_path):
                 skipped_count += 1
                 continue
 

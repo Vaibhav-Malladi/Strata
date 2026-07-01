@@ -124,7 +124,15 @@ def apply_patch_text(root: str, patch_text: str) -> dict:
     try:
         for change in planned_changes:
             target_path = Path(change["target_path"])
+            target = str(change["target"])
             operation = str(change["operation"])
+            current_target_path = _resolve_target_path(root_path, target)
+
+            if current_target_path is None or current_target_path != target_path:
+                raise OSError(
+                    f"Unsafe patch path '{target}': target changed or no longer "
+                    "resolves safely inside the repository."
+                )
 
             if operation == "delete":
                 if target_path.exists():
@@ -494,8 +502,16 @@ def _load_original_lines(target_path: Path, operation: str) -> tuple[list[str], 
 
 
 def _resolve_target_path(root_path: Path, target: str) -> Path | None:
-    resolved_root = root_path.resolve()
-    resolved_target = (resolved_root / Path(target)).resolve()
+    try:
+        resolved_root = root_path.resolve()
+        lexical_target = resolved_root / Path(target)
+
+        if lexical_target.is_symlink():
+            return None
+
+        resolved_target = lexical_target.resolve()
+    except (OSError, RuntimeError):
+        return None
 
     try:
         resolved_target.relative_to(resolved_root)

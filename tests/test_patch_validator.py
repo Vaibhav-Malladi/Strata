@@ -29,6 +29,15 @@ def _write_patch_file(root: Path, content: str) -> Path:
     return patch_path
 
 
+def _create_symlink(link: Path, target: Path, *, target_is_directory: bool) -> bool:
+    try:
+        link.symlink_to(target, target_is_directory=target_is_directory)
+    except (NotImplementedError, OSError) as error:
+        print(f"SKIP: symlink creation is not permitted on this platform: {error}")
+        return False
+    return True
+
+
 def test_missing_patch_file_returns_missing():
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
@@ -148,6 +157,35 @@ def test_rejects_parent_traversal_path():
 
     assert result["status"] == "invalid"
     assert ".." in result["errors"][0]
+
+
+def test_rejects_target_resolving_through_symlink_outside_repo():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_root = Path(temp_dir)
+        root = temp_root / "repo"
+        outside = temp_root / "outside"
+        root.mkdir()
+        outside.mkdir()
+        (outside / "external.py").write_text("old\n", encoding="utf-8")
+        if not _create_symlink(root / "linked", outside, target_is_directory=True):
+            return
+
+        patch = (
+            "--- a/linked/external.py\n"
+            "+++ b/linked/external.py\n"
+            "@@ -1 +1 @@\n"
+            "-old\n"
+            "+new\n"
+        )
+
+        result = new_patch_validator.validate_patch_text(patch, root=root)
+
+        assert result["status"] == "invalid"
+        assert result["valid"] is False
+        assert result["errors"] == [
+            "Unsafe patch path 'linked/external.py': "
+            "patch paths must stay inside the repository."
+        ]
 
 
 def test_rejects_git_path():
@@ -285,6 +323,7 @@ TESTS = [
     test_rejects_unix_absolute_path,
     test_rejects_windows_absolute_path,
     test_rejects_parent_traversal_path,
+    test_rejects_target_resolving_through_symlink_outside_repo,
     test_rejects_git_path,
     test_rejects_aidc_config_path,
     test_rejects_env_path,
