@@ -1,4 +1,5 @@
 import os
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -85,6 +86,25 @@ _LOCKFILE_NAMES = {
     "poetry.lock",
     "uv.lock",
     "yarn.lock",
+}
+
+_NOISY_DIRECTORY_NAMES = {
+    ".angular",
+    ".git",
+    ".hg",
+    ".mypy_cache",
+    ".next",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".svn",
+    ".venv",
+    "__pycache__",
+    "build",
+    "coverage",
+    "dist",
+    "node_modules",
+    "target",
+    "venv",
 }
 
 
@@ -189,6 +209,100 @@ def create_inventory_record(root: str | Path, file_path: str | Path) -> Inventor
         folder_role=guess_folder_role(relative_path),
         language_guess=guess_language(relative_path),
     )
+
+
+def iter_inventory_records(
+    root: str | Path,
+    *,
+    max_files: int | None = None,
+    include_hidden: bool = False,
+) -> Iterator[InventoryRecord]:
+    """Iterate repository files using directory entries and stat metadata only."""
+
+    root_path = Path(root)
+    _validate_inventory_root(root_path)
+    _validate_max_files(max_files)
+    return _iter_inventory_records(
+        root_path,
+        max_files=max_files,
+        include_hidden=include_hidden,
+    )
+
+
+def collect_inventory(
+    root: str | Path,
+    *,
+    max_files: int | None = None,
+    include_hidden: bool = False,
+) -> list[InventoryRecord]:
+    """Collect a deterministic repository inventory without reading contents."""
+
+    return list(
+        iter_inventory_records(
+            root,
+            max_files=max_files,
+            include_hidden=include_hidden,
+        )
+    )
+
+
+def _iter_inventory_records(
+    root_path: Path,
+    *,
+    max_files: int | None,
+    include_hidden: bool,
+) -> Iterator[InventoryRecord]:
+    collected = 0
+    for current_root, directory_names, file_names in os.walk(
+        root_path,
+        onerror=lambda _error: None,
+    ):
+        directory_names[:] = [
+            name
+            for name in sorted(directory_names)
+            if not _skip_inventory_directory(name, include_hidden=include_hidden)
+            and not (Path(current_root) / name).is_symlink()
+        ]
+
+        for file_name in sorted(file_names):
+            if not include_hidden and file_name.startswith("."):
+                continue
+
+            file_path = Path(current_root) / file_name
+            if file_path.is_symlink():
+                continue
+            try:
+                record = create_inventory_record(root_path, file_path)
+            except OSError:
+                continue
+
+            yield record
+            collected += 1
+            if max_files is not None and collected >= max_files:
+                return
+
+
+def _skip_inventory_directory(name: str, *, include_hidden: bool) -> bool:
+    normalized = name.lower()
+    return normalized in _NOISY_DIRECTORY_NAMES or (
+        not include_hidden and name.startswith(".")
+    )
+
+
+def _validate_inventory_root(root_path: Path) -> None:
+    if not root_path.exists():
+        raise FileNotFoundError(f"inventory root does not exist: {root_path}")
+    if not root_path.is_dir():
+        raise NotADirectoryError(f"inventory root is not a directory: {root_path}")
+
+
+def _validate_max_files(max_files: int | None) -> None:
+    if max_files is None:
+        return
+    if isinstance(max_files, bool) or not isinstance(max_files, int):
+        raise TypeError("max_files must be an integer or None")
+    if max_files <= 0:
+        raise ValueError("max_files must be greater than zero")
 
 
 def _path_parts(path: str | Path) -> tuple[str, ...]:

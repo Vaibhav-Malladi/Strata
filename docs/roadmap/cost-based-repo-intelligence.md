@@ -6,7 +6,7 @@ Strata's cost-based repository intelligence engine prioritizes useful repository
 
 ## Current Scope
 
-The current foundation inventories files from metadata, scores path-derived relevance, estimates relative analysis cost, selects bounded candidates, and produces structured summaries. It operates entirely inside the core layer and does not read file contents.
+The current foundation walks repository trees, inventories files from metadata, scores path-derived relevance, estimates relative analysis cost, selects bounded candidates, and produces structured summaries. It operates entirely inside the core layer and does not read file contents.
 
 ## Completed Foundation
 
@@ -34,21 +34,31 @@ The selection layer accepts inventory records and task text, applies value-aware
 
 The summary layer converts a selection into bounded structured data suitable for future diagnostics. It includes selection metadata and a configurable number of top candidates with capped explanations.
 
+### Repository Inventory Collection
+
+Repository inventory collection walks directories in deterministic order and creates `InventoryRecord` objects using path and stat metadata only. It prunes dependency trees, version-control metadata, caches, build outputs, and hidden paths by default, supports a validated file cap, and tolerates inaccessible entries.
+
+### Repository Candidate Pipeline
+
+The core pipeline connects bounded repository inventory collection to value-aware candidate selection and summary generation. Its result reports inventory and candidate limits, inventory truncation, selection metadata, and bounded explanations without invoking parsers or integration surfaces.
+
 ## Architecture Notes
 
 The engine is organized as a one-way pipeline:
 
-1. Inventory records capture metadata and path signals.
-2. Cheap scoring estimates task relevance.
-3. Cost estimation assigns a positive relative analysis cost.
-4. Value ranking orders candidates by usefulness per cost.
-5. Selection and summary helpers enforce output bounds.
+1. Repository collection discovers files in deterministic order and prunes noisy trees.
+2. Inventory records capture metadata and path signals.
+3. Cheap scoring estimates task relevance.
+4. Cost estimation assigns a positive relative analysis cost.
+5. Value ranking orders candidates by usefulness per cost.
+6. Selection, pipeline, and summary helpers enforce output bounds.
 
 The implementation is dependency-light, deterministic, and isolated in `strata.core`. Existing scanner, command, and context-generation behavior is unchanged.
 
 ## Safety Constraints
 
 - Candidate scoring, cost estimation, selection, and summary generation do not open or read repository files.
+- Repository collection uses directory walking and stat metadata only.
 - Filesystem metadata is collected only by the inventory layer.
 - Limits must be positive integers and are validated before selection or reporting.
 - Generated and vendor signals reduce priority without silently removing files.
@@ -63,11 +73,11 @@ The foundation intentionally does not provide scanner or CLI integration, contex
 From the repository root, run the focused inventory and candidate tests with the project environment:
 
 ```powershell
-& ..\.codex-venv\Scripts\python.exe -c "from tests.test_inventory import TESTS as inventory; from tests.test_candidates import TESTS as candidates; tests = [*inventory, *candidates]; [test() for test in tests]; print(f'{len(tests)} focused tests passed')"
+& ..\.codex-venv\Scripts\python.exe -c "from tests.test_inventory import TESTS as inventory; from tests.test_candidates import TESTS as candidates; from tests.test_candidate_pipeline import TESTS as pipeline; tests = [*inventory, *candidates, *pipeline]; [test() for test in tests]; print(f'{len(tests)} focused tests passed')"
 ```
 
 Run broader project validation separately when preparing a merge or release.
 
 ## Follow-Ups
 
-Future work can connect inventory discovery to candidate selection, define representation choices for selected files, add cache and trace contracts, and expose bounded diagnostics through supported command surfaces. Those capabilities should retain the same cost accounting, deterministic ordering, and content-read boundaries.
+Future work can define representation choices for selected files, add cache and trace contracts, and expose bounded diagnostics through supported command and context surfaces. Those capabilities should retain the same cost accounting, deterministic ordering, and content-read boundaries.
