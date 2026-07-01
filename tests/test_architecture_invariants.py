@@ -132,8 +132,21 @@ PACKAGE_SMOKE_MODULES = (
     "strata.patch.applier",
     "strata.parsers.python",
     "strata.parsers.javascript",
+    "strata.adapters.agent_adapters",
     "strata.adapters.ollama",
     "strata.utils.config",
+)
+
+ROOT_SHIM_SMOKE_FILES = (
+    "cli.py",
+    "strata.py",
+    "cli_core.py",
+    "gate.py",
+    "scanner.py",
+    "patch_applier.py",
+    "python_parser.py",
+    "agent_adapters.py",
+    "workflow_config.py",
 )
 
 
@@ -275,6 +288,24 @@ def test_representative_package_modules_import():
     assert not failures, "Package smoke import failures:\n" + "\n".join(failures)
 
 
+def test_important_root_compatibility_shims_import():
+    failures: list[str] = []
+
+    for relative_path in ROOT_SHIM_SMOKE_FILES:
+        path = PROJECT_ROOT / relative_path
+        module_name = f"_strata_root_shim_{path.stem}"
+        try:
+            spec = importlib.util.spec_from_file_location(module_name, path)
+            if spec is None or spec.loader is None:
+                raise ImportError(f"could not create import spec for {path}")
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+        except Exception as error:
+            failures.append(f"{relative_path}: {type(error).__name__}: {error}")
+
+    assert not failures, "Root compatibility shim import failures:\n" + "\n".join(failures)
+
+
 def test_packaged_cli_entrypoints_are_wired_correctly():
     with (PROJECT_ROOT / "pyproject.toml").open("rb") as file:
         pyproject = tomllib.load(file)
@@ -316,6 +347,7 @@ TESTS = [
     test_package_modules_avoid_new_root_compatibility_imports,
     test_migrated_root_shim_inventory_is_complete_small_and_correct,
     test_representative_package_modules_import,
+    test_important_root_compatibility_shims_import,
     test_packaged_cli_entrypoints_are_wired_correctly,
     test_python_module_entrypoint_help_smoke,
 ]
