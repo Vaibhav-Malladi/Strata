@@ -24,7 +24,12 @@ def _artifact_paths(root: str | Path, artifact_name: str | Path) -> tuple[Path, 
     raw_name = str(artifact_name)
     relative_path = Path(raw_name.replace("\\", "/"))
 
-    if relative_path.is_absolute() or _WINDOWS_ABSOLUTE_PATH.match(raw_name) or raw_name.startswith("\\\\"):
+    if (
+        relative_path.is_absolute()
+        or _WINDOWS_ABSOLUTE_PATH.match(raw_name)
+        or raw_name.startswith("/")
+        or raw_name.startswith("\\")
+    ):
         raise ValueError(f"Artifact path must be relative to .aidc: {artifact_name}")
     if not relative_path.parts or ".." in relative_path.parts:
         raise ValueError(f"Artifact path must not contain parent traversal: {artifact_name}")

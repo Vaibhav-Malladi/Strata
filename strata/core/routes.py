@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 
 from strata.utils.artifacts import write_artifact_output_path
+from strata.utils.secrets import redact_text
 
 
 def collect_routes(graph: dict) -> list[dict]:
@@ -190,7 +191,7 @@ def generate_routes_report(graph: dict) -> str:
     lines.append("- Use this route map with `preflight` when asking an AI assistant to edit API code.")
     lines.append("")
 
-    return "\n".join(lines)
+    return redact_text("\n".join(lines))
 
 
 def write_routes_report(graph: dict, output_path: str) -> None:
@@ -199,7 +200,7 @@ def write_routes_report(graph: dict, output_path: str) -> None:
     content = generate_routes_report(graph)
 
     if ".aidc" in Path(output_path).parts:
-        write_artifact_output_path(output_path, content)
+        write_artifact_output_path(output_path, redact_text(content))
         return
 
     output_dir = os.path.dirname(output_path)
@@ -207,7 +208,7 @@ def write_routes_report(graph: dict, output_path: str) -> None:
         os.makedirs(output_dir, exist_ok=True)
 
     with open(output_path, "w", encoding="utf-8") as file:
-        file.write(content)
+        file.write(redact_text(content))
 
 
 def write_routes_json(graph: dict, output_path: str) -> None:
@@ -225,7 +226,7 @@ def write_routes_json(graph: dict, output_path: str) -> None:
         "route_import_risks": route_import_risks,
     }
 
-    content = json.dumps(payload, indent=2)
+    content = redact_text(json.dumps(payload, indent=2))
     if ".aidc" in Path(output_path).parts:
         write_artifact_output_path(output_path, content)
         return

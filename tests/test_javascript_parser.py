@@ -78,6 +78,11 @@ class UserService {
         assert "App" in class_names
         assert "UserService" in class_names
 
+        symbol_items = parsed["symbols"]
+        assert symbol_items
+        assert all(item["confidence"] == "medium" for item in symbol_items)
+        assert all(item["confidence_reason"] == "regex" for item in symbol_items)
+
 
 def test_records_javascript_exports():
     with tempfile.TemporaryDirectory() as temp_dir:

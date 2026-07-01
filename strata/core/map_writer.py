@@ -3,6 +3,7 @@ from pathlib import Path
 
 from strata.utils.artifacts import write_artifact_output_path
 from strata.utils.paths import atomic_write_text
+from strata.utils.secrets import redact_text
 
 
 def generate_project_map(graph: dict) -> str:
@@ -105,7 +106,7 @@ def generate_project_map(graph: dict) -> str:
 
     lines.append("")
 
-    return "\n".join(lines)
+    return redact_text("\n".join(lines))
 
 
 def write_project_map(graph: dict, output_path: str) -> None:
@@ -113,12 +114,12 @@ def write_project_map(graph: dict, output_path: str) -> None:
 
     content = generate_project_map(graph)
     if ".aidc" in Path(output_path).parts:
-        write_artifact_output_path(output_path, content)
+        write_artifact_output_path(output_path, redact_text(content))
         return
     output_dir = os.path.dirname(output_path)
     if output_dir:
         os.makedirs(output_dir, exist_ok=True)
-    atomic_write_text(output_path, content)
+    atomic_write_text(output_path, redact_text(content))
 
 
 def _group_edges_by_key(edges: list[dict], key: str) -> dict:

@@ -45,30 +45,38 @@ def test_artifact_write_returns_relative_root_shape():
 
 def test_artifact_write_rejects_parent_traversal():
     with tempfile.TemporaryDirectory() as temp_dir:
-        try:
-            artifacts.write_artifact_text(temp_dir, "../outside.txt", "unsafe")
-        except ValueError as error:
-            assert "parent traversal" in str(error)
-        else:
-            raise AssertionError("Artifact traversal path was accepted")
-
-        try:
-            artifacts.write_artifact_text(temp_dir, "..\\outside.txt", "unsafe")
-        except ValueError as error:
-            assert "parent traversal" in str(error)
-        else:
-            raise AssertionError("Backslash artifact traversal path was accepted")
+        for name in ("../outside.txt", "..\\outside.txt", "reports/..\\outside.txt"):
+            try:
+                artifacts.write_artifact_text(temp_dir, name, "unsafe")
+            except ValueError as error:
+                assert "parent traversal" in str(error)
+            else:
+                raise AssertionError(f"Artifact traversal path was accepted: {name}")
 
 
 def test_artifact_write_rejects_absolute_name():
     with tempfile.TemporaryDirectory() as temp_dir:
-        absolute_name = Path(temp_dir).resolve() / "outside.txt"
-        try:
-            artifacts.write_artifact_text(temp_dir, absolute_name, "unsafe")
-        except ValueError as error:
-            assert "relative to .aidc" in str(error)
-        else:
-            raise AssertionError("Absolute artifact name was accepted")
+        absolute_names = [
+            Path(temp_dir).resolve() / "outside.txt",
+            "C:\\outside.txt",
+            "/outside.txt",
+            "\\\\server\\share\\outside.txt",
+        ]
+
+        for name in absolute_names:
+            try:
+                artifacts.write_artifact_text(temp_dir, name, "unsafe")
+            except ValueError as error:
+                assert "relative to .aidc" in str(error)
+            else:
+                raise AssertionError(f"Absolute artifact name was accepted: {name}")
+
+
+def test_artifact_write_preserves_utf8_and_newlines():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        path = artifacts.write_artifact_text(temp_dir, "reports/newlines.md", "alpha\r\nβeta\n")
+
+        assert path.read_bytes() == "alpha\r\nβeta\n".encode("utf-8")
 
 
 def test_artifact_write_rejects_aidc_symlink():
@@ -124,6 +132,7 @@ TESTS = [
     test_artifact_write_returns_relative_root_shape,
     test_artifact_write_rejects_parent_traversal,
     test_artifact_write_rejects_absolute_name,
+    test_artifact_write_preserves_utf8_and_newlines,
     test_artifact_write_rejects_aidc_symlink,
     test_artifact_write_rejects_symlink_target,
     test_artifact_file_permissions_are_owner_only_on_posix,

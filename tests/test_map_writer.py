@@ -109,6 +109,42 @@ def test_project_map_generation_includes_dependencies_and_warnings():
         )
 
 
+def test_project_map_redacts_secret_like_graph_values():
+    graph = {
+        "schema_version": 1,
+        "root": "repo",
+        "files": [
+            {
+                "path": "src/config.py",
+                "language": "python",
+                "classes": [],
+                "functions": [{"name": "load_config"}],
+                "imports": ["requests"],
+                "external_imports": ["requests"],
+                "unresolved_imports": ["OPENAI_API_KEY=sk-testsecret-123456"],
+                "unresolved_import_details": [
+                    {"name": "OPENAI_API_KEY=sk-testsecret-123456", "line": 1}
+                ],
+                "routes": [],
+            }
+        ],
+        "edges": [
+            {
+                "from": "src/app.py",
+                "to": "src/config.py",
+                "type": "imports",
+                "import": "Authorization: Bearer sk-testsecret-123456",
+            }
+        ],
+    }
+
+    content = generate_project_map(graph)
+
+    assert "sk-testsecret-123456" not in content
+    assert "<redacted>" in content
+    assert "src/config.py" in content
+
+
 def test_cli_write_map_creates_project_map_file():
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_root = Path(temp_dir)
@@ -150,5 +186,6 @@ TESTS = [
     test_project_map_generation_includes_repo_summary,
     test_project_map_generation_includes_files_symbols_and_imports,
     test_project_map_generation_includes_dependencies_and_warnings,
+    test_project_map_redacts_secret_like_graph_values,
     test_cli_write_map_creates_project_map_file,
 ]

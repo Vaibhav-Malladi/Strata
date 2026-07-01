@@ -82,6 +82,14 @@ export class UserService {
         assert "build" in function_names
         assert "UserService" in class_names
 
+        symbol_items = parsed["symbols"]
+        assert symbol_items
+        assert all(item["confidence"] == "medium" for item in symbol_items)
+        assert all(item["confidence_reason"] == "regex" for item in symbol_items)
+        assert all(item["confidence"] == "medium" for item in parsed["interfaces"])
+        assert all(item["confidence"] == "medium" for item in parsed["types"])
+        assert all(item["confidence"] == "medium" for item in parsed["enums"])
+
 
 def test_detects_angular_framework_hint():
     with tempfile.TemporaryDirectory() as temp_dir:

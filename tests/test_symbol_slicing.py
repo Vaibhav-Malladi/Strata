@@ -77,6 +77,8 @@ def test_extract_python_symbols_finds_functions_classes_and_methods():
         assert any(symbol["start_line"] > 0 for symbol in symbols)
         assert any(symbol["end_line"] >= symbol["start_line"] for symbol in symbols)
         assert any(symbol["signature"].startswith("(flag") for symbol in symbols if symbol["name"] == "top_level")
+        assert all(symbol["confidence"] == "high" for symbol in symbols)
+        assert all(symbol["confidence_reason"] == "ast" for symbol in symbols)
 
 
 def test_extract_python_symbols_returns_safe_error_for_syntax_error():

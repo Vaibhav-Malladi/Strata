@@ -129,6 +129,8 @@ CUSTOM_HOOK_ARROW_PATTERN = re.compile(
 )
 
 PATH_ALIAS_PREFIXES = ("@/", "~/")
+REGEX_CONFIDENCE = "medium"
+REGEX_CONFIDENCE_REASON = "regex"
 
 
 def parse_js_file(path: str | Path) -> dict:
@@ -230,11 +232,11 @@ def _finalize_result(result: dict) -> None:
     ))
     result["classes"] = _sort_dicts_by_line(_dedupe_dicts(
         result["classes"],
-        ("name", "line", "kind", "exported", "default"),
+        ("name", "line", "kind", "exported", "default", "confidence", "confidence_reason"),
     ))
     result["functions"] = _sort_dicts_by_line(_dedupe_dicts(
         result["functions"],
-        ("name", "line", "kind", "exported", "default"),
+        ("name", "line", "kind", "exported", "default", "confidence", "confidence_reason"),
     ))
     result["components"] = _sort_dicts_by_line(_dedupe_dicts(
         result["components"],
@@ -250,15 +252,15 @@ def _finalize_result(result: dict) -> None:
     ))
     result["symbols"] = _sort_dicts_by_line(_dedupe_dicts(
         result["symbols"],
-        ("name", "line", "kind", "framework"),
+        ("name", "line", "kind", "framework", "confidence", "confidence_reason"),
     ))
     result["routes"] = _sort_dicts_by_line(_dedupe_dicts(
         result["routes"],
         ("method", "path", "line", "source"),
     ))
-    result["interfaces"] = _sort_dicts_by_line(_dedupe_dicts(result["interfaces"], ("name", "line", "kind")))
-    result["types"] = _sort_dicts_by_line(_dedupe_dicts(result["types"], ("name", "line", "kind")))
-    result["enums"] = _sort_dicts_by_line(_dedupe_dicts(result["enums"], ("name", "line", "kind")))
+    result["interfaces"] = _sort_dicts_by_line(_dedupe_dicts(result["interfaces"], ("name", "line", "kind", "confidence", "confidence_reason")))
+    result["types"] = _sort_dicts_by_line(_dedupe_dicts(result["types"], ("name", "line", "kind", "confidence", "confidence_reason")))
+    result["enums"] = _sort_dicts_by_line(_dedupe_dicts(result["enums"], ("name", "line", "kind", "confidence", "confidence_reason")))
 
     angular = result["angular"]
     for key in ("components", "services", "modules", "directives", "pipes", "routes"):
@@ -536,6 +538,7 @@ def _parse_declarations(clean_source: str, result: dict) -> list[dict]:
             "kind": "class",
             "exported": bool(match.group("export")),
             "default": bool(match.group("default")),
+            **_regex_confidence_fields(),
         }
 
         if extends_clause:
@@ -550,6 +553,7 @@ def _parse_declarations(clean_source: str, result: dict) -> list[dict]:
                 "exported": bool(match.group("export")),
                 "default": bool(match.group("default")),
                 "framework": "",
+                **_regex_confidence_fields(),
             }
         )
         declarations.append(class_item)
@@ -584,6 +588,7 @@ def _parse_declarations(clean_source: str, result: dict) -> list[dict]:
             "end_line": _line_number(clean_source, match.start()),
             "kind": "interface",
             "exported": bool(match.group("export")),
+            **_regex_confidence_fields(),
         }
         result["interfaces"].append(item)
         result["symbols"].append(
@@ -592,6 +597,7 @@ def _parse_declarations(clean_source: str, result: dict) -> list[dict]:
                 "line": item["line"],
                 "kind": "interface",
                 "framework": "",
+                **_regex_confidence_fields(),
             }
         )
 
@@ -602,6 +608,7 @@ def _parse_declarations(clean_source: str, result: dict) -> list[dict]:
             "end_line": _line_number(clean_source, match.start()),
             "kind": "type",
             "exported": bool(match.group("export")),
+            **_regex_confidence_fields(),
         }
         result["types"].append(item)
         result["symbols"].append(
@@ -610,6 +617,7 @@ def _parse_declarations(clean_source: str, result: dict) -> list[dict]:
                 "line": item["line"],
                 "kind": "type",
                 "framework": "",
+                **_regex_confidence_fields(),
             }
         )
 
@@ -620,6 +628,7 @@ def _parse_declarations(clean_source: str, result: dict) -> list[dict]:
             "end_line": _line_number(clean_source, match.start()),
             "kind": "enum",
             "exported": bool(match.group("export")),
+            **_regex_confidence_fields(),
         }
         result["enums"].append(item)
         result["symbols"].append(
@@ -628,6 +637,7 @@ def _parse_declarations(clean_source: str, result: dict) -> list[dict]:
                 "line": item["line"],
                 "kind": "enum",
                 "framework": "",
+                **_regex_confidence_fields(),
             }
         )
 
@@ -685,6 +695,7 @@ def _parse_angular_entities(clean_source: str, result: dict) -> None:
             "line": line,
             "framework": "angular",
             "confidence": "high",
+            "confidence_reason": "decorator",
         }
         item.update(details)
 
@@ -696,6 +707,8 @@ def _parse_angular_entities(clean_source: str, result: dict) -> None:
                 "line": line,
                 "kind": decorator.lower(),
                 "framework": "angular",
+                "confidence": "high",
+                "confidence_reason": "decorator",
             }
         )
 
@@ -846,6 +859,7 @@ def _record_component(
         "exported": exported,
         "default": default,
         "confidence": confidence,
+        "confidence_reason": "regex",
         "framework": "react",
     }
     result["components"].append(component)
@@ -855,6 +869,8 @@ def _record_component(
             "line": line,
             "kind": "component",
             "framework": "react",
+            "confidence": confidence,
+            "confidence_reason": "regex",
         }
     )
 
@@ -864,6 +880,7 @@ def _record_hook(result: dict, *, name: str, line: int, kind: str) -> None:
         "name": name,
         "line": line,
         "kind": kind,
+        **_regex_confidence_fields(),
     }
     result["hooks"].append(hook)
     result["symbols"].append(
@@ -872,6 +889,7 @@ def _record_hook(result: dict, *, name: str, line: int, kind: str) -> None:
             "line": line,
             "kind": "hook",
             "framework": "react",
+            **_regex_confidence_fields(),
         }
     )
 
@@ -909,6 +927,7 @@ def _record_function_like(
         "async": async_flag,
         "exported": exported,
         "default": default,
+        **_regex_confidence_fields(),
     }
 
     if is_class:
@@ -919,6 +938,7 @@ def _record_function_like(
                 "line": line,
                 "kind": "class",
                 "framework": "",
+                **_regex_confidence_fields(),
             }
         )
     else:
@@ -929,6 +949,7 @@ def _record_function_like(
                 "line": line,
                 "kind": "function",
                 "framework": "",
+                **_regex_confidence_fields(),
             }
         )
 
@@ -950,6 +971,13 @@ def _record_function_like(
         )
 
     return item
+
+
+def _regex_confidence_fields() -> dict:
+    return {
+        "confidence": REGEX_CONFIDENCE,
+        "confidence_reason": REGEX_CONFIDENCE_REASON,
+    }
 
 
 def _parse_angular_metadata(metadata: str) -> dict:

@@ -199,6 +199,38 @@ def test_generate_task_brief_redacts_secret_like_task_text():
     assert "<redacted>" in content
 
 
+def test_task_brief_surfaces_approximate_javascript_symbol_confidence():
+    graph = {
+        "schema_version": 1,
+        "root": "brief_test_repo",
+        "files": [
+            {
+                "path": "src/LoginButton.tsx",
+                "language": "typescript",
+                "classes": [],
+                "functions": [
+                    {
+                        "name": "LoginButton",
+                        "line": 1,
+                        "end_line": 1,
+                        "confidence": "medium",
+                        "confidence_reason": "regex",
+                    }
+                ],
+                "imports": [],
+                "external_imports": [],
+                "unresolved_imports": [],
+                "unresolved_import_details": [],
+            },
+        ],
+        "edges": [],
+    }
+
+    content = generate_task_brief(graph, "fix login button")
+
+    assert "Symbol extraction: approximate, medium confidence (regex)" in content
+
+
 def test_task_brief_warns_and_bounds_repository_context():
     content = new_brief.generate_task_brief(brief_test_graph(), "add map command tests")
 
@@ -216,5 +248,6 @@ TESTS = [
     test_task_brief_generation_includes_prompt_and_tests,
     test_cli_write_brief_creates_task_brief_file,
     test_generate_task_brief_redacts_secret_like_task_text,
+    test_task_brief_surfaces_approximate_javascript_symbol_confidence,
     test_task_brief_warns_and_bounds_repository_context,
 ]

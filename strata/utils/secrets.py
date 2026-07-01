@@ -4,9 +4,12 @@ import os
 import re
 
 _ENV_VAR_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
-_AUTH_HEADER_RE = re.compile(r"(?i)\b(Authorization\s*[:=]\s*)(?:Bearer|Token)\s+[^\s,;]+")
+_AUTH_HEADER_RE = re.compile(r"(?i)\b(Authorization\s*[:=]\s*)(?:Bearer|Token)\s+[^\s,;\"']+")
 _SECRET_ASSIGNMENT_RE = re.compile(
-    r"(?i)\b([A-Za-z0-9_.-]*(?:API_KEY|TOKEN|SECRET|PASSWORD|AUTHORIZATION))\s*([:=])\s*([^\s,;]+)"
+    r"(?i)(?<![-A-Za-z0-9_.])((?:API_KEY|TOKEN|SECRET|PASSWORD|AUTHORIZATION)|[A-Za-z0-9_.][A-Za-z0-9_.-]*(?:API_KEY|TOKEN|SECRET|PASSWORD|AUTHORIZATION))\s*([:=])\s*([^\s,;\"']+)"
+)
+_SECRET_CLI_OPTION_RE = re.compile(
+    r"(?i)(--[A-Za-z0-9_-]*(?:api[-_]?key|token|secret|password|authorization)[A-Za-z0-9_-]*)(=|\s+)([^\s,;\"']+)"
 )
 _OPENAI_KEY_RE = re.compile(r"\bsk-[A-Za-z0-9_-]{8,}\b")
 _ANTHROPIC_KEY_RE = re.compile(r"\bsk-ant-[A-Za-z0-9_-]{8,}\b")
@@ -54,6 +57,7 @@ def redact_text(text: object) -> str:
 
     redacted = str(text)
     redacted = _AUTH_HEADER_RE.sub(r"\1<redacted>", redacted)
+    redacted = _SECRET_CLI_OPTION_RE.sub(r"\1\2<redacted>", redacted)
     redacted = _SECRET_ASSIGNMENT_RE.sub(r"\1\2 <redacted>", redacted)
     redacted = _OPENAI_KEY_RE.sub("<redacted>", redacted)
     redacted = _ANTHROPIC_KEY_RE.sub("<redacted>", redacted)

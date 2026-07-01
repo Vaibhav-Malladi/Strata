@@ -40,6 +40,28 @@ def test_redact_text_masks_embedded_secrets_and_auth_headers():
     assert "<redacted>" in text
 
 
+def test_redact_text_masks_cli_secret_options_and_assignment_styles():
+    text = redact_text(
+        "\n".join(
+            [
+                "password = hunter2",
+                "service-secret: abc123",
+                "my-ai --api-key sk-testsecret-123456 --model safe",
+                "my-ai --token=plain-token-value --prompt .aidc/agent_prompt.md",
+                "normal_path=src/tokenizer.py",
+            ]
+        )
+    )
+
+    assert "hunter2" not in text
+    assert "abc123" not in text
+    assert "sk-testsecret-123456" not in text
+    assert "plain-token-value" not in text
+    assert "--api-key <redacted>" in text
+    assert "--token=<redacted>" in text
+    assert "src/tokenizer.py" in text
+
+
 def test_redact_secret_only_changes_secret_like_values():
     assert redact_secret("sk-testsecret-123456") == "<redacted>"
     assert redact_secret("OPENAI_API_KEY") == "OPENAI_API_KEY"
@@ -71,6 +93,7 @@ TESTS = [
     test_new_package_import_path_works,
     test_looks_like_secret_detects_common_token_shapes,
     test_redact_text_masks_embedded_secrets_and_auth_headers,
+    test_redact_text_masks_cli_secret_options_and_assignment_styles,
     test_redact_secret_only_changes_secret_like_values,
     test_safe_env_status_reports_found_and_missing_without_value_leakage,
     test_validate_env_var_name_accepts_only_valid_names,

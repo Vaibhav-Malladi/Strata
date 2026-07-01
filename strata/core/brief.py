@@ -381,6 +381,9 @@ def _format_file_context(file_info: dict, graph: dict) -> list[str]:
 
     lines.append(f"- Classes: {_format_inline_list(classes)}")
     lines.append(f"- Functions: {_format_inline_list(functions)}")
+    confidence_note = _symbol_confidence_note(file_info)
+    if confidence_note:
+        lines.append(f"- Symbol extraction: {confidence_note}")
     lines.append(f"- Imports: {_format_inline_list(file_info.get('imports', []))}")
     lines.append(f"- External imports: {_format_inline_list(file_info.get('external_imports', []))}")
 
@@ -468,6 +471,33 @@ def _format_inline_list(values: list[str]) -> str:
         return "none"
 
     return ", ".join(f"`{value}`" for value in cleaned)
+
+
+def _symbol_confidence_note(file_info: dict) -> str:
+    language = str(file_info.get("language", "")).lower()
+    if language not in {"javascript", "typescript"}:
+        return ""
+
+    symbol_items = list(file_info.get("classes", []) or []) + list(file_info.get("functions", []) or [])
+    confidence_values = {
+        (
+            str(item.get("confidence", "")).strip(),
+            str(item.get("confidence_reason", "")).strip(),
+        )
+        for item in symbol_items
+        if isinstance(item, dict) and item.get("confidence")
+    }
+
+    if not confidence_values:
+        return ""
+
+    if ("medium", "regex") in confidence_values:
+        return "approximate, medium confidence (regex)"
+
+    confidence, reason = sorted(confidence_values)[0]
+    if reason:
+        return f"{confidence} confidence ({reason})"
+    return f"{confidence} confidence"
 
 
 def _dedupe(values: list[str]) -> list[str]:

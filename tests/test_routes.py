@@ -146,6 +146,28 @@ def test_generate_routes_report_includes_routes_and_warnings():
     assert "## AI Notes" in content
 
 
+def test_routes_outputs_redact_secret_like_values():
+    graph = route_test_graph()
+    graph["files"][0]["routes"][0]["source"] = "Authorization: Bearer sk-testsecret-123456"
+    graph["files"][1]["unresolved_import_details"][0]["name"] = "--api-key sk-testsecret-123456"
+
+    content = generate_routes_report(graph)
+
+    assert "sk-testsecret-123456" not in content
+    assert "<redacted>" in content
+    assert "routes/user.routes.ts" in content
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        json_path = Path(temp_dir) / "routes.json"
+        write_routes_json(graph, str(json_path))
+        json_content = json_path.read_text(encoding="utf-8")
+        payload = json.loads(json_content)
+
+        assert "sk-testsecret-123456" not in json_content
+        assert "<redacted>" in json_content
+        assert payload["route_count"] == 4
+
+
 def test_write_routes_report_and_json_create_files():
     graph = route_test_graph()
 
@@ -212,6 +234,7 @@ TESTS = [
     test_find_duplicate_routes_reports_same_method_and_path,
     test_route_files_with_unresolved_imports_are_reported,
     test_generate_routes_report_includes_routes_and_warnings,
+    test_routes_outputs_redact_secret_like_values,
     test_write_routes_report_and_json_create_files,
     test_cli_write_routes_creates_route_outputs,
 ]
