@@ -102,6 +102,15 @@ class CandidateShortlist:
         return len(self.candidates)
 
 
+@dataclass(frozen=True, slots=True)
+class CandidateValue:
+    path: str
+    cheap_score: int
+    analysis_cost: int
+    value_score: float
+    reasons: tuple[str, ...]
+
+
 def normalize_task_tokens(task: str) -> tuple[str, ...]:
     """Return unique, useful lowercase task words in their original order."""
 
@@ -191,10 +200,7 @@ def shortlist_candidates(
 ) -> CandidateShortlist:
     """Return a bounded summary of the strongest cheap candidates."""
 
-    if isinstance(limit, bool) or not isinstance(limit, int):
-        raise TypeError("limit must be an integer")
-    if limit <= 0:
-        raise ValueError("limit must be greater than zero")
+    _validate_limit(limit)
 
     ranked = rank_candidates(records, task)
     return CandidateShortlist(
@@ -203,6 +209,98 @@ def shortlist_candidates(
         cap=limit,
         truncated=len(ranked) > limit,
     )
+
+
+def estimate_analysis_cost(record: InventoryRecord) -> int:
+    """Estimate relative analysis cost from inventory metadata only."""
+
+    cost, _ = _analysis_cost(record)
+    return cost
+
+
+def compute_value_score(cheap_score: int, analysis_cost: int) -> float:
+    """Combine relevance and cost without rewarding costly negative scores."""
+
+    if analysis_cost <= 0:
+        raise ValueError("analysis_cost must be greater than zero")
+    if cheap_score >= 0:
+        return round(cheap_score / analysis_cost, 6)
+    return float(cheap_score * analysis_cost)
+
+
+def score_candidate_value(record: InventoryRecord, task: str) -> CandidateValue:
+    """Build an explainable value score without touching the filesystem."""
+
+    cheap = score_candidate(record, task)
+    analysis_cost, cost_reasons = _analysis_cost(record)
+    value_score = compute_value_score(cheap.score, analysis_cost)
+    value_reason = (
+        f"value score {value_score:g} from cheap score {cheap.score} "
+        f"and analysis cost {analysis_cost}"
+    )
+    return CandidateValue(
+        path=record.path,
+        cheap_score=cheap.score,
+        analysis_cost=analysis_cost,
+        value_score=value_score,
+        reasons=cheap.reasons + cost_reasons + (value_reason,),
+    )
+
+
+def rank_candidates_by_value(
+    records: Iterable[InventoryRecord],
+    task: str,
+    limit: int = DEFAULT_SHORTLIST_LIMIT,
+) -> list[CandidateValue]:
+    """Return the best usefulness-per-cost candidates first."""
+
+    _validate_limit(limit)
+    candidates = [score_candidate_value(record, task) for record in records]
+    candidates.sort(
+        key=lambda candidate: (
+            -candidate.value_score,
+            -candidate.cheap_score,
+            candidate.analysis_cost,
+            candidate.path.lower(),
+            candidate.path,
+        )
+    )
+    return candidates[:limit]
+
+
+def _analysis_cost(record: InventoryRecord) -> tuple[int, tuple[str, ...]]:
+    size = max(record.size, 0)
+    if size <= 16 * 1024:
+        cost = 1
+        size_reason = "size at most 16 KiB (cost 1)"
+    elif size <= 128 * 1024:
+        cost = 2
+        size_reason = "size at most 128 KiB (cost 2)"
+    elif size <= 512 * 1024:
+        cost = 4
+        size_reason = "size at most 512 KiB (cost 4)"
+    elif size <= 2 * 1024 * 1024:
+        cost = 8
+        size_reason = "size at most 2 MiB (cost 8)"
+    else:
+        cost = 16
+        size_reason = "size above 2 MiB (cost 16)"
+
+    reasons = [size_reason]
+    if record.is_test:
+        cost += 1
+        reasons.append("test file (+1 cost)")
+    if record.is_generated_guess or record.folder_role in {"generated", "vendor"}:
+        cost += 20
+        reasons.append("generated or vendor path (+20 cost)")
+    return cost, tuple(reasons)
+
+
+def _validate_limit(limit: int) -> None:
+    if isinstance(limit, bool) or not isinstance(limit, int):
+        raise TypeError("limit must be an integer")
+    if limit <= 0:
+        raise ValueError("limit must be greater than zero")
 
 
 def _path_signals(path: str) -> tuple[set[str], set[str], set[str]]:

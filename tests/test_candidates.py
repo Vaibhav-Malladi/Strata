@@ -3,9 +3,13 @@ from unittest.mock import patch
 
 from strata.core.candidates import (
     DEFAULT_SHORTLIST_LIMIT,
+    compute_value_score,
+    estimate_analysis_cost,
     normalize_task_tokens,
     rank_candidates,
+    rank_candidates_by_value,
     score_candidate,
+    score_candidate_value,
     shortlist_candidates,
 )
 from strata.core.inventory import InventoryRecord
@@ -17,13 +21,14 @@ def _record(
     folder_role: str = "source",
     language: str | None = "typescript",
     extension: str = ".ts",
+    size: int = 100,
     is_test: bool = False,
     is_generated: bool = False,
 ) -> InventoryRecord:
     return InventoryRecord(
         path=path,
         extension=extension,
-        size=100,
+        size=size,
         mtime=1_700_000_000,
         is_test=is_test,
         is_generated_guess=is_generated,
@@ -224,6 +229,87 @@ def test_shortlist_does_not_stat_or_open_inventory_paths():
     assert shortlist.candidates[0].path == records[0].path
 
 
+def test_analysis_cost_is_always_positive():
+    assert estimate_analysis_cost(_record("src/empty.ts", size=0)) == 1
+    assert compute_value_score(10, 1) == 10
+
+
+def test_large_files_have_higher_analysis_cost_than_small_files():
+    small = _record("src/auth_service.ts", size=4_000)
+    large = _record("src/auth_service.ts", size=3 * 1024 * 1024)
+
+    assert estimate_analysis_cost(large) > estimate_analysis_cost(small)
+
+
+def test_generated_vendor_build_and_minified_records_have_low_value():
+    source = _record("src/auth/client.ts")
+    source_value = score_candidate_value(source, "auth client")
+    low_value_records = [
+        _record("dist/auth/client.ts", folder_role="generated", is_generated=True),
+        _record("vendor/auth/client.ts", folder_role="vendor", is_generated=True),
+        _record("build/auth/client.ts", folder_role="generated", is_generated=True),
+        _record("src/auth/client.min.ts", is_generated=True),
+    ]
+
+    for record in low_value_records:
+        candidate = score_candidate_value(record, "auth client")
+        assert candidate.analysis_cost >= 20
+        assert candidate.value_score < source_value.value_score
+        assert "generated or vendor path (+20 cost)" in candidate.reasons
+
+
+def test_value_ranking_prefers_similarly_relevant_smaller_file():
+    huge = _record("src/huge/auth_service.ts", size=3 * 1024 * 1024)
+    small = _record("src/small/auth_service.ts", size=4_000)
+
+    ranked = rank_candidates_by_value([huge, small], "auth service")
+
+    assert ranked[0].path == small.path
+    assert ranked[0].cheap_score == ranked[1].cheap_score
+    assert ranked[0].analysis_cost < ranked[1].analysis_cost
+
+
+def test_value_ranking_keeps_tests_viable_when_task_asks_for_tests():
+    implementation = _record("src/checkout.ts")
+    test_file = _record(
+        "tests/checkout.spec.ts",
+        folder_role="test",
+        is_test=True,
+    )
+
+    ranked = rank_candidates_by_value(
+        [implementation, test_file],
+        "add tests for checkout",
+    )
+
+    assert ranked[0].path == test_file.path
+    assert "task asks for tests (+8)" in ranked[0].reasons
+
+
+def test_value_ranking_is_deterministic_for_equal_candidates():
+    alpha = _record("src/alpha.ts")
+    zeta = _record("src/zeta.ts")
+
+    ranked = rank_candidates_by_value([zeta, alpha], "unrelated task")
+
+    assert [candidate.path for candidate in ranked] == [alpha.path, zeta.path]
+
+
+def test_cost_value_layer_does_not_stat_or_open_inventory_paths():
+    records = [
+        _record("missing/auth_service.ts", size=4_000),
+        _record("missing/auth_controller.ts", size=3 * 1024 * 1024),
+    ]
+
+    with (
+        patch.object(Path, "open", side_effect=AssertionError("opened candidate")),
+        patch.object(Path, "stat", side_effect=AssertionError("statted candidate")),
+    ):
+        ranked = rank_candidates_by_value(records, "auth", limit=1)
+
+    assert ranked[0].path == records[0].path
+
+
 TESTS = [
     test_filename_keyword_match_ranks_above_unrelated_file,
     test_folder_segment_match_contributes_an_explainable_reason,
@@ -238,4 +324,11 @@ TESTS = [
     test_empty_shortlist_has_complete_summary_metadata,
     test_shortlist_rejects_invalid_limits,
     test_shortlist_does_not_stat_or_open_inventory_paths,
+    test_analysis_cost_is_always_positive,
+    test_large_files_have_higher_analysis_cost_than_small_files,
+    test_generated_vendor_build_and_minified_records_have_low_value,
+    test_value_ranking_prefers_similarly_relevant_smaller_file,
+    test_value_ranking_keeps_tests_viable_when_task_asks_for_tests,
+    test_value_ranking_is_deterministic_for_equal_candidates,
+    test_cost_value_layer_does_not_stat_or_open_inventory_paths,
 ]
