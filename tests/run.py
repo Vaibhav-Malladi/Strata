@@ -102,6 +102,10 @@ from tests import test_typescript_parser
 from tests import test_multilang_scanner
 from tests import test_backend_map
 from tests import test_routes
+from tests import test_inventory
+from tests import test_candidates
+from tests import test_candidate_pipeline
+from tests import test_candidate_architecture
 from ui import get_console, is_rich_enabled, print_command_header, print_success
 
 
@@ -189,6 +193,10 @@ TEST_MODULES = [
     test_multilang_scanner,
     test_backend_map,
     test_routes,
+    test_inventory,
+    test_candidates,
+    test_candidate_pipeline,
+    test_candidate_architecture,
 ]
 
 

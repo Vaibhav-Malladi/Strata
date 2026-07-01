@@ -72,6 +72,36 @@ def test_candidate_pipeline_does_not_open_file_contents():
     assert analysis.selection.candidates_returned == 1
 
 
+def test_candidate_pipeline_rejects_invalid_limits_before_inventory_work():
+    with temporary_repo({"src/auth_service.ts": "auth\n"}) as root:
+        for invalid_value in (0, -1, True, 1.5):
+            try:
+                analyze_candidates_for_task(
+                    root,
+                    "auth",
+                    inventory_limit=invalid_value,
+                )
+            except (TypeError, ValueError):
+                pass
+            else:
+                raise AssertionError(
+                    f"inventory_limit {invalid_value!r} should be rejected"
+                )
+
+            try:
+                analyze_candidates_for_task(
+                    root,
+                    "auth",
+                    candidate_limit=invalid_value,
+                )
+            except (TypeError, ValueError):
+                pass
+            else:
+                raise AssertionError(
+                    f"candidate_limit {invalid_value!r} should be rejected"
+                )
+
+
 def test_candidate_analysis_summary_reports_inventory_and_candidate_metadata():
     with temporary_repo(
         {
@@ -185,6 +215,7 @@ TESTS = [
     test_candidate_pipeline_respects_limits_and_reports_metadata,
     test_candidate_pipeline_handles_empty_directory,
     test_candidate_pipeline_does_not_open_file_contents,
+    test_candidate_pipeline_rejects_invalid_limits_before_inventory_work,
     test_candidate_analysis_summary_reports_inventory_and_candidate_metadata,
     test_candidate_analysis_summary_caps_candidates_and_reasons,
     test_empty_candidate_analysis_has_valid_summary,

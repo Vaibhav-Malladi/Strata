@@ -4,9 +4,9 @@
 
 Strata's cost-based repository intelligence engine prioritizes useful repository evidence before paying for deeper analysis. Each stage must justify its cost using deterministic, inspectable signals and bounded outputs.
 
-## Current Scope
+## Final Scope
 
-The current foundation walks repository trees, inventories files from metadata, scores path-derived relevance, estimates relative analysis cost, selects bounded candidates, and produces structured summaries. It operates entirely inside the core layer and does not read file contents.
+This branch delivers a core-layer foundation that walks repository trees, inventories files from metadata, scores path-derived relevance, estimates relative analysis cost, selects bounded candidates, and produces structured summaries. It does not read file contents or alter existing integration surfaces.
 
 ## Completed Foundation
 
@@ -44,26 +44,27 @@ The core pipeline connects bounded repository inventory collection to value-awar
 
 The analysis summary produces a deterministic, bounded report for a completed repository candidate analysis. It distinguishes inventory truncation from candidate-selection truncation and exposes top candidate paths, cheap scores, analysis costs, value scores, and capped reasons in structured data.
 
-## Current Architecture
+## Architecture
 
 The engine is organized as a one-way pipeline:
 
-1. Repository collection discovers files in deterministic order and prunes noisy trees.
-2. Inventory records capture metadata and path signals.
-3. Cheap scoring estimates task relevance.
-4. Cost estimation assigns a positive relative analysis cost.
-5. Value ranking orders candidates by usefulness per cost.
-6. Selection, pipeline, and summary helpers enforce output bounds and preserve separate truncation metadata.
+1. **Inventory:** Repository collection discovers files in deterministic order, prunes noisy trees, and records metadata and path-derived signals.
+2. **Scoring:** Cheap scoring estimates task relevance from filenames, paths, roles, languages, and extensions.
+3. **Shortlist:** Bounded shortlist helpers preserve deterministic ordering, reasons, caps, and truncation metadata.
+4. **Cost and value:** Positive cost estimates and value scores favor relevant files that are cheaper to analyze.
+5. **Candidate pipeline:** The pipeline connects repository inventory to value-aware candidate selection without parser or integration-layer dependencies.
+6. **Summary and reporting:** Structured summaries expose bounded candidate details and distinguish inventory truncation from selection truncation.
 
 The implementation is dependency-light, deterministic, and isolated in `strata.core`. Existing scanner, command, and context-generation behavior is unchanged.
 
 ## Safety Constraints
 
-- Candidate scoring, cost estimation, selection, and summary generation do not open or read repository files.
-- Repository collection uses directory walking and stat metadata only.
-- Filesystem metadata is collected only by the inventory layer.
-- Limits must be positive integers and are validated before selection or reporting.
-- Generated and vendor signals reduce priority without silently removing files.
+- Inventory collection uses directory walking and stat metadata only.
+- Candidate scoring, cost estimation, selection, pipelines, and summaries do not open or read repository files.
+- Caps are bounded, must be positive integers, and are validated before repository work where applicable.
+- Inventory and candidate ordering is deterministic.
+- Dependency trees, version-control metadata, caches, and build outputs are pruned during default repository collection.
+- Generated and vendor records supplied to the candidate layer remain eligible but receive explicit relevance and cost penalties.
 - Reasons remain attached to candidates so ranking decisions can be inspected.
 
 ## Deferred Capabilities
@@ -72,14 +73,16 @@ The foundation intentionally does not provide scanner or CLI integration, contex
 
 ## Validation
 
-From the repository root, run the focused inventory and candidate tests with the project environment:
+From the repository root, run the standard project validation commands:
 
 ```powershell
-& ..\.codex-venv\Scripts\python.exe -c "from tests.test_inventory import TESTS as inventory; from tests.test_candidates import TESTS as candidates; from tests.test_candidate_pipeline import TESTS as pipeline; tests = [*inventory, *candidates, *pipeline]; [test() for test in tests]; print(f'{len(tests)} focused tests passed')"
+py tests.py
+py tests\run.py
+strata gate
 ```
 
-Run broader project validation separately when preparing a merge or release.
+The inventory, candidate, pipeline, and architecture contract suites are registered with the project test runner.
 
 ## Follow-Ups
 
-Future work can define representation choices for selected files, add cache and trace contracts, and expose bounded diagnostics through supported command and context surfaces. Those capabilities should retain the same cost accounting, deterministic ordering, and content-read boundaries.
+Future milestones can introduce cache contracts, import tracing, a representation ladder, lazy outline extraction, framework analyzers, and supported CLI or context-pack integration. Each milestone should preserve bounded work, deterministic behavior, dependency direction, and explicit content-read boundaries.
