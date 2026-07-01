@@ -10,6 +10,7 @@ from strata.core.candidates import (
     rank_candidates_by_value,
     score_candidate,
     score_candidate_value,
+    select_candidates,
     shortlist_candidates,
 )
 from strata.core.inventory import InventoryRecord
@@ -310,6 +311,108 @@ def test_cost_value_layer_does_not_stat_or_open_inventory_paths():
     assert ranked[0].path == records[0].path
 
 
+def test_select_candidates_returns_value_ranked_candidates():
+    huge = _record("src/huge/auth_service.ts", size=3 * 1024 * 1024)
+    small = _record("src/small/auth_service.ts", size=4_000)
+
+    selection = select_candidates([huge, small], "auth service")
+
+    assert [candidate.path for candidate in selection.candidates] == [
+        small.path,
+        huge.path,
+    ]
+
+
+def test_select_candidates_applies_cap_and_reports_summary():
+    records = (
+        _record(path)
+        for path in ("src/auth_service.ts", "src/auth_model.ts", "src/other.ts")
+    )
+
+    selection = select_candidates(records, "auth", limit=2)
+
+    assert selection.candidates_returned == 2
+    assert selection.files_considered == 3
+    assert selection.cap == 2
+    assert selection.truncated is True
+
+
+def test_select_candidates_accepts_empty_inventory():
+    selection = select_candidates([], "auth")
+
+    assert selection.candidates == ()
+    assert selection.candidates_returned == 0
+    assert selection.files_considered == 0
+    assert selection.cap == DEFAULT_SHORTLIST_LIMIT
+    assert selection.truncated is False
+
+
+def test_select_candidates_rejects_limits_like_cheap_shortlist():
+    invalid_limits = (
+        (0, ValueError),
+        (-1, ValueError),
+        (True, TypeError),
+        (1.5, TypeError),
+    )
+    for invalid_limit, error_type in invalid_limits:
+        try:
+            select_candidates([], "auth", limit=invalid_limit)
+        except error_type:
+            pass
+        else:
+            raise AssertionError(f"limit {invalid_limit!r} should be rejected")
+
+
+def test_select_candidates_preserves_cheap_cost_and_value_reasons():
+    selection = select_candidates(
+        [_record("src/auth_service.ts", size=3 * 1024 * 1024)],
+        "auth service",
+    )
+
+    candidate = selection.candidates[0]
+    assert "filename matches task keyword 'auth' (+6)" in candidate.reasons
+    assert "size above 2 MiB (cost 16)" in candidate.reasons
+    assert any(reason.startswith("value score ") for reason in candidate.reasons)
+
+
+def test_select_candidates_keeps_generated_records_eligible_but_low_value():
+    source = _record("src/auth/client.ts")
+    low_value_records = [
+        _record("dist/auth/client.ts", folder_role="generated", is_generated=True),
+        _record("vendor/auth/client.ts", folder_role="vendor", is_generated=True),
+        _record("build/auth/client.ts", folder_role="generated", is_generated=True),
+        _record("src/auth/client.min.ts", is_generated=True),
+    ]
+
+    selection = select_candidates(
+        [*low_value_records, source],
+        "auth client",
+        limit=5,
+    )
+
+    assert selection.candidates[0].path == source.path
+    assert {candidate.path for candidate in selection.candidates[1:]} == {
+        record.path for record in low_value_records
+    }
+    assert all(candidate.analysis_cost >= 20 for candidate in selection.candidates[1:])
+
+
+def test_select_candidates_does_not_stat_or_open_inventory_paths():
+    records = [
+        _record("missing/auth_service.ts", size=4_000),
+        _record("missing/auth_model.ts", size=128_000),
+    ]
+
+    with (
+        patch.object(Path, "open", side_effect=AssertionError("opened candidate")),
+        patch.object(Path, "stat", side_effect=AssertionError("statted candidate")),
+    ):
+        selection = select_candidates(records, "auth", limit=1)
+
+    assert selection.candidates_returned == 1
+    assert selection.files_considered == 2
+
+
 TESTS = [
     test_filename_keyword_match_ranks_above_unrelated_file,
     test_folder_segment_match_contributes_an_explainable_reason,
@@ -331,4 +434,11 @@ TESTS = [
     test_value_ranking_keeps_tests_viable_when_task_asks_for_tests,
     test_value_ranking_is_deterministic_for_equal_candidates,
     test_cost_value_layer_does_not_stat_or_open_inventory_paths,
+    test_select_candidates_returns_value_ranked_candidates,
+    test_select_candidates_applies_cap_and_reports_summary,
+    test_select_candidates_accepts_empty_inventory,
+    test_select_candidates_rejects_limits_like_cheap_shortlist,
+    test_select_candidates_preserves_cheap_cost_and_value_reasons,
+    test_select_candidates_keeps_generated_records_eligible_but_low_value,
+    test_select_candidates_does_not_stat_or_open_inventory_paths,
 ]

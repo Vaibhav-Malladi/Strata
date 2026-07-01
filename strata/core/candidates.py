@@ -111,6 +111,18 @@ class CandidateValue:
     reasons: tuple[str, ...]
 
 
+@dataclass(frozen=True, slots=True)
+class CandidateSelection:
+    candidates: tuple[CandidateValue, ...]
+    files_considered: int
+    cap: int
+    truncated: bool
+
+    @property
+    def candidates_returned(self) -> int:
+        return len(self.candidates)
+
+
 def normalize_task_tokens(task: str) -> tuple[str, ...]:
     """Return unique, useful lowercase task words in their original order."""
 
@@ -266,6 +278,24 @@ def rank_candidates_by_value(
         )
     )
     return candidates[:limit]
+
+
+def select_candidates(
+    records: Iterable[InventoryRecord],
+    task: str,
+    limit: int = DEFAULT_SHORTLIST_LIMIT,
+) -> CandidateSelection:
+    """Turn inventory records into a bounded, value-ranked selection."""
+
+    _validate_limit(limit)
+    inventory = list(records)
+    candidates = rank_candidates_by_value(inventory, task, limit=limit)
+    return CandidateSelection(
+        candidates=tuple(candidates),
+        files_considered=len(inventory),
+        cap=limit,
+        truncated=len(inventory) > limit,
+    )
 
 
 def _analysis_cost(record: InventoryRecord) -> tuple[int, tuple[str, ...]]:
