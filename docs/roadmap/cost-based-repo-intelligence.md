@@ -30,19 +30,21 @@ The cost model estimates relative analysis expense from file size and existing t
 
 The selection layer accepts inventory records and task text, applies value-aware ranking, and returns a bounded `CandidateSelection`. Generated, vendor, build, and minified files remain eligible but normally rank below relevant source files.
 
-### Candidate Engine Summary
+### Candidate Selection Summary
 
 The summary layer converts a selection into bounded structured data suitable for future diagnostics. It includes selection metadata and a configurable number of top candidates with capped explanations.
 
-### Repository Inventory Collection
+### Repository Inventory and Candidate Pipeline
 
 Repository inventory collection walks directories in deterministic order and creates `InventoryRecord` objects using path and stat metadata only. It prunes dependency trees, version-control metadata, caches, build outputs, and hidden paths by default, supports a validated file cap, and tolerates inaccessible entries.
 
-### Repository Candidate Pipeline
-
 The core pipeline connects bounded repository inventory collection to value-aware candidate selection and summary generation. Its result reports inventory and candidate limits, inventory truncation, selection metadata, and bounded explanations without invoking parsers or integration surfaces.
 
-## Architecture Notes
+### Candidate Analysis Summary
+
+The analysis summary produces a deterministic, bounded report for a completed repository candidate analysis. It distinguishes inventory truncation from candidate-selection truncation and exposes top candidate paths, cheap scores, analysis costs, value scores, and capped reasons in structured data.
+
+## Current Architecture
 
 The engine is organized as a one-way pipeline:
 
@@ -51,7 +53,7 @@ The engine is organized as a one-way pipeline:
 3. Cheap scoring estimates task relevance.
 4. Cost estimation assigns a positive relative analysis cost.
 5. Value ranking orders candidates by usefulness per cost.
-6. Selection, pipeline, and summary helpers enforce output bounds.
+6. Selection, pipeline, and summary helpers enforce output bounds and preserve separate truncation metadata.
 
 The implementation is dependency-light, deterministic, and isolated in `strata.core`. Existing scanner, command, and context-generation behavior is unchanged.
 
