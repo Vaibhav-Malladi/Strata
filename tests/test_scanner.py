@@ -130,6 +130,53 @@ def test_scan_repo_includes_schema_version():
     assert result["schema_version"] == 1
 
 
+def test_scan_repo_skips_binary_and_invalid_utf8_source_files():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _write_file(root / "normal.py", "value = 'text'\n")
+        (root / "binary.py").write_bytes(b"value = 1\x00binary")
+        (root / "invalid.py").write_bytes(b"value = \xff\xfe\n")
+
+        result = new_scanner.scan_repo(str(root))
+        paths = [Path(file_info["path"]).name for file_info in result["files"]]
+
+        assert paths == ["normal.py"]
+
+
+def test_scan_repo_skips_source_file_above_size_limit():
+    original_limit = new_scanner.MAX_SOURCE_FILE_SIZE_BYTES
+    new_scanner.MAX_SOURCE_FILE_SIZE_BYTES = 16
+    try:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            _write_file(root / "small.py", "value = 1\n")
+            _write_file(root / "large.py", "value = 'larger than limit'\n")
+
+            result = new_scanner.scan_repo(str(root))
+            paths = [Path(file_info["path"]).name for file_info in result["files"]]
+    finally:
+        new_scanner.MAX_SOURCE_FILE_SIZE_BYTES = original_limit
+
+    assert paths == ["small.py"]
+
+
+def test_scan_repo_enforces_max_file_limit_in_sorted_order():
+    original_limit = new_scanner.MAX_SCAN_FILES
+    new_scanner.MAX_SCAN_FILES = 2
+    try:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            for name in ("c.py", "a.py", "b.py"):
+                _write_file(root / name, f"name = {name!r}\n")
+
+            result = new_scanner.scan_repo(str(root))
+            paths = [Path(file_info["path"]).name for file_info in result["files"]]
+    finally:
+        new_scanner.MAX_SCAN_FILES = original_limit
+
+    assert paths == ["a.py", "b.py"]
+
+
 def test_scan_repo_skips_symlinked_external_directory_and_file():
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_root = Path(temp_dir)
@@ -247,6 +294,9 @@ TESTS = [
     test_scan_repo_creates_import_edges,
     test_scan_repo_resolves_same_folder_imports_from_project_root,
     test_scan_repo_includes_schema_version,
+    test_scan_repo_skips_binary_and_invalid_utf8_source_files,
+    test_scan_repo_skips_source_file_above_size_limit,
+    test_scan_repo_enforces_max_file_limit_in_sorted_order,
     test_scan_repo_skips_symlinked_external_directory_and_file,
     test_scan_repo_classifies_imports,
     test_scan_repo_records_unresolved_import_line_number,

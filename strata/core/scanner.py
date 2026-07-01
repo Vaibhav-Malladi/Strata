@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import codecs
 import os
 import importlib.util
 import sys
@@ -11,6 +12,12 @@ from typing import Any, Callable
 from strata.parsers.js_resolution import build_js_resolution_context, resolve_js_import
 from strata.parsers.languages import detect_language, parse_source_file
 from strata.core.repo_ignore import should_ignore_directory, should_ignore_file
+
+
+MAX_SOURCE_FILE_SIZE_BYTES = 2 * 1024 * 1024
+MAX_SCAN_FILES = 10_000
+FILE_SAFETY_CHUNK_BYTES = 64 * 1024
+_PARSABLE_LANGUAGES = {"javascript", "python", "typescript"}
 
 
 _STDLIB_PATHS = {
@@ -178,12 +185,12 @@ def scan_repo(
 
     module_index = {}
     path_index = {}
-    js_resolution_context = build_js_resolution_context(root_path)
     start_time = time.monotonic()
     discovered_count = 0
     scanned_count = 0
     skipped_count = 0
     failed_count = 0
+    limit_reached = False
 
     _emit_progress(
         progress,
@@ -214,9 +221,30 @@ def scan_repo(
                 skipped_count += 1
                 continue
 
+            if discovered_count >= MAX_SCAN_FILES:
+                limit_reached = True
+                break
+
             discovered_count += 1
 
-            parsed = parse_source_file(file_path)
+            language = detect_language(file_path)
+            if language not in _PARSABLE_LANGUAGES or not _is_safe_source_file(Path(file_path)):
+                skipped_count += 1
+                _emit_progress_if_needed(
+                    progress,
+                    start_time=start_time,
+                    discovered_count=discovered_count,
+                    scanned_count=scanned_count,
+                    skipped_count=skipped_count,
+                    failed_count=failed_count,
+                    expected_file_count=expected_file_count,
+                )
+                continue
+
+            try:
+                parsed = parse_source_file(file_path)
+            except (OSError, UnicodeDecodeError):
+                parsed = None
 
             if parsed is None:
                 skipped_count += 1
@@ -259,6 +287,9 @@ def scan_repo(
                 expected_file_count=expected_file_count,
             )
 
+        if limit_reached:
+            break
+
     _emit_progress(
         progress,
         phase="parsing_source_files",
@@ -273,6 +304,17 @@ def scan_repo(
             total_count=expected_file_count,
         ),
         expected_file_count=expected_file_count,
+    )
+
+    js_files = [
+        file_info["path"]
+        for file_info in graph["files"]
+        if file_info.get("language") in {"javascript", "typescript"}
+    ]
+    js_resolution_context = (
+        build_js_resolution_context(root_path, source_files=js_files)
+        if js_files
+        else None
     )
 
     for file_info in graph["files"]:
@@ -375,6 +417,24 @@ def scan_repo(
     )
 
     return graph
+
+
+def _is_safe_source_file(file_path: Path) -> bool:
+    try:
+        if not file_path.is_file() or file_path.stat().st_size > MAX_SOURCE_FILE_SIZE_BYTES:
+            return False
+
+        decoder = codecs.getincrementaldecoder("utf-8")()
+        with file_path.open("rb") as handle:
+            while chunk := handle.read(FILE_SAFETY_CHUNK_BYTES):
+                if b"\x00" in chunk:
+                    return False
+                decoder.decode(chunk)
+        decoder.decode(b"", final=True)
+    except (OSError, UnicodeDecodeError):
+        return False
+
+    return True
 
 
 def _emit_progress(

@@ -48,7 +48,7 @@ def load_json_file(path: str | Path) -> dict:
 
     try:
         raw_text = path_obj.read_text(encoding="utf-8")
-    except OSError:
+    except (OSError, UnicodeDecodeError):
         return {}
 
     try:
@@ -147,11 +147,18 @@ def load_package_json(root: str | Path) -> dict:
     }
 
 
-def build_js_resolution_context(root: str | Path) -> dict:
+def build_js_resolution_context(
+    root: str | Path,
+    source_files: list[str] | None = None,
+) -> dict:
     """Build a deterministic repository-local JS/TS resolution context."""
 
     root_path = Path(root)
-    source_file_index = _build_source_file_index(root_path)
+    source_file_index = (
+        _build_source_file_index(root_path)
+        if source_files is None
+        else _build_source_file_index_from_paths(root_path, source_files)
+    )
     tsconfig = load_tsconfig_paths(root_path)
     package_json = load_package_json(root_path)
     workspace_packages = _discover_workspace_packages(root_path, package_json)
@@ -240,6 +247,19 @@ def _build_source_file_index(root_path: Path) -> dict:
 
             rel_path = _relative_to_root(root_path, file_path)
             source_file_index[rel_path] = rel_path
+
+    return source_file_index
+
+
+def _build_source_file_index_from_paths(
+    root_path: Path,
+    source_files: list[str],
+) -> dict[str, str]:
+    source_file_index: dict[str, str] = {}
+
+    for file_path in source_files:
+        rel_path = _relative_to_root(root_path, file_path)
+        source_file_index[rel_path] = rel_path
 
     return source_file_index
 
