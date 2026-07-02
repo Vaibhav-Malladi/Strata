@@ -8,12 +8,14 @@ Frontend intelligence will give Strata a bounded, explainable way to identify an
 
 This branch establishes a dependency-light frontend role taxonomy and path-only helpers for identifying likely frontend candidates. The taxonomy includes pages, components, templates, styles, hooks, services, API clients, routes, state stores, forms, tests, configuration, assets, and unknown files. Recognized frontend roles are connected to candidate scoring as a cheap, bounded signal: direct task-role matches receive a stronger boost than broader frontend-task relevance, and every boost includes an inspectable reason.
 
+A React starting-file selector now builds on inventory metadata and cheap candidate scores. It returns a deterministic, bounded set of likely task entry points with roles, scores, confidence labels, and inspectable reasons. Generated and vendor records are excluded, while tests are eligible only when the task explicitly requests tests. Selection remains path-only and does not trace relationships between files.
+
 Role inference is approximate by design. It uses normalized path segments, filenames, naming conventions, and extensions without reading file contents. Angular guards and resolvers are classified as services because they provide injectable application behavior; future route analysis may attach route relationships separately.
 
 ## Planned Milestones
 
 1. Establish path-derived React and Angular role detection.
-2. Add bounded starting-file selection using explainable relevance and cost signals.
+2. Establish bounded React starting-file selection using explainable path and task signals.
 3. Link React components, hooks, and API clients through lightweight evidence.
 4. Link Angular components with templates and styles, then add service, module, and route awareness.
 5. Extract frontend event bindings with explicit limits and inspectable evidence.
@@ -31,17 +33,17 @@ Each milestone should remain independently testable and should introduce deeper 
 
 ## Deferred Capabilities
 
-This branch intentionally does not add React or Angular starting-file selection, component or template linking, route tracing, event binding extraction, content parsing, or framework graph construction. Beyond cheap candidate scoring, it does not integrate frontend roles with scanners, CLI commands, context packs, caches, tracing, adapters, patch workflows, or the representation ladder.
+This branch intentionally does not add Angular starting-file selection, React or Angular component and template linking, hook linking, import or route tracing, event binding extraction, content parsing, or framework graph construction. Beyond cheap candidate scoring and React starting-file selection, it does not integrate frontend roles with scanners, CLI commands, context packs, caches, tracing, adapters, patch workflows, or the representation ladder.
 
 ## Validation
 
-From the repository root, run the focused taxonomy and candidate tests for this change:
+From the repository root, run the focused taxonomy, candidate, and React starting-file tests:
 
 ```powershell
-..\.codex-venv\Scripts\python.exe -c "from tests import test_candidates, test_frontend_roles; [test() for module in (test_candidates, test_frontend_roles) for test in module.TESTS]"
+..\.codex-venv\Scripts\python.exe -c "from tests import test_candidate_architecture, test_candidates, test_frontend_roles, test_react_starting_files; [test() for module in (test_candidate_architecture, test_candidates, test_frontend_roles, test_react_starting_files) for test in module.TESTS]"
 ```
 
-The taxonomy suite is also registered with the project's custom test runner for later full validation.
+The focused suites are also registered with the project's custom test runner for later full validation.
 
 ## Risks and Follow-Ups
 

@@ -20,6 +20,10 @@ from strata.core.inventory import (
     create_inventory_record,
     iter_inventory_records,
 )
+from strata.core.react_starting_files import (
+    ReactStartingFile,
+    select_react_starting_files,
+)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -27,6 +31,7 @@ CANDIDATE_MODULES = (
     PROJECT_ROOT / "strata" / "core" / "inventory.py",
     PROJECT_ROOT / "strata" / "core" / "candidates.py",
     PROJECT_ROOT / "strata" / "core" / "candidate_pipeline.py",
+    PROJECT_ROOT / "strata" / "core" / "react_starting_files.py",
 )
 FORBIDDEN_IMPORTS = (
     "strata.adapters",
@@ -92,6 +97,8 @@ def test_candidate_foundation_public_api_imports_are_stable():
     assert CandidateSummary.__module__ == "strata.core.candidates"
     assert CandidateAnalysis.__module__ == "strata.core.candidate_pipeline"
     assert CandidateAnalysisSummary.__module__ == "strata.core.candidate_pipeline"
+    assert ReactStartingFile.__module__ == "strata.core.react_starting_files"
+    assert callable(select_react_starting_files)
 
 
 TESTS = [
