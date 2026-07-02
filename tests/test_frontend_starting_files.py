@@ -68,6 +68,74 @@ def test_angular_framework_filter_returns_only_angular_results():
     assert {item.framework for item in selection.files} == {"angular"}
 
 
+def test_auto_mode_selects_react_from_detected_signals():
+    selection = select_frontend_starting_files(
+        [_record("next.config.js"), _record("src/App.tsx")],
+        "update app component",
+        frameworks="auto",
+    )
+
+    assert selection.frameworks_considered == ("react",)
+    assert selection.files
+    assert {item.framework for item in selection.files} == {"react"}
+
+
+def test_auto_mode_selects_angular_from_detected_signals():
+    selection = select_frontend_starting_files(
+        [_record("angular.json"), _record("src/app/login/login.component.html")],
+        "update login button",
+        frameworks=("auto",),
+    )
+
+    assert selection.frameworks_considered == ("angular",)
+    assert selection.files
+    assert {item.framework for item in selection.files} == {"angular"}
+
+
+def test_auto_mode_selects_both_frameworks_in_monorepo():
+    selection = select_frontend_starting_files(
+        [
+            _record("packages/web/next.config.js"),
+            _record("packages/web/src/App.tsx"),
+            _record("packages/admin/angular.json"),
+            _record("packages/admin/src/app/login/login.component.html"),
+        ],
+        "update login app",
+        frameworks="auto",
+    )
+
+    assert selection.frameworks_considered == ("react", "angular")
+    assert {item.framework for item in selection.files} == {"react", "angular"}
+
+
+def test_auto_mode_returns_empty_selection_when_nothing_is_detected():
+    selection = select_frontend_starting_files(
+        [_record("src/utils/date.ts")],
+        "update date",
+        frameworks="auto",
+    )
+
+    assert selection.files == ()
+    assert selection.frameworks_considered == ()
+    assert selection.files_considered == 1
+    assert selection.truncated is False
+
+
+def test_auto_mode_cannot_be_mixed_with_explicit_frameworks():
+    try:
+        select_frontend_starting_files(
+            [],
+            "task",
+            frameworks=("auto", "react"),
+        )
+    except ValueError as error:
+        assert str(error) == (
+            "auto framework mode cannot be combined with explicit frameworks"
+        )
+    else:
+        raise AssertionError("mixed auto and explicit frameworks should be rejected")
+
+
 def test_duplicate_path_keeps_higher_score_with_framework_note():
     record = _record("src/app/login/login.component.ts")
 
@@ -158,6 +226,23 @@ def test_pipeline_does_not_read_or_stat_paths():
     assert selection.files
 
 
+def test_auto_mode_does_not_read_or_stat_paths():
+    records = [_record("missing/angular.json"), _record("missing/src/App.tsx")]
+
+    with (
+        patch("builtins.open", side_effect=AssertionError("opened a path")),
+        patch.object(Path, "read_text", side_effect=AssertionError("read a path")),
+        patch.object(Path, "stat", side_effect=AssertionError("statted a path")),
+    ):
+        selection = select_frontend_starting_files(
+            records,
+            "update app",
+            frameworks="auto",
+        )
+
+    assert selection.frameworks_considered == ("react", "angular")
+
+
 def test_windows_paths_are_deterministic():
     windows = _record(r"src\pages\DashboardPage.tsx")
     posix = _record("src/pages/DashboardPage.tsx")
@@ -173,6 +258,24 @@ def test_windows_paths_are_deterministic():
     assert windows_result.role == posix_result.role
     assert windows_result.score == posix_result.score
     assert windows_result.reasons == posix_result.reasons
+
+
+def test_auto_mode_ordering_is_deterministic():
+    records = [
+        _record("packages/web/next.config.js"),
+        _record("packages/web/src/App.tsx"),
+        _record("packages/admin/angular.json"),
+        _record("packages/admin/src/app/app.component.html"),
+    ]
+
+    forward = select_frontend_starting_files(records, "update app", frameworks="auto")
+    reverse = select_frontend_starting_files(
+        reversed(records),
+        "update app",
+        frameworks="auto",
+    )
+
+    assert forward == reverse
 
 
 def test_generated_paths_are_excluded_by_underlying_selectors():
@@ -211,6 +314,11 @@ TESTS = [
     test_combined_selection_returns_react_and_angular_candidates,
     test_react_framework_filter_returns_only_react_results,
     test_angular_framework_filter_returns_only_angular_results,
+    test_auto_mode_selects_react_from_detected_signals,
+    test_auto_mode_selects_angular_from_detected_signals,
+    test_auto_mode_selects_both_frameworks_in_monorepo,
+    test_auto_mode_returns_empty_selection_when_nothing_is_detected,
+    test_auto_mode_cannot_be_mixed_with_explicit_frameworks,
     test_duplicate_path_keeps_higher_score_with_framework_note,
     test_limit_and_truncation_metadata_are_correct,
     test_default_limit_is_bounded,
@@ -218,7 +326,9 @@ TESTS = [
     test_invalid_framework_raises_clear_error,
     test_empty_input_returns_valid_empty_selection,
     test_pipeline_does_not_read_or_stat_paths,
+    test_auto_mode_does_not_read_or_stat_paths,
     test_windows_paths_are_deterministic,
+    test_auto_mode_ordering_is_deterministic,
     test_generated_paths_are_excluded_by_underlying_selectors,
     test_test_file_behavior_matches_underlying_selectors,
 ]

@@ -12,9 +12,9 @@ A React starting-file selector now builds on inventory metadata and cheap candid
 
 An Angular starting-file selector applies the same bounded contract to component, template, style, service, guard, interceptor, route, module, pipe, and directive conventions. It uses filename suffixes, folders, shared frontend roles, and task text only. It does not read source content or connect related Angular files.
 
-A normalized frontend starting-file pipeline runs explicitly enabled React and Angular selectors over one materialized inventory. It merges their bounded results, deduplicates paths, retains the stronger framework score with an inspectable note, and returns selection metadata including frameworks considered, files considered, limit, and truncation state. It does not perform automatic framework detection.
+A normalized frontend starting-file pipeline runs explicitly enabled React and Angular selectors over one materialized inventory. It merges their bounded results, deduplicates paths, retains the stronger framework score with an inspectable note, and returns selection metadata including frameworks considered, files considered, limit, and truncation state. An `auto` mode resolves the enabled selectors through path-only framework detection; no detected framework produces an empty selection without fallback scanning.
 
-Frontend framework detection now identifies likely React and Angular repositories from inventory paths, conventional filenames, extensions, and configuration filenames. Evidence categories are counted once, reasons are capped, and confidence remains deterministic. The detector does not read `package.json` or any other file content and is not yet connected to automatic starting-file framework selection.
+Frontend framework detection now identifies likely React and Angular repositories from inventory paths, conventional filenames, extensions, and configuration filenames. Evidence categories are counted once, reasons are capped, and confidence remains deterministic. The detector does not read `package.json` or any other file content and is connected to starting-file selection only when callers explicitly request `auto` mode.
 
 Role inference is approximate by design. It uses normalized path segments, filenames, naming conventions, and extensions without reading file contents. Angular guards and resolvers are classified as services because they provide injectable application behavior; future route analysis may attach route relationships separately.
 
@@ -25,9 +25,10 @@ Role inference is approximate by design. It uses normalized path segments, filen
 3. Establish bounded Angular starting-file selection using explainable path and task signals.
 4. Normalize React and Angular starting-file results through a bounded frontend pipeline.
 5. Detect likely React and Angular frameworks from bounded inventory signals.
-6. Link React components, hooks, and API clients through lightweight evidence.
-7. Link Angular components with templates and styles, then add service, module, and route awareness.
-8. Extract frontend event bindings with explicit limits and inspectable evidence.
+6. Resolve starting-file selectors from detected frameworks when explicitly requested.
+7. Link React components, hooks, and API clients through lightweight evidence.
+8. Link Angular components with templates and styles, then add service, module, and route awareness.
+9. Extract frontend event bindings with explicit limits and inspectable evidence.
 
 Each milestone should remain independently testable and should introduce deeper analysis only when cheaper signals are insufficient.
 
@@ -42,7 +43,7 @@ Each milestone should remain independently testable and should introduce deeper 
 
 ## Deferred Capabilities
 
-This branch intentionally does not connect framework detection to automatic selector choice and does not add React or Angular component and template linking, hook or service linking, dependency injection analysis, import or route tracing, event binding extraction, content parsing, or framework graph construction. Beyond cheap candidate scoring, bounded starting-file selection, and path-only framework detection, it does not integrate frontend intelligence with scanners, CLI commands, context packs, caches, tracing, adapters, patch workflows, or the representation ladder.
+This branch intentionally does not enable automatic selector choice unless a caller requests `auto` mode and does not add React or Angular component and template linking, hook or service linking, dependency injection analysis, import or route tracing, event binding extraction, content parsing, or framework graph construction. Beyond cheap candidate scoring, bounded starting-file selection, and path-only framework detection, it does not integrate frontend intelligence with scanners, CLI commands, context packs, caches, tracing, adapters, patch workflows, or the representation ladder.
 
 ## Validation
 

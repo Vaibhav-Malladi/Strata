@@ -85,6 +85,7 @@ ANGULAR_STARTING_FILE_DEPENDENCIES = {
 }
 FRONTEND_STARTING_FILE_DEPENDENCIES = {
     "strata.core.angular_starting_files",
+    "strata.core.frontend_frameworks",
     "strata.core.inventory",
     "strata.core.react_starting_files",
 }

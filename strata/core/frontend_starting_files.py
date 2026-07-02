@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import Iterable
 
 from strata.core.angular_starting_files import select_angular_starting_files
+from strata.core.frontend_frameworks import detect_frontend_frameworks
 from strata.core.inventory import InventoryRecord
 from strata.core.react_starting_files import select_react_starting_files
 
@@ -39,8 +40,17 @@ def select_frontend_starting_files(
     """Select normalized frontend starting files without reading file contents."""
 
     _validate_limit(limit)
-    enabled_frameworks = _normalize_frameworks(frameworks)
+    requested_frameworks = _normalize_frameworks(frameworks)
     inventory = tuple(records)
+    if requested_frameworks == ("auto",):
+        detection = detect_frontend_frameworks(inventory)
+        enabled_frameworks = tuple(
+            framework
+            for framework in _SUPPORTED_FRAMEWORKS
+            if framework in detection.frameworks
+        )
+    else:
+        enabled_frameworks = requested_frameworks
     selector_limit = limit + 1
     selected: list[FrontendStartingFile] = []
 
@@ -143,10 +153,18 @@ def _with_framework_note(
 def _normalize_frameworks(frameworks: Iterable[str] | str) -> tuple[str, ...]:
     values = (frameworks,) if isinstance(frameworks, str) else tuple(frameworks)
     invalid = sorted(
-        {str(framework) for framework in values if framework not in _SUPPORTED_FRAMEWORKS}
+        {
+            str(framework)
+            for framework in values
+            if framework not in (*_SUPPORTED_FRAMEWORKS, "auto")
+        }
     )
     if invalid:
         raise ValueError(f"unsupported frontend framework(s): {', '.join(invalid)}")
+    if "auto" in values:
+        if any(framework != "auto" for framework in values):
+            raise ValueError("auto framework mode cannot be combined with explicit frameworks")
+        return ("auto",)
     enabled = set(values)
     return tuple(framework for framework in _SUPPORTED_FRAMEWORKS if framework in enabled)
 
