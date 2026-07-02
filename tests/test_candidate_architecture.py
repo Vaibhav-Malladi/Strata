@@ -1,6 +1,11 @@
 import ast
+import sys
 from pathlib import Path
 
+from strata.core.angular_starting_files import (
+    AngularStartingFile,
+    select_angular_starting_files,
+)
 from strata.core.candidate_pipeline import (
     CandidateAnalysis,
     CandidateAnalysisSummary,
@@ -27,11 +32,15 @@ from strata.core.react_starting_files import (
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+ANGULAR_STARTING_FILE_MODULE = (
+    PROJECT_ROOT / "strata" / "core" / "angular_starting_files.py"
+)
 CANDIDATE_MODULES = (
     PROJECT_ROOT / "strata" / "core" / "inventory.py",
     PROJECT_ROOT / "strata" / "core" / "candidates.py",
     PROJECT_ROOT / "strata" / "core" / "candidate_pipeline.py",
     PROJECT_ROOT / "strata" / "core" / "react_starting_files.py",
+    ANGULAR_STARTING_FILE_MODULE,
 )
 FORBIDDEN_IMPORTS = (
     "strata.adapters",
@@ -50,6 +59,11 @@ FORBIDDEN_ROOT_IMPORTS = {
     "parsers",
     "patch",
     "scanner",
+}
+ANGULAR_STARTING_FILE_DEPENDENCIES = {
+    "strata.core.candidates",
+    "strata.core.frontend_roles",
+    "strata.core.inventory",
 }
 
 
@@ -99,9 +113,25 @@ def test_candidate_foundation_public_api_imports_are_stable():
     assert CandidateAnalysisSummary.__module__ == "strata.core.candidate_pipeline"
     assert ReactStartingFile.__module__ == "strata.core.react_starting_files"
     assert callable(select_react_starting_files)
+    assert AngularStartingFile.__module__ == "strata.core.angular_starting_files"
+    assert callable(select_angular_starting_files)
+
+
+def test_angular_starting_files_use_only_intentional_dependencies():
+    violations = [
+        module
+        for module in _imported_modules(ANGULAR_STARTING_FILE_MODULE)
+        if module not in ANGULAR_STARTING_FILE_DEPENDENCIES
+        and module.split(".", 1)[0] not in sys.stdlib_module_names
+    ]
+
+    assert not violations, "Unexpected Angular starting-file imports: " + ", ".join(
+        violations
+    )
 
 
 TESTS = [
     test_candidate_core_modules_avoid_integration_and_parser_dependencies,
     test_candidate_foundation_public_api_imports_are_stable,
+    test_angular_starting_files_use_only_intentional_dependencies,
 ]
