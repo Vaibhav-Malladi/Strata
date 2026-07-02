@@ -3,8 +3,10 @@ from unittest.mock import patch
 
 from strata.core.frontend_starting_files import (
     DEFAULT_FRONTEND_STARTING_FILE_LIMIT,
+    FrontendStartingFile,
     FrontendStartingFileSelection,
     select_frontend_starting_files,
+    summarize_frontend_starting_files,
 )
 from strata.core.inventory import InventoryRecord
 
@@ -310,6 +312,137 @@ def test_test_file_behavior_matches_underlying_selectors():
     assert test_file.path in {item.path for item in testing.files}
 
 
+def _summary_selection() -> FrontendStartingFileSelection:
+    return FrontendStartingFileSelection(
+        files=(
+            FrontendStartingFile(
+                path="src/pages/LoginPage.tsx",
+                framework="react",
+                role="page",
+                score=20,
+                reasons=("first", "second", "third", "fourth"),
+                confidence="high",
+            ),
+            FrontendStartingFile(
+                path="src/app/login/login.component.html",
+                framework="angular",
+                role="template",
+                score=18,
+                reasons=("template", "login"),
+                confidence="high",
+            ),
+            FrontendStartingFile(
+                path="src/hooks/useLogin.ts",
+                framework="react",
+                role="hook",
+                score=12,
+                reasons=("hook",),
+                confidence="medium",
+            ),
+        ),
+        frameworks_considered=("react", "angular"),
+        files_considered=12,
+        limit=3,
+        truncated=True,
+    )
+
+
+def test_summary_preserves_selection_metadata_and_counts():
+    summary = summarize_frontend_starting_files(_summary_selection())
+
+    assert summary.frameworks_considered == ("react", "angular")
+    assert summary.files_considered == 12
+    assert summary.files_selected == 3
+    assert summary.limit == 3
+    assert summary.truncated is True
+
+
+def test_summary_caps_top_files_and_reasons():
+    summary = summarize_frontend_starting_files(
+        _summary_selection(),
+        top_n=2,
+        reasons_per_file=2,
+    )
+
+    assert len(summary.top_files) == 2
+    assert all(len(item.reasons) <= 2 for item in summary.top_files)
+    assert summary.top_files[0].reasons == ("first", "second")
+
+
+def test_summary_preserves_file_fields_and_selection_order():
+    selection = _summary_selection()
+    summary = summarize_frontend_starting_files(selection)
+
+    assert [item.path for item in summary.top_files] == [
+        item.path for item in selection.files
+    ]
+    assert (
+        summary.top_files[0].framework,
+        summary.top_files[0].role,
+        summary.top_files[0].score,
+    ) == ("react", "page", 20)
+
+
+def test_empty_selection_produces_valid_empty_summary():
+    selection = FrontendStartingFileSelection(
+        files=(),
+        frameworks_considered=(),
+        files_considered=0,
+        limit=20,
+        truncated=False,
+    )
+
+    summary = summarize_frontend_starting_files(selection)
+
+    assert summary.files_selected == 0
+    assert summary.top_files == ()
+    assert summary.frameworks_considered == ()
+
+
+def test_summary_rejects_invalid_top_n():
+    selection = _summary_selection()
+    for invalid in (0, -1, True, 1.5):
+        try:
+            summarize_frontend_starting_files(selection, top_n=invalid)
+        except (TypeError, ValueError) as error:
+            assert str(error) in {
+                "top_n must be an integer",
+                "top_n must be greater than zero",
+            }
+        else:
+            raise AssertionError(f"top_n {invalid!r} should be rejected")
+
+
+def test_summary_rejects_invalid_reasons_per_file():
+    selection = _summary_selection()
+    for invalid in (0, -1, True, 1.5):
+        try:
+            summarize_frontend_starting_files(
+                selection,
+                reasons_per_file=invalid,
+            )
+        except (TypeError, ValueError) as error:
+            assert str(error) in {
+                "reasons_per_file must be an integer",
+                "reasons_per_file must be greater than zero",
+            }
+        else:
+            raise AssertionError(f"reasons_per_file {invalid!r} should be rejected")
+
+
+def test_summary_does_not_read_or_stat_paths():
+    selection = _summary_selection()
+
+    with (
+        patch("builtins.open", side_effect=AssertionError("opened a path")),
+        patch.object(Path, "read_text", side_effect=AssertionError("read a path")),
+        patch.object(Path, "stat", side_effect=AssertionError("statted a path")),
+    ):
+        summary = summarize_frontend_starting_files(selection)
+
+    assert summary.top_files
+
+
 TESTS = [
     test_combined_selection_returns_react_and_angular_candidates,
     test_react_framework_filter_returns_only_react_results,
@@ -331,4 +464,11 @@ TESTS = [
     test_auto_mode_ordering_is_deterministic,
     test_generated_paths_are_excluded_by_underlying_selectors,
     test_test_file_behavior_matches_underlying_selectors,
+    test_summary_preserves_selection_metadata_and_counts,
+    test_summary_caps_top_files_and_reasons,
+    test_summary_preserves_file_fields_and_selection_order,
+    test_empty_selection_produces_valid_empty_summary,
+    test_summary_rejects_invalid_top_n,
+    test_summary_rejects_invalid_reasons_per_file,
+    test_summary_does_not_read_or_stat_paths,
 ]

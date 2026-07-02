@@ -31,6 +31,25 @@ class FrontendStartingFileSelection:
     truncated: bool
 
 
+@dataclass(frozen=True, slots=True)
+class FrontendStartingFileSummaryItem:
+    path: str
+    framework: str
+    role: str
+    score: int
+    reasons: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class FrontendStartingFileSummary:
+    frameworks_considered: tuple[str, ...]
+    files_considered: int
+    files_selected: int
+    limit: int
+    truncated: bool
+    top_files: tuple[FrontendStartingFileSummaryItem, ...]
+
+
 def select_frontend_starting_files(
     records: Iterable[InventoryRecord],
     task: str,
@@ -106,6 +125,35 @@ def select_frontend_starting_files(
     )
 
 
+def summarize_frontend_starting_files(
+    selection: FrontendStartingFileSelection,
+    top_n: int = 5,
+    reasons_per_file: int = 3,
+) -> FrontendStartingFileSummary:
+    """Build a bounded structured summary from an existing selection."""
+
+    _validate_positive_integer(top_n, "top_n")
+    _validate_positive_integer(reasons_per_file, "reasons_per_file")
+    top_files = tuple(
+        FrontendStartingFileSummaryItem(
+            path=item.path,
+            framework=item.framework,
+            role=item.role,
+            score=item.score,
+            reasons=item.reasons[:reasons_per_file],
+        )
+        for item in selection.files[:top_n]
+    )
+    return FrontendStartingFileSummary(
+        frameworks_considered=selection.frameworks_considered,
+        files_considered=selection.files_considered,
+        files_selected=len(selection.files),
+        limit=selection.limit,
+        truncated=selection.truncated,
+        top_files=top_files,
+    )
+
+
 def _deduplicate(files: Iterable[FrontendStartingFile]) -> list[FrontendStartingFile]:
     by_path: dict[str, FrontendStartingFile] = {}
     for item in files:
@@ -170,10 +218,14 @@ def _normalize_frameworks(frameworks: Iterable[str] | str) -> tuple[str, ...]:
 
 
 def _validate_limit(limit: int) -> None:
-    if isinstance(limit, bool) or not isinstance(limit, int):
-        raise TypeError("limit must be an integer")
-    if limit <= 0:
-        raise ValueError("limit must be greater than zero")
+    _validate_positive_integer(limit, "limit")
+
+
+def _validate_positive_integer(value: int, name: str) -> None:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise TypeError(f"{name} must be an integer")
+    if value <= 0:
+        raise ValueError(f"{name} must be greater than zero")
 
 
 def _path_key(path: str) -> str:

@@ -9,7 +9,10 @@ from strata.core.angular_starting_files import (
 from strata.core.frontend_starting_files import (
     FrontendStartingFile,
     FrontendStartingFileSelection,
+    FrontendStartingFileSummary,
+    FrontendStartingFileSummaryItem,
     select_frontend_starting_files,
+    summarize_frontend_starting_files,
 )
 from strata.core.frontend_frameworks import (
     FrontendFrameworkDetection,
@@ -145,6 +148,13 @@ def test_candidate_foundation_public_api_imports_are_stable():
         "strata.core.frontend_starting_files"
     )
     assert callable(select_frontend_starting_files)
+    assert FrontendStartingFileSummary.__module__ == (
+        "strata.core.frontend_starting_files"
+    )
+    assert FrontendStartingFileSummaryItem.__module__ == (
+        "strata.core.frontend_starting_files"
+    )
+    assert callable(summarize_frontend_starting_files)
     assert FrontendFrameworkSignal.__module__ == "strata.core.frontend_frameworks"
     assert FrontendFrameworkDetection.__module__ == "strata.core.frontend_frameworks"
     assert callable(detect_frontend_frameworks)

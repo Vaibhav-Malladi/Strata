@@ -14,6 +14,8 @@ An Angular starting-file selector applies the same bounded contract to component
 
 A normalized frontend starting-file pipeline runs explicitly enabled React and Angular selectors over one materialized inventory. It merges their bounded results, deduplicates paths, retains the stronger framework score with an inspectable note, and returns selection metadata including frameworks considered, files considered, limit, and truncation state. An `auto` mode resolves the enabled selectors through path-only framework detection; no detected framework produces an empty selection without fallback scanning.
 
+Structured starting-file summaries preserve resolved framework and selection metadata while exposing a configurable number of top files with capped reasons. Summary generation is a deterministic projection of an existing selection and performs no repository work.
+
 Frontend framework detection now identifies likely React and Angular repositories from inventory paths, conventional filenames, extensions, and configuration filenames. Evidence categories are counted once, reasons are capped, and confidence remains deterministic. The detector does not read `package.json` or any other file content and is connected to starting-file selection only when callers explicitly request `auto` mode.
 
 Role inference is approximate by design. It uses normalized path segments, filenames, naming conventions, and extensions without reading file contents. Angular guards and resolvers are classified as services because they provide injectable application behavior; future route analysis may attach route relationships separately.
@@ -26,9 +28,10 @@ Role inference is approximate by design. It uses normalized path segments, filen
 4. Normalize React and Angular starting-file results through a bounded frontend pipeline.
 5. Detect likely React and Angular frameworks from bounded inventory signals.
 6. Resolve starting-file selectors from detected frameworks when explicitly requested.
-7. Link React components, hooks, and API clients through lightweight evidence.
-8. Link Angular components with templates and styles, then add service, module, and route awareness.
-9. Extract frontend event bindings with explicit limits and inspectable evidence.
+7. Provide bounded structured reporting for frontend starting-file selections.
+8. Link React components, hooks, and API clients through lightweight evidence.
+9. Link Angular components with templates and styles, then add service, module, and route awareness.
+10. Extract frontend event bindings with explicit limits and inspectable evidence.
 
 Each milestone should remain independently testable and should introduce deeper analysis only when cheaper signals are insufficient.
 
