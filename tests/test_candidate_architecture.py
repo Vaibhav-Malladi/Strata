@@ -6,6 +6,11 @@ from strata.core.angular_starting_files import (
     AngularStartingFile,
     select_angular_starting_files,
 )
+from strata.core.frontend_starting_files import (
+    FrontendStartingFile,
+    FrontendStartingFileSelection,
+    select_frontend_starting_files,
+)
 from strata.core.candidate_pipeline import (
     CandidateAnalysis,
     CandidateAnalysisSummary,
@@ -35,12 +40,16 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ANGULAR_STARTING_FILE_MODULE = (
     PROJECT_ROOT / "strata" / "core" / "angular_starting_files.py"
 )
+FRONTEND_STARTING_FILE_MODULE = (
+    PROJECT_ROOT / "strata" / "core" / "frontend_starting_files.py"
+)
 CANDIDATE_MODULES = (
     PROJECT_ROOT / "strata" / "core" / "inventory.py",
     PROJECT_ROOT / "strata" / "core" / "candidates.py",
     PROJECT_ROOT / "strata" / "core" / "candidate_pipeline.py",
     PROJECT_ROOT / "strata" / "core" / "react_starting_files.py",
     ANGULAR_STARTING_FILE_MODULE,
+    FRONTEND_STARTING_FILE_MODULE,
 )
 FORBIDDEN_IMPORTS = (
     "strata.adapters",
@@ -64,6 +73,11 @@ ANGULAR_STARTING_FILE_DEPENDENCIES = {
     "strata.core.candidates",
     "strata.core.frontend_roles",
     "strata.core.inventory",
+}
+FRONTEND_STARTING_FILE_DEPENDENCIES = {
+    "strata.core.angular_starting_files",
+    "strata.core.inventory",
+    "strata.core.react_starting_files",
 }
 
 
@@ -115,6 +129,11 @@ def test_candidate_foundation_public_api_imports_are_stable():
     assert callable(select_react_starting_files)
     assert AngularStartingFile.__module__ == "strata.core.angular_starting_files"
     assert callable(select_angular_starting_files)
+    assert FrontendStartingFile.__module__ == "strata.core.frontend_starting_files"
+    assert FrontendStartingFileSelection.__module__ == (
+        "strata.core.frontend_starting_files"
+    )
+    assert callable(select_frontend_starting_files)
 
 
 def test_angular_starting_files_use_only_intentional_dependencies():
@@ -130,8 +149,22 @@ def test_angular_starting_files_use_only_intentional_dependencies():
     )
 
 
+def test_frontend_starting_files_use_only_intentional_dependencies():
+    violations = [
+        module
+        for module in _imported_modules(FRONTEND_STARTING_FILE_MODULE)
+        if module not in FRONTEND_STARTING_FILE_DEPENDENCIES
+        and module.split(".", 1)[0] not in sys.stdlib_module_names
+    ]
+
+    assert not violations, "Unexpected frontend starting-file imports: " + ", ".join(
+        violations
+    )
+
+
 TESTS = [
     test_candidate_core_modules_avoid_integration_and_parser_dependencies,
     test_candidate_foundation_public_api_imports_are_stable,
     test_angular_starting_files_use_only_intentional_dependencies,
+    test_frontend_starting_files_use_only_intentional_dependencies,
 ]

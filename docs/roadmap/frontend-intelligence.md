@@ -12,6 +12,8 @@ A React starting-file selector now builds on inventory metadata and cheap candid
 
 An Angular starting-file selector applies the same bounded contract to component, template, style, service, guard, interceptor, route, module, pipe, and directive conventions. It uses filename suffixes, folders, shared frontend roles, and task text only. It does not read source content or connect related Angular files.
 
+A normalized frontend starting-file pipeline runs explicitly enabled React and Angular selectors over one materialized inventory. It merges their bounded results, deduplicates paths, retains the stronger framework score with an inspectable note, and returns selection metadata including frameworks considered, files considered, limit, and truncation state. It does not perform automatic framework detection.
+
 Role inference is approximate by design. It uses normalized path segments, filenames, naming conventions, and extensions without reading file contents. Angular guards and resolvers are classified as services because they provide injectable application behavior; future route analysis may attach route relationships separately.
 
 ## Planned Milestones
@@ -19,9 +21,10 @@ Role inference is approximate by design. It uses normalized path segments, filen
 1. Establish path-derived React and Angular role detection.
 2. Establish bounded React starting-file selection using explainable path and task signals.
 3. Establish bounded Angular starting-file selection using explainable path and task signals.
-4. Link React components, hooks, and API clients through lightweight evidence.
-5. Link Angular components with templates and styles, then add service, module, and route awareness.
-6. Extract frontend event bindings with explicit limits and inspectable evidence.
+4. Normalize React and Angular starting-file results through a bounded frontend pipeline.
+5. Link React components, hooks, and API clients through lightweight evidence.
+6. Link Angular components with templates and styles, then add service, module, and route awareness.
+7. Extract frontend event bindings with explicit limits and inspectable evidence.
 
 Each milestone should remain independently testable and should introduce deeper analysis only when cheaper signals are insufficient.
 
@@ -36,14 +39,14 @@ Each milestone should remain independently testable and should introduce deeper 
 
 ## Deferred Capabilities
 
-This branch intentionally does not add React or Angular component and template linking, hook or service linking, dependency injection analysis, import or route tracing, event binding extraction, content parsing, or framework graph construction. Beyond cheap candidate scoring and bounded React and Angular starting-file selection, it does not integrate frontend roles with scanners, CLI commands, context packs, caches, tracing, adapters, patch workflows, or the representation ladder.
+This branch intentionally does not add automatic framework detection, React or Angular component and template linking, hook or service linking, dependency injection analysis, import or route tracing, event binding extraction, content parsing, or framework graph construction. Beyond cheap candidate scoring and bounded React, Angular, and normalized frontend starting-file selection, it does not integrate frontend roles with scanners, CLI commands, context packs, caches, tracing, adapters, patch workflows, or the representation ladder.
 
 ## Validation
 
-From the repository root, run the focused taxonomy, candidate, architecture, and starting-file tests:
+From the repository root, run the focused taxonomy, architecture, selector, and pipeline tests:
 
 ```powershell
-..\.codex-venv\Scripts\python.exe -c "from tests import test_angular_starting_files, test_candidate_architecture, test_candidates, test_frontend_roles, test_react_starting_files; [test() for module in (test_angular_starting_files, test_candidate_architecture, test_candidates, test_frontend_roles, test_react_starting_files) for test in module.TESTS]"
+..\.codex-venv\Scripts\python.exe -c "from tests import test_angular_starting_files, test_candidate_architecture, test_frontend_roles, test_frontend_starting_files, test_react_starting_files; [test() for module in (test_angular_starting_files, test_candidate_architecture, test_frontend_roles, test_frontend_starting_files, test_react_starting_files) for test in module.TESTS]"
 ```
 
 The focused suites are also registered with the project's custom test runner for later full validation.
