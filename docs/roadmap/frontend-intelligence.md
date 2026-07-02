@@ -6,7 +6,7 @@ Frontend intelligence will give Strata a bounded, explainable way to identify an
 
 ## Current Scope
 
-This branch establishes a dependency-light frontend role taxonomy and path-only helpers for identifying likely frontend candidates. The taxonomy includes pages, components, templates, styles, hooks, services, API clients, routes, state stores, forms, tests, configuration, assets, and unknown files.
+This branch establishes a dependency-light frontend role taxonomy and path-only helpers for identifying likely frontend candidates. The taxonomy includes pages, components, templates, styles, hooks, services, API clients, routes, state stores, forms, tests, configuration, assets, and unknown files. Recognized frontend roles are connected to candidate scoring as a cheap, bounded signal: direct task-role matches receive a stronger boost than broader frontend-task relevance, and every boost includes an inspectable reason.
 
 Role inference is approximate by design. It uses normalized path segments, filenames, naming conventions, and extensions without reading file contents. Angular guards and resolvers are classified as services because they provide injectable application behavior; future route analysis may attach route relationships separately.
 
@@ -31,14 +31,14 @@ Each milestone should remain independently testable and should introduce deeper 
 
 ## Deferred Capabilities
 
-This branch intentionally does not add React or Angular starting-file selection, component or template linking, route tracing, event binding extraction, content parsing, or framework graph construction. It also does not integrate frontend roles with scanners, CLI commands, context packs, candidate pipelines, caches, tracing, adapters, patch workflows, or the representation ladder.
+This branch intentionally does not add React or Angular starting-file selection, component or template linking, route tracing, event binding extraction, content parsing, or framework graph construction. Beyond cheap candidate scoring, it does not integrate frontend roles with scanners, CLI commands, context packs, caches, tracing, adapters, patch workflows, or the representation ladder.
 
 ## Validation
 
-From the repository root, run only the focused taxonomy tests for this change:
+From the repository root, run the focused taxonomy and candidate tests for this change:
 
 ```powershell
-..\.codex-venv\Scripts\python.exe -c "from tests import test_frontend_roles as module; [test() for test in module.TESTS]"
+..\.codex-venv\Scripts\python.exe -c "from tests import test_candidates, test_frontend_roles; [test() for module in (test_candidates, test_frontend_roles) for test in module.TESTS]"
 ```
 
 The taxonomy suite is also registered with the project's custom test runner for later full validation.
