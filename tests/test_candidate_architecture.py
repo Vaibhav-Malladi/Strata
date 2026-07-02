@@ -11,6 +11,11 @@ from strata.core.frontend_starting_files import (
     FrontendStartingFileSelection,
     select_frontend_starting_files,
 )
+from strata.core.frontend_frameworks import (
+    FrontendFrameworkDetection,
+    FrontendFrameworkSignal,
+    detect_frontend_frameworks,
+)
 from strata.core.candidate_pipeline import (
     CandidateAnalysis,
     CandidateAnalysisSummary,
@@ -43,6 +48,9 @@ ANGULAR_STARTING_FILE_MODULE = (
 FRONTEND_STARTING_FILE_MODULE = (
     PROJECT_ROOT / "strata" / "core" / "frontend_starting_files.py"
 )
+FRONTEND_FRAMEWORKS_MODULE = (
+    PROJECT_ROOT / "strata" / "core" / "frontend_frameworks.py"
+)
 CANDIDATE_MODULES = (
     PROJECT_ROOT / "strata" / "core" / "inventory.py",
     PROJECT_ROOT / "strata" / "core" / "candidates.py",
@@ -50,6 +58,7 @@ CANDIDATE_MODULES = (
     PROJECT_ROOT / "strata" / "core" / "react_starting_files.py",
     ANGULAR_STARTING_FILE_MODULE,
     FRONTEND_STARTING_FILE_MODULE,
+    FRONTEND_FRAMEWORKS_MODULE,
 )
 FORBIDDEN_IMPORTS = (
     "strata.adapters",
@@ -79,6 +88,7 @@ FRONTEND_STARTING_FILE_DEPENDENCIES = {
     "strata.core.inventory",
     "strata.core.react_starting_files",
 }
+FRONTEND_FRAMEWORK_DEPENDENCIES = {"strata.core.inventory"}
 
 
 def _imported_modules(path: Path) -> tuple[str, ...]:
@@ -134,6 +144,9 @@ def test_candidate_foundation_public_api_imports_are_stable():
         "strata.core.frontend_starting_files"
     )
     assert callable(select_frontend_starting_files)
+    assert FrontendFrameworkSignal.__module__ == "strata.core.frontend_frameworks"
+    assert FrontendFrameworkDetection.__module__ == "strata.core.frontend_frameworks"
+    assert callable(detect_frontend_frameworks)
 
 
 def test_angular_starting_files_use_only_intentional_dependencies():
@@ -162,9 +175,23 @@ def test_frontend_starting_files_use_only_intentional_dependencies():
     )
 
 
+def test_frontend_frameworks_use_only_intentional_dependencies():
+    violations = [
+        module
+        for module in _imported_modules(FRONTEND_FRAMEWORKS_MODULE)
+        if module not in FRONTEND_FRAMEWORK_DEPENDENCIES
+        and module.split(".", 1)[0] not in sys.stdlib_module_names
+    ]
+
+    assert not violations, "Unexpected frontend framework imports: " + ", ".join(
+        violations
+    )
+
+
 TESTS = [
     test_candidate_core_modules_avoid_integration_and_parser_dependencies,
     test_candidate_foundation_public_api_imports_are_stable,
     test_angular_starting_files_use_only_intentional_dependencies,
     test_frontend_starting_files_use_only_intentional_dependencies,
+    test_frontend_frameworks_use_only_intentional_dependencies,
 ]

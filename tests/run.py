@@ -110,6 +110,7 @@ from tests import test_frontend_roles
 from tests import test_react_starting_files
 from tests import test_angular_starting_files
 from tests import test_frontend_starting_files
+from tests import test_frontend_frameworks
 from ui import get_console, is_rich_enabled, print_command_header, print_success
 
 
@@ -205,6 +206,7 @@ TEST_MODULES = [
     test_react_starting_files,
     test_angular_starting_files,
     test_frontend_starting_files,
+    test_frontend_frameworks,
 ]
 
 
