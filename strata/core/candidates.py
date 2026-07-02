@@ -2,6 +2,7 @@ import re
 from dataclasses import dataclass
 from typing import Iterable
 
+from strata.core.frontend_roles import infer_frontend_role_from_path
 from strata.core.inventory import InventoryRecord
 
 
@@ -57,6 +58,52 @@ _ROLE_WORDS = {
 
 _TEST_TASK_WORDS = {"spec", "specs", "test", "testing", "tests"}
 
+_FRONTEND_TASK_WORDS = {
+    "api",
+    "button",
+    "client",
+    "component",
+    "css",
+    "form",
+    "forms",
+    "frontend",
+    "hook",
+    "hooks",
+    "html",
+    "markup",
+    "page",
+    "reducer",
+    "route",
+    "router",
+    "routes",
+    "routing",
+    "screen",
+    "service",
+    "services",
+    "state",
+    "store",
+    "stores",
+    "style",
+    "styles",
+    "scss",
+    "template",
+    "ui",
+    "view",
+}
+
+_FRONTEND_ROLE_TASK_WORDS = {
+    "page": {"page", "screen", "view"},
+    "component": {"component"},
+    "template": {"html", "markup", "template"},
+    "style": {"css", "scss", "style", "styles"},
+    "hook": {"hook", "hooks"},
+    "service": {"service", "services"},
+    "api_client": {"api", "client"},
+    "route": {"route", "router", "routes", "routing"},
+    "state_store": {"reducer", "state", "store", "stores"},
+    "form": {"form", "forms"},
+}
+
 _LANGUAGE_ALIASES = {
     "csharp": {"csharp", "cs"},
     "cpp": {"cpp"},
@@ -73,6 +120,8 @@ _FILENAME_MATCH_SCORE = 6
 _FOLDER_MATCH_SCORE = 3
 _ROLE_MATCH_SCORE = 2
 _ROLE_SIGNAL_SCORE = 1
+_FRONTEND_TASK_SCORE = 2
+_FRONTEND_ROLE_MATCH_SCORE = 4
 _FOLDER_ROLE_MATCH_SCORE = 3
 _SOURCE_FOLDER_SCORE = 1
 _LANGUAGE_MATCH_SCORE = 2
@@ -174,6 +223,22 @@ def score_candidate(record: InventoryRecord, task: str) -> CandidateScore:
         else:
             score += _ROLE_SIGNAL_SCORE
             reasons.append(f"path role signal '{role}' (+{_ROLE_SIGNAL_SCORE})")
+
+    frontend_role = "unknown"
+    frontend_role_words = None
+    if task_tokens & _FRONTEND_TASK_WORDS:
+        frontend_role = infer_frontend_role_from_path(record.path)
+        frontend_role_words = _FRONTEND_ROLE_TASK_WORDS.get(frontend_role)
+    if frontend_role_words and task_tokens & frontend_role_words:
+        score += _FRONTEND_ROLE_MATCH_SCORE
+        reasons.append(
+            f"frontend role '{frontend_role}' matches task (+{_FRONTEND_ROLE_MATCH_SCORE})"
+        )
+    elif frontend_role_words and task_tokens & _FRONTEND_TASK_WORDS:
+        score += _FRONTEND_TASK_SCORE
+        reasons.append(
+            f"frontend role '{frontend_role}' is relevant to task (+{_FRONTEND_TASK_SCORE})"
+        )
 
     if record.folder_role in task_tokens and record.folder_role != "test":
         score += _FOLDER_ROLE_MATCH_SCORE

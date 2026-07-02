@@ -139,10 +139,86 @@ def test_language_and_extension_relevance_are_transparent():
     assert "extension '.tsx' matches task (+2)" in result.reasons
 
 
+def test_frontend_roles_add_bounded_task_match_reasons():
+    cases = {
+        "src/pages/DashboardPage.tsx": ("change dashboard page", "page"),
+        "src/components/Nav.tsx": ("update component", "component"),
+        "src/auth/auth.service.ts": ("update auth service", "service"),
+        "src/hooks/useAuth.ts": ("change auth hook", "hook"),
+        "src/api/authClient.ts": ("update auth api", "api_client"),
+        "src/routes/AppRoutes.tsx": ("change app route", "route"),
+        "src/store/userStore.ts": ("update user store", "state_store"),
+        "src/forms/Login.tsx": ("update login form", "form"),
+        "src/app/card/card.component.scss": ("update component style", "style"),
+        "src/app/card/card.component.html": ("update card template", "template"),
+    }
+
+    for path, (task, role) in cases.items():
+        result = score_candidate(_record(path), task)
+        assert f"frontend role '{role}' matches task (+4)" in result.reasons
+
+
+def test_ui_button_task_favors_recognized_frontend_role():
+    frontend = _record(
+        "src/app/login/login.component.html",
+        language="html",
+        extension=".html",
+    )
+    backend = _record(
+        "backend/models/login.py",
+        folder_role="other",
+        language="python",
+        extension=".py",
+    )
+
+    ranked = rank_candidates([backend, frontend], "fix login button")
+
+    assert ranked[0].path == frontend.path
+    assert "frontend role 'template' is relevant to task (+2)" in ranked[0].reasons
+
+
+def test_frontend_role_boost_does_not_overcome_generated_demotion():
+    source = _record("src/components/Button.tsx", extension=".tsx")
+    generated = _record(
+        "dist/components/Button.tsx",
+        folder_role="generated",
+        extension=".tsx",
+        is_generated=True,
+    )
+
+    ranked = rank_candidates_by_value([generated, source], "update button component")
+
+    assert ranked[0].path == source.path
+    assert ranked[1].value_score < ranked[0].value_score
+    assert "generated or vendor path (-100)" in ranked[1].reasons
+
+
+def test_frontend_integration_preserves_test_task_behavior():
+    implementation = _record("src/components/Checkout.tsx", extension=".tsx")
+    test_file = _record(
+        "src/components/Checkout.spec.tsx",
+        folder_role="test",
+        extension=".tsx",
+        is_test=True,
+    )
+
+    implementation_ranked = rank_candidates(
+        [test_file, implementation],
+        "update checkout component",
+    )
+    test_ranked = rank_candidates([implementation, test_file], "test checkout component")
+
+    assert implementation_ranked[0].path == implementation.path
+    assert "test file for implementation task (-12)" in implementation_ranked[1].reasons
+    assert test_ranked[0].path == test_file.path
+    assert "task asks for tests (+8)" in test_ranked[0].reasons
+
+
 def test_scoring_does_not_stat_or_open_inventory_paths():
     record = _record("missing/auth_service.ts")
 
     with (
+        patch("builtins.open", side_effect=AssertionError("opened candidate")),
         patch.object(Path, "open", side_effect=AssertionError("opened candidate")),
         patch.object(Path, "stat", side_effect=AssertionError("statted candidate")),
     ):
@@ -528,6 +604,10 @@ TESTS = [
     test_test_files_are_demoted_for_implementation_tasks,
     test_test_files_are_boosted_when_task_asks_for_tests,
     test_language_and_extension_relevance_are_transparent,
+    test_frontend_roles_add_bounded_task_match_reasons,
+    test_ui_button_task_favors_recognized_frontend_role,
+    test_frontend_role_boost_does_not_overcome_generated_demotion,
+    test_frontend_integration_preserves_test_task_behavior,
     test_scoring_does_not_stat_or_open_inventory_paths,
     test_task_normalization_removes_stopwords_and_duplicates,
     test_shortlist_returns_highest_scores_first_and_preserves_reasons,
