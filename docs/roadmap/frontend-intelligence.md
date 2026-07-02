@@ -1,63 +1,87 @@
-# Frontend Intelligence Documentation and Role Taxonomy
+# Frontend Intelligence Foundation
 
 ## Goal
 
-Frontend intelligence will give Strata a bounded, explainable way to identify and connect useful React and Angular evidence. Every analysis step must earn its cost, with cheap path-derived signals preceding any future content-aware work.
+The frontend intelligence foundation gives Strata a bounded, deterministic, and explainable way to identify likely React and Angular evidence before any deeper analysis. Every analysis step must earn its cost, so inexpensive inventory and path signals precede future content-aware work.
 
-## Current Scope
+## Final Scope
 
-This branch establishes a dependency-light frontend role taxonomy and path-only helpers for identifying likely frontend candidates. The taxonomy includes pages, components, templates, styles, hooks, services, API clients, routes, state stores, forms, tests, configuration, assets, and unknown files. Recognized frontend roles are connected to candidate scoring as a cheap, bounded signal: direct task-role matches receive a stronger boost than broader frontend-task relevance, and every boost includes an inspectable reason.
+This branch delivers a dependency-light core foundation for frontend role inference, candidate relevance, framework detection, framework-specific starting-file selection, normalized selection, automatic framework resolution, and structured reporting. All behavior is driven by existing inventory metadata, paths, filenames, extensions, folder conventions, configuration filenames, and task text.
 
-A React starting-file selector now builds on inventory metadata and cheap candidate scores. It returns a deterministic, bounded set of likely task entry points with roles, scores, confidence labels, and inspectable reasons. Generated and vendor records are excluded, while tests are eligible only when the task explicitly requests tests. Selection remains path-only and does not trace relationships between files.
+The foundation supports React and Angular independently and together in monorepos. Its classifications and confidence labels are intentionally approximate and retain inspectable reasons.
 
-An Angular starting-file selector applies the same bounded contract to component, template, style, service, guard, interceptor, route, module, pipe, and directive conventions. It uses filename suffixes, folders, shared frontend roles, and task text only. It does not read source content or connect related Angular files.
+## Architecture
 
-A normalized frontend starting-file pipeline runs explicitly enabled React and Angular selectors over one materialized inventory. It merges their bounded results, deduplicates paths, retains the stronger framework score with an inspectable note, and returns selection metadata including frameworks considered, files considered, limit, and truncation state. An `auto` mode resolves the enabled selectors through path-only framework detection; no detected framework produces an empty selection without fallback scanning.
+### Role Taxonomy
 
-Structured starting-file summaries preserve resolved framework and selection metadata while exposing a configurable number of top files with capped reasons. Summary generation is a deterministic projection of an existing selection and performs no repository work.
+The shared role taxonomy classifies likely pages, components, templates, styles, hooks, services, API clients, routes, state stores, forms, tests, configuration files, assets, and unknown files. Inference uses normalized path, filename, and extension conventions only.
 
-Frontend framework detection now identifies likely React and Angular repositories from inventory paths, conventional filenames, extensions, and configuration filenames. Evidence categories are counted once, reasons are capped, and confidence remains deterministic. The detector does not read `package.json` or any other file content and is connected to starting-file selection only when callers explicitly request `auto` mode.
+### Candidate Role Signals
 
-Role inference is approximate by design. It uses normalized path segments, filenames, naming conventions, and extensions without reading file contents. Angular guards and resolvers are classified as services because they provide injectable application behavior; future route analysis may attach route relationships separately.
+Candidate scoring incorporates bounded frontend role signals when task vocabulary makes them relevant. Direct task-role matches receive a stronger boost than general frontend relevance. Existing generated, vendor, and test behavior remains authoritative, and each contribution is recorded as a human-readable reason.
 
-## Planned Milestones
+### React Starting-File Selection
 
-1. Establish path-derived React and Angular role detection.
-2. Establish bounded React starting-file selection using explainable path and task signals.
-3. Establish bounded Angular starting-file selection using explainable path and task signals.
-4. Normalize React and Angular starting-file results through a bounded frontend pipeline.
-5. Detect likely React and Angular frameworks from bounded inventory signals.
-6. Resolve starting-file selectors from detected frameworks when explicitly requested.
-7. Provide bounded structured reporting for frontend starting-file selections.
-8. Link React components, hooks, and API clients through lightweight evidence.
-9. Link Angular components with templates and styles, then add service, module, and route awareness.
-10. Extract frontend event bindings with explicit limits and inspectable evidence.
+React selection ranks JavaScript and TypeScript candidates using existing candidate scores, React-oriented extensions, inferred roles, folder conventions, filenames, and task terms. Results are capped, deterministically ordered, and include roles, scores, confidence labels, and reasons. Generated and vendor paths are excluded; tests are eligible only for test-oriented tasks.
 
-Each milestone should remain independently testable and should introduce deeper analysis only when cheaper signals are insufficient.
+### Angular Starting-File Selection
 
-## Safety Constraints
+Angular selection recognizes component, template, style, service, guard, interceptor, route, module, pipe, and directive conventions. It combines these filename patterns with shared roles, Angular-oriented folders, extensions, candidate scores, and task terms. It applies the same bounded, deterministic, generated-file, and test-file contracts as React selection.
 
-- Role taxonomy helpers use path, filename, and extension signals only.
-- Taxonomy inference does not open, read, or stat files.
-- The foundation does not require a TypeScript compiler API, language server, parser stack, AST dependency, or other heavy dependency.
-- Heuristics are deterministic, approximate, and clearly described as path-derived.
-- Future analysis must be lazy, bounded, explainable, and dependency-light.
-- Framework-specific work must preserve core-layer dependency direction and avoid implicit integration side effects.
+### Frontend Framework Detection
+
+Framework detection identifies likely React and Angular repositories from inventory paths and configuration filenames. Evidence categories are counted once to prevent repository size from inflating confidence, reporting reasons are capped, and React and Angular may both be detected. Strong configuration names outweigh generic extension signals.
+
+### Normalized Starting-File Pipeline
+
+The normalized pipeline materializes an inventory once, runs explicitly enabled selectors, merges results, deduplicates paths, and retains the stronger framework score with an inspectable note. The result reports resolved frameworks, files considered, selected files, the applied limit, and truncation state.
+
+### Automatic Framework Mode
+
+When callers explicitly request `auto` mode, the pipeline uses framework detection and runs only the resolved selectors. A repository with no detected framework returns a valid empty selection. Mixing `auto` with explicit framework names is rejected to keep semantics unambiguous.
+
+### Summary and Reporting
+
+Structured summaries preserve framework, count, limit, and truncation metadata while exposing configurable caps for top files and reasons per file. Summary generation is a pure projection of an existing selection and does not rescore or reorder files.
+
+## Safety Guarantees
+
+- Frontend intelligence uses path, filename, extension, folder, inventory, configuration-name, and task-text signals only.
+- Role inference, framework detection, selectors, normalized pipelines, and summaries do not open, read, or stat repository paths.
+- The foundation does not parse `package.json` or any other file content.
+- No TypeScript compiler API, language server, AST stack, parser module, or heavy dependency is required.
+- Selection limits and summary caps must be positive integers and are validated before work proceeds.
+- Ordering and tie-breaking are deterministic, including Windows-style path handling.
+- Generated, vendor, build, and minified files are demoted by candidate scoring or excluded by starting-file selectors.
+- Test and specification files are excluded from ordinary starting-file selection and become eligible only for test-oriented tasks.
+- Empty inventories and inventories without detected frameworks produce valid empty results.
+- Frontend core modules remain isolated from CLI, scanner, context-pack, adapter, patch, cache, and tracing layers.
 
 ## Deferred Capabilities
 
-This branch intentionally does not enable automatic selector choice unless a caller requests `auto` mode and does not add React or Angular component and template linking, hook or service linking, dependency injection analysis, import or route tracing, event binding extraction, content parsing, or framework graph construction. Beyond cheap candidate scoring, bounded starting-file selection, and path-only framework detection, it does not integrate frontend intelligence with scanners, CLI commands, context packs, caches, tracing, adapters, patch workflows, or the representation ladder.
+This branch intentionally does not provide CLI or context-pack integration, React component and hook linking, Angular component-template-style linking, event binding extraction, import tracing, route tracing, dependency injection analysis, the representation ladder, persistent caching, parser integration, or backend analysis.
 
 ## Validation
 
-From the repository root, run the focused taxonomy, framework, architecture, and pipeline tests:
+From the repository root, run:
 
 ```powershell
-..\.codex-venv\Scripts\python.exe -c "from tests import test_candidate_architecture, test_frontend_frameworks, test_frontend_roles, test_frontend_starting_files; [test() for module in (test_candidate_architecture, test_frontend_frameworks, test_frontend_roles, test_frontend_starting_files) for test in module.TESTS]"
+py tests.py
+py tests\run.py
+strata gate
 ```
 
-The focused suites are also registered with the project's custom test runner for later full validation.
+The frontend role, framework, selector, pipeline, summary, and architecture contract suites are registered with the project test runner.
 
-## Risks and Follow-Ups
+## Follow-Up Milestones
 
-Path-derived conventions can misclassify unconventional repositories and cannot prove framework semantics. Future milestones should retain `unknown` as a safe outcome, attach reasons to richer classifications, measure false positives against representative React and Angular layouts, and define strict work budgets before reading content. Framework linking will require explicit precedence rules for barrel exports, aliases, generated files, colocated tests, Angular standalone components, and route-level lazy loading.
+1. Add bounded React component, hook, API-client, and state relationships with explicit evidence and work budgets.
+2. Add bounded Angular component-template-style and service relationships without introducing mandatory compiler dependencies.
+3. Add frontend event binding extraction with deterministic caps and source attribution.
+4. Add import and route tracing only where cheaper signals cannot answer the task.
+5. Evaluate supported CLI and context-pack presentation after core contracts and output formats stabilize.
+6. Introduce caching or richer representations only when measured reuse justifies their cost.
+
+## Risks
+
+Path-derived conventions can misclassify unconventional repositories and cannot prove framework semantics. Future work should preserve `unknown` as a safe outcome, measure false positives against representative repositories, retain explicit content-read boundaries, and keep every deeper analysis step bounded and explainable.
