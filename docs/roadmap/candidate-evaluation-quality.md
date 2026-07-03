@@ -100,3 +100,34 @@ All fixture content is synthetic and authored for local tests. These are not
 clones, samples, or benchmark results from real GitHub repositories. G3 adds no
 quality metrics, baseline reports, candidate scoring, probing, or runtime
 candidate-selection integration.
+
+## G4: Candidate Quality Metrics
+
+G4 grades an ordered candidate list against one G1 evaluation task. Paths are
+normalized to relative forward-slash form, duplicate paths are removed while
+preserving their first position, and K is applied after deduplication.
+
+The metrics are:
+
+- `critical_recall_at_k`: critical files selected in the first K divided by all
+  expected critical files.
+- `useful_coverage_at_k`: useful files selected in the first K divided by all
+  expected useful files.
+- `distractor_rate_at_k`: distractors selected in the first K divided by the
+  number of unique candidates actually evaluated, up to K.
+- `missed_critical_count`: expected critical files absent from the first K.
+- `context_waste_at_k`: distractor, irrelevant, and unclassified paths in the
+  first K divided by the number of unique candidates actually evaluated.
+
+Using the evaluated selection count as the rate denominator means a selector
+that returns fewer than K files is measured on what it actually supplied.
+Unknown paths are deterministic waste because they consume context without an
+answer-key value. An empty critical or useful tier has coverage `1.0` because
+nothing required from that tier was missed; a rate with no evaluated candidates
+is `0.0`.
+
+Critical recall is prioritized over plain precision because omitting a file
+required to perform the task can make the context unusable even when every file
+that was selected looks relevant. Waste and distractor rates remain visible as
+the counterweight to indiscriminately selecting more files. G4 does not run the
+candidate engine or create baseline reports.
