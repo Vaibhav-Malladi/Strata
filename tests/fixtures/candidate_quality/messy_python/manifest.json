@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "tasks": [
+    {
+      "id": "python-auth-token-refresh",
+      "task": "Fix expired token refresh in the authentication API service",
+      "fixture_path": "repo",
+      "tags": {
+        "stacks": ["backend"],
+        "languages": ["python"],
+        "frameworks": []
+      },
+      "expected_files": {
+        "critical": [
+          {
+            "path": "app/auth/service.py",
+            "note": "Implements token refresh."
+          },
+          {"path": "app/auth/api.py"}
+        ],
+        "useful": [
+          {"path": "app/auth/helpers.py"},
+          {"path": "app/auth/models.py"}
+        ],
+        "distractor": [
+          {"path": "app/billing/service.py"},
+          {"path": "app/utils.py"}
+        ],
+        "irrelevant": [
+          {"path": "scripts/cleanup.py"}
+        ]
+      }
+    }
+  ]
+}

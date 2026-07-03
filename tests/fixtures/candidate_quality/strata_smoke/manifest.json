@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "tasks": [
+    {
+      "id": "strata-candidate-truncation",
+      "task": "Fix candidate analysis so inventory truncation is reported correctly",
+      "fixture_path": "repo",
+      "tags": {
+        "stacks": ["repository-intelligence"],
+        "languages": ["python"],
+        "frameworks": []
+      },
+      "expected_files": {
+        "critical": [
+          {
+            "path": "strata/core/candidate_pipeline.py",
+            "note": "Owns candidate analysis and truncation metadata."
+          }
+        ],
+        "useful": [
+          {
+            "path": "strata/core/inventory.py",
+            "note": "Defines the bounded inventory input."
+          },
+          {"path": "strata/core/candidates.py"}
+        ],
+        "distractor": [
+          {"path": "strata/core/context_pack.py"}
+        ],
+        "irrelevant": [
+          {"path": "strata/cli.py"}
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "tasks": [
+    {
+      "id": "angular-order-refresh",
+      "task": "Fix the orders screen so refreshing reloads order rows",
+      "fixture_path": "repo",
+      "tags": {
+        "stacks": ["frontend"],
+        "languages": ["typescript"],
+        "frameworks": ["angular"]
+      },
+      "expected_files": {
+        "critical": [
+          {
+            "path": "src/app/orders/service.ts",
+            "note": "Loads refreshed order data."
+          }
+        ],
+        "useful": [
+          {"path": "src/app/orders/orders.component.ts"},
+          {"path": "src/app/orders/orders.component.html"}
+        ],
+        "distractor": [
+          {"path": "src/app/users/service.ts"},
+          {"path": "src/app/shared/utils.ts"}
+        ],
+        "irrelevant": [
+          {"path": "src/app/app.component.ts"}
+        ]
+      }
+    }
+  ]
+}

@@ -81,3 +81,22 @@ skipped items and add metrics without modifying the original report.
 `elapsed_milliseconds(start_ns, end_ns)` converts monotonic nanosecond readings
 to milliseconds. G2 does not calculate candidate-quality metrics or connect
 reports to candidate selection; those integrations remain later milestones.
+
+## G3: Fixture Set Foundation
+
+G3 provides five tiny deterministic fixture repositories under
+`tests/fixtures/candidate_quality`: `strata_smoke`, `messy_python`,
+`messy_react`, `messy_angular`, and `external_style_small`. Each fixture keeps
+its G1 manifest separate from its `repo/` inventory root and includes one task
+with critical, useful, distractor, and irrelevant expected files.
+
+The fixtures cover Python, React, Angular, Strata-shaped repository
+intelligence, and a small external-style library layout. They deliberately
+include generic filenames such as `index.ts`, `helpers.py`, `utils.ts`,
+`service.ts`, and `api.ts` to exercise ambiguous candidate names in later
+milestones.
+
+All fixture content is synthetic and authored for local tests. These are not
+clones, samples, or benchmark results from real GitHub repositories. G3 adds no
+quality metrics, baseline reports, candidate scoring, probing, or runtime
+candidate-selection integration.
