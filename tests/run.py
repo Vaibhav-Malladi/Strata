@@ -110,6 +110,7 @@ from tests import test_stage_report
 from tests import test_candidate_quality_fixtures
 from tests import test_candidate_quality_metrics
 from tests import test_candidate_baseline_report
+from tests import test_probe_pool
 from tests import test_candidate_architecture
 from tests import test_frontend_roles
 from tests import test_react_starting_files
@@ -211,6 +212,7 @@ TEST_MODULES = [
     test_candidate_quality_fixtures,
     test_candidate_quality_metrics,
     test_candidate_baseline_report,
+    test_probe_pool,
     test_candidate_architecture,
     test_frontend_roles,
     test_react_starting_files,

@@ -154,3 +154,27 @@ when observational elapsed time is wanted.
 This report is the pre-improvement measurement of the current engine. It does
 not change ranking, scoring, frontend signals, inventory behavior, or selection
 limits, and it does not implement probes or baseline comparisons.
+
+## G6: Mixed Probe Pool Design
+
+G6 builds a deterministic, metadata-only pool for later probing. The obvious
+lane accepts ranked paths from the unchanged current engine. The independent
+rescue lane examines inventory paths for framework and configuration anchors,
+files adjacent to those anchors, task-matching folder segments, task-relevant
+roles, generic structural filenames, and recognizable source-directory shapes.
+It never consults the current candidate score.
+
+Each entry records its path, ordered sources and reasons, obvious and rescue
+rank hints, and lane-membership flags. A path found by both lanes appears once
+with merged provenance. Confidence is intentionally absent: structural rank
+hints organize the pool but are not additive relevance scores.
+
+The initial policy caps the combined pool at 40 entries, with at most 20 obvious
+and 20 rescue candidates and at most 5 entries per directory. Obvious entries
+retain engine order; rescue entries use fixed structural priority followed by a
+lexical path tie-breaker. These values are bounded starting points rather than
+permanent quality thresholds.
+
+Pool construction consumes existing `InventoryRecord` metadata and relative
+paths only. It does not open, read, or stat files, and it does not perform
+content probing, change candidate selection, or compare against the baseline.
