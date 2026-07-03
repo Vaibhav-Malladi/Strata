@@ -232,3 +232,35 @@ normalized relevance value and remains metadata only. The aggregate G2
 `StageReport` records elapsed milliseconds, total bytes read, paths inspected,
 warnings, skipped items, result counts, and average probe relevance. Timing is
 zero by default for reproducible output and may use an injected monotonic clock.
+
+## G9: Probe vs Baseline Evaluation
+
+G9 compares three library-only strategies across every G3 task:
+
+- `baseline`: the unchanged current engine output measured by G5.
+- `mixed_pool`: G6 obvious and rescue ordering without content reads.
+- `mixed_pool_probe`: the same pool ranked with G7 after the bounded G8 probe.
+
+The probe strategy maps existing evidence into normalized G7 components. Cheap
+relevance decays from obvious-lane rank, structural relevance is the fraction
+of six rescue signal types present, probe relevance comes directly from G8, and
+normalized cost is bytes read divided by the per-file byte cap. Confidence is
+passed through as metadata and has no effect on the score or tie-breaking.
+
+Every task-strategy row reports ranked paths at K, all five G4 quality metrics,
+notes relative to baseline, and a G2 stage report containing elapsed time,
+bytes read, files touched, warnings, and skipped items. Aggregate summaries
+report average critical recall, total missed critical files, average useful
+coverage, average distractor rate, average context waste, total bytes read, and
+total files touched for each strategy.
+
+The probe-cost assessment compares `mixed_pool_probe` with `mixed_pool`, which
+isolates incremental read cost. The probe earns its cost when it improves
+critical recall or reduces missed critical files, or when critical performance
+is unchanged and useful coverage improves without increasing context waste.
+The raw quality and cost values remain authoritative even when that initial rule
+returns false.
+
+G9 is evidence gathering only. It does not change product candidate ranking,
+selection, CLI behavior, or workflow behavior, and it does not add deeper
+tracing, representations, or model calls.
