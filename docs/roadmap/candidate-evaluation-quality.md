@@ -207,3 +207,28 @@ metadata only: it is neither a score component nor a sorting boost. Results sort
 by descending final score with normalized path and component tie-breakers and
 convert directly to stable JSON-ready dictionaries. G7 performs no probing,
 filesystem access, candidate selection, or baseline comparison.
+
+## G8: Bounded Content Probe
+
+G8 reads one bounded leading content window from each eligible mixed-pool file
+and returns normalized `probe_relevance` for the G7 contract. The window may
+surface task terms, import/export declarations, class or function signatures,
+top comments, route markers, and obvious framework declarations. It does not
+parse full files, trace imports, call models, or rerank product candidates.
+
+The experimental default policy allows at most 20 open attempts, 4 KiB per
+file, 32 KiB total, and files no larger than 256 KiB. All caps are explicit and
+validated. Paths are normalized and prevalidated before any read, resolved
+inside the supplied root, and read once in binary mode with a bounded size.
+
+Missing, oversized, non-regular, outside-root, unreadable, binary, and non-UTF-8
+files produce deterministic skipped results with zero relevance. Binary and
+non-UTF-8 windows still count bytes already read. Paths after the file or total
+byte cap are marked skipped without filesystem access.
+
+Each result records path, relevance, evidence, lightweight signals, confidence,
+bytes read, and an optional skipped reason. Confidence is derived after the
+normalized relevance value and remains metadata only. The aggregate G2
+`StageReport` records elapsed milliseconds, total bytes read, paths inspected,
+warnings, skipped items, result counts, and average probe relevance. Timing is
+zero by default for reproducible output and may use an injected monotonic clock.
