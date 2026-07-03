@@ -131,3 +131,26 @@ required to perform the task can make the context unusable even when every file
 that was selected looks relevant. Waste and distractor rates remain visible as
 the counterweight to indiscriminately selecting more files. G4 does not run the
 candidate engine or create baseline reports.
+
+## G5: Current Engine Baseline Report
+
+G5 runs the existing `analyze_candidates_for_task` pipeline unchanged for every
+G3 manifest task, using the manifest task text and fixture `repo/` as inputs.
+The selected paths retain engine rank order and are graded at configurable K by
+the G4 metrics.
+
+Each task report contains the fixture name, task ID and text, K, selected paths,
+metrics, and a G2 `StageReport`. The stage records files considered, truncation,
+ranked outputs, metrics, warnings, elapsed milliseconds, bytes read, and files
+touched. `bytes_read` is zero because the current candidate pipeline inventories
+paths and metadata without opening content; `files_touched` is the number of
+inventory records materialized.
+
+Aggregate output has a fixed report version and engine name followed by all
+task reports in sorted fixture and manifest task order. Timing defaults to zero
+for reproducible baseline JSON; callers may provide a monotonic nanosecond clock
+when observational elapsed time is wanted.
+
+This report is the pre-improvement measurement of the current engine. It does
+not change ranking, scoring, frontend signals, inventory behavior, or selection
+limits, and it does not implement probes or baseline comparisons.
