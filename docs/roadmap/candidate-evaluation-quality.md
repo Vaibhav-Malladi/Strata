@@ -63,3 +63,21 @@ Use `load_candidate_evaluation_manifest(path)` to load UTF-8 JSON, or
 `validate_candidate_evaluation_manifest(payload)` for an already decoded value.
 Both return immutable dataclasses and raise `CandidateEvaluationManifestError`
 for schema errors.
+
+## G2: Measurement and Stage Report Foundation
+
+G2 adds a shared immutable `StageReport` for future candidate-evaluation stages.
+Each report contains `stage_name`, JSON-ready `inputs`, `outputs`, and `metrics`,
+ordered `warnings` and `skipped_items`, `confidence`, `elapsed_ms`, `bytes_read`,
+and `files_touched`.
+
+Confidence is one of `unknown`, `low`, `medium`, or `high`. Cost fields are
+non-negative; byte and file counts are integers, while elapsed milliseconds may
+be an integer or float. Mapping keys are sorted, nested values are copied into
+an immutable representation, and `to_dict()` produces a stable shape accepted
+by `json.dumps` without a custom encoder. Immutable helpers append warnings or
+skipped items and add metrics without modifying the original report.
+
+`elapsed_milliseconds(start_ns, end_ns)` converts monotonic nanosecond readings
+to milliseconds. G2 does not calculate candidate-quality metrics or connect
+reports to candidate selection; those integrations remain later milestones.
