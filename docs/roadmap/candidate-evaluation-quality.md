@@ -1,6 +1,120 @@
-# Candidate Evaluation and Quality Foundation
+# Part G — Candidate Evaluation and Quality Policy
 
-## G1: Evaluation Fixture Schema
+Status: final foundation contract. G1–G9 are implemented; G10 locks their
+interfaces and interpretation for later roadmap parts.
+
+## Contract Surface
+
+Part G is a library-level evaluation system. Its public contract modules are:
+
+| Module | Contract |
+| --- | --- |
+| `strata.core.candidate_evaluation` | Versioned manifests, tasks, tiers, and path-safe loading |
+| `strata.core.stage_report` | Shared JSON-ready stage measurement |
+| `strata.core.candidate_metrics` | Tier-aware quality metrics at K |
+| `strata.core.candidate_baseline` | Current-engine fixture baseline |
+| `strata.core.probe_pool` | Mixed obvious and independent rescue pool |
+| `strata.core.probe_scoring` | Normalized score components and final-score math |
+| `strata.core.content_probe` | Root-contained bounded content windows |
+| `strata.core.probe_evaluation` | Baseline, pool, and probed-strategy comparison |
+
+These modules produce immutable or JSON-ready values and do not alter product
+candidate selection, CLI behavior, or workflow behavior. Consumers may compose
+them for experiments, but promotion into product behavior requires a later
+roadmap decision backed by the same metrics and cost reports.
+
+## Locked Part G Policies
+
+### Fixtures, Manifests, and Expected Tiers
+
+- Part G fixtures are tiny, deterministic, synthetic, license-safe repositories
+  under `tests/fixtures/candidate_quality`. Manifests live outside each `repo/`
+  inventory root.
+- The manifest schema version is `1`. Required task fields are ID, task text,
+  fixture path, stack/language/framework tags, and all four expected-file tiers.
+- `critical` means required for a correct task result. `useful` means valuable
+  supporting context. `distractor` means plausible but misleading context.
+  `irrelevant` means unrelated context.
+- Every tier key is required even when its array is empty. A file may occur in
+  only one tier. Optional notes explain tier placement.
+- Fixture and expected-file paths are normalized relative paths. Absolute paths,
+  parent traversal, unknown fields, duplicate task IDs, and duplicate tier paths
+  are contract errors.
+
+### Measurement and Quality
+
+- Any evaluation stage doing meaningful work uses `StageReport` for inputs,
+  outputs, metrics, warnings, skipped items, confidence, elapsed milliseconds,
+  bytes read, and files touched.
+- Reports preserve deterministic key and item ordering. Reproducible runs use
+  zero elapsed time unless a monotonic clock is explicitly injected.
+- The authoritative quality metrics are critical recall at K, useful coverage
+  at K, distractor rate at K, missed critical count, and context waste at K.
+- Paths are deduplicated before K. Unknown selected paths count as context waste.
+  Empty critical/useful tiers have coverage `1.0`; empty evaluated selections
+  have zero distractor and waste rates.
+- Critical recall has priority over plain precision because missing required
+  evidence can make an otherwise tidy context unusable.
+
+### Baseline, Pool, Score, and Probe
+
+- The baseline is a measurement of the unchanged current candidate engine. It
+  is the reference, not a new selector.
+- The mixed pool preserves current-engine order in its obvious lane and adds an
+  independently ranked rescue lane from structural path evidence. Rescue entry
+  does not require or inherit a high current-engine score.
+- Initial pool caps are 40 total, 20 obvious, 20 rescue, and 5 per directory.
+  These are explicit experimental defaults, not hidden product thresholds.
+- Cheap, probe, structural, and cost components are finite normalized values in
+  `0.0–1.0`. Default weights are `0.35`, `0.30`, `0.20`, and `0.15`, with cost
+  subtracted. Custom weights remain normalized and sum to `1.0`.
+- Confidence values are `unknown`, `low`, `medium`, and `high`. Confidence is
+  metadata only and is not an additive score, multiplier, or sorting boost.
+- The content probe reads only a leading bounded window inside its supplied
+  root. Defaults are 20 open attempts, 4 KiB per file, 32 KiB total, and a
+  256 KiB maximum eligible file size.
+- Missing, oversized, unsafe, non-regular, unreadable, binary, and non-UTF-8
+  files are deterministic skipped results. Bytes already read still count.
+  Paths after file/byte caps are skipped without filesystem access.
+
+### Comparison and Cost Decision
+
+- G9 compares `baseline`, `mixed_pool`, and `mixed_pool_probe` with the same
+  fixtures, K, tier metrics, and stage-cost vocabulary.
+- Quality reports never hide cost. Aggregate output retains average recall and
+  coverage, missed-critical totals, distractor/waste rates, bytes, and touches.
+- “Probe earned its cost” compares `mixed_pool_probe` with `mixed_pool` to
+  isolate incremental reads. It is true when critical recall improves, missed
+  critical files decrease, or critical performance is unchanged while useful
+  coverage improves without greater context waste.
+- The decision flag is an initial interpretation, not a product rollout switch.
+  Raw per-task quality and cost evidence remains authoritative.
+
+## Downstream Dependencies and Validation Placement
+
+- Part H import tracing may consume mixed pools, probe evidence, normalized
+  paths, and `StageReport`; it must not reinterpret expected tiers or silently
+  bypass probe caps.
+- Part I representation and lazy-outline work may consume ranked/probed entries
+  and cost measurements; every representation level must preserve source paths,
+  bounded work, and skipped-state reporting.
+- Part J frontend deep linking and Part K backend intelligence may extend fixture
+  coverage and structural evidence. They must continue grading with the G4
+  metrics and must not turn confidence into score.
+- H/I/J/K changes that affect candidate evidence should add synthetic manifests
+  or tasks and compare against the locked current-engine baseline before any
+  product integration.
+
+Real GitHub repository benchmarking is not part of Part G. Part G must not clone
+or present synthetic fixtures as real-repository product validation. Controlled
+real-repository product validation belongs after Parts M and N, when the product
+paths are integrated, and must be repeated after Part P for release-readiness
+evidence. Repository selection, licensing, privacy, and reproducibility policy
+for those later validations is outside this foundation.
+
+## Implementation Record
+
+### G1: Evaluation Fixture Schema
 
 G1 defines a versioned JSON answer-key format for measuring candidate-selection
 quality. It does not run candidate selection, inspect fixture contents, or change
@@ -54,17 +168,17 @@ must not repeat within one tag category. Unknown fields and tier names are
 rejected so schema mistakes fail early.
 
 `fixture_path` is relative to the manifest consumer's fixture base and may be `.`.
-Expected-file
-paths are relative to that fixture root. Paths use forward slashes, must already
-be normalized, and cannot be absolute or contain `..`; validation is lexical and
-does not require the fixture to exist. A file may appear in exactly one tier.
+Expected-file paths are relative to that fixture root. Paths use forward slashes,
+must already be normalized, and cannot be absolute or contain `..`; validation
+is lexical and does not require the fixture to exist. A file may appear in
+exactly one tier.
 
 Use `load_candidate_evaluation_manifest(path)` to load UTF-8 JSON, or
 `validate_candidate_evaluation_manifest(payload)` for an already decoded value.
 Both return immutable dataclasses and raise `CandidateEvaluationManifestError`
 for schema errors.
 
-## G2: Measurement and Stage Report Foundation
+### G2: Measurement and Stage Report Foundation
 
 G2 adds a shared immutable `StageReport` for future candidate-evaluation stages.
 Each report contains `stage_name`, JSON-ready `inputs`, `outputs`, and `metrics`,
@@ -82,7 +196,7 @@ skipped items and add metrics without modifying the original report.
 to milliseconds. G2 does not calculate candidate-quality metrics or connect
 reports to candidate selection; those integrations remain later milestones.
 
-## G3: Fixture Set Foundation
+### G3: Fixture Set Foundation
 
 G3 provides five tiny deterministic fixture repositories under
 `tests/fixtures/candidate_quality`: `strata_smoke`, `messy_python`,
@@ -101,7 +215,7 @@ clones, samples, or benchmark results from real GitHub repositories. G3 adds no
 quality metrics, baseline reports, candidate scoring, probing, or runtime
 candidate-selection integration.
 
-## G4: Candidate Quality Metrics
+### G4: Candidate Quality Metrics
 
 G4 grades an ordered candidate list against one G1 evaluation task. Paths are
 normalized to relative forward-slash form, duplicate paths are removed while
@@ -132,7 +246,7 @@ that was selected looks relevant. Waste and distractor rates remain visible as
 the counterweight to indiscriminately selecting more files. G4 does not run the
 candidate engine or create baseline reports.
 
-## G5: Current Engine Baseline Report
+### G5: Current Engine Baseline Report
 
 G5 runs the existing `analyze_candidates_for_task` pipeline unchanged for every
 G3 manifest task, using the manifest task text and fixture `repo/` as inputs.
@@ -155,7 +269,7 @@ This report is the pre-improvement measurement of the current engine. It does
 not change ranking, scoring, frontend signals, inventory behavior, or selection
 limits, and it does not implement probes or baseline comparisons.
 
-## G6: Mixed Probe Pool Design
+### G6: Mixed Probe Pool Design
 
 G6 builds a deterministic, metadata-only pool for later probing. The obvious
 lane accepts ranked paths from the unchanged current engine. The independent
@@ -179,7 +293,7 @@ Pool construction consumes existing `InventoryRecord` metadata and relative
 paths only. It does not open, read, or stat files, and it does not perform
 content probing, change candidate selection, or compare against the baseline.
 
-## G7: Probe Scoring Contract
+### G7: Probe Scoring Contract
 
 G7 defines normalized components and score math for future bounded probes. Each
 result records a relative path, cheap relevance, probe relevance, structural
@@ -208,7 +322,7 @@ by descending final score with normalized path and component tie-breakers and
 convert directly to stable JSON-ready dictionaries. G7 performs no probing,
 filesystem access, candidate selection, or baseline comparison.
 
-## G8: Bounded Content Probe
+### G8: Bounded Content Probe
 
 G8 reads one bounded leading content window from each eligible mixed-pool file
 and returns normalized `probe_relevance` for the G7 contract. The window may
@@ -233,7 +347,7 @@ normalized relevance value and remains metadata only. The aggregate G2
 warnings, skipped items, result counts, and average probe relevance. Timing is
 zero by default for reproducible output and may use an injected monotonic clock.
 
-## G9: Probe vs Baseline Evaluation
+### G9: Probe vs Baseline Evaluation
 
 G9 compares three library-only strategies across every G3 task:
 
@@ -264,3 +378,11 @@ returns false.
 G9 is evidence gathering only. It does not change product candidate ranking,
 selection, CLI behavior, or workflow behavior, and it does not add deeper
 tracing, representations, or model calls.
+
+### G10: Final Policy and Roadmap Contract
+
+G10 designates the Contract Surface, Locked Part G Policies, and Downstream
+Dependencies sections above as the authoritative handoff. The G1–G9 sections
+remain the implementation record and detailed rationale. Future work changes a
+Part G contract only through an explicit schema/default version decision and
+corresponding fixture, contract, quality, and cost tests.
