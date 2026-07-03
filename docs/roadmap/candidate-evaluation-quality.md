@@ -178,3 +178,32 @@ permanent quality thresholds.
 Pool construction consumes existing `InventoryRecord` metadata and relative
 paths only. It does not open, read, or stat files, and it does not perform
 content probing, change candidate selection, or compare against the baseline.
+
+## G7: Probe Scoring Contract
+
+G7 defines normalized components and score math for future bounded probes. Each
+result records a relative path, cheap relevance, probe relevance, structural
+relevance, normalized cost, final score, confidence, and the applied weights.
+All four input components must be finite values from `0.0` through `1.0`.
+
+The default contract is:
+
+```text
+final_score =
+    0.35 * cheap_relevance
+  + 0.30 * probe_relevance
+  + 0.20 * structural_relevance
+  - 0.15 * normalized_cost
+```
+
+The immutable default weights are cheap `0.35`, probe `0.30`, structural
+`0.20`, and cost `0.15`. Custom weights must each be normalized, must include
+some relevance weight, and must sum to `1.0`; the cost weight is always applied
+as a subtraction. Because cost is a penalty, final scores themselves may range
+from `-0.15` to `0.85` under the defaults.
+
+Confidence uses the G2 values `unknown`, `low`, `medium`, and `high`. It is
+metadata only: it is neither a score component nor a sorting boost. Results sort
+by descending final score with normalized path and component tie-breakers and
+convert directly to stable JSON-ready dictionaries. G7 performs no probing,
+filesystem access, candidate selection, or baseline comparison.
