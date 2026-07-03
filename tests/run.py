@@ -105,6 +105,7 @@ from tests import test_routes
 from tests import test_inventory
 from tests import test_candidates
 from tests import test_candidate_pipeline
+from tests import test_candidate_evaluation_schema
 from tests import test_candidate_architecture
 from tests import test_frontend_roles
 from tests import test_react_starting_files
@@ -201,6 +202,7 @@ TEST_MODULES = [
     test_inventory,
     test_candidates,
     test_candidate_pipeline,
+    test_candidate_evaluation_schema,
     test_candidate_architecture,
     test_frontend_roles,
     test_react_starting_files,
