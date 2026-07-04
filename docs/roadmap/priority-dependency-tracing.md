@@ -29,9 +29,28 @@ evolve without forcing Part I to understand parser-specific internal values.
 Confidence is metadata only. It is not an additive score, multiplier, priority
 boost, or substitute for the explicit edge priority.
 
+## H2: Direct Python Import Edges
+
+H2 adds `strata.core.python_dependency_edges`, a standard-library-only AST
+extractor for direct imports in one Python source file. It supports absolute and
+relative `import` and `from ... import ...` forms, including aliases, and emits
+only H1 `DependencyEdge` values whose target resolves inside the supplied
+repository root. It checks the repository root plus existing `src/` and `lib/`
+source roots, preferring `module.py` over `module/__init__.py`.
+
+Exact module and imported-child matches are medium priority with high
+confidence. A symbol imported from a resolved containing module is low priority
+with medium confidence because static analysis cannot prove that the attribute
+exists. Estimated cost is `1.0` per emitted edge as an initial lightweight AST
+unit; confidence remains metadata only.
+
+Unresolved imports, including external and installed packages, are recorded as
+deterministic skipped items and are never followed. Syntax errors produce an
+empty trace with a deterministic warning. Target code is not read, imported, or
+executed. H2 performs no dependency traversal and has no CLI or product wiring.
+
 ## Deferred Work
 
-Python and JavaScript/TypeScript import parsing, Angular and React linking,
-dependency traversal, candidate-selection changes, and product workflow wiring
-begin in later batches. H1 performs none of that work and adds no parser
-dependency.
+JavaScript/TypeScript import parsing, Angular and React linking, dependency
+traversal, candidate-selection changes, and product workflow wiring begin in
+later batches. H1 and H2 add no third-party parser dependency.

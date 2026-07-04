@@ -116,6 +116,7 @@ from tests import test_content_probe
 from tests import test_probe_evaluation
 from tests import test_candidate_evaluation_contracts
 from tests import test_dependency_tracing_contract
+from tests import test_python_dependency_edges
 from tests import test_candidate_architecture
 from tests import test_frontend_roles
 from tests import test_react_starting_files
@@ -223,6 +224,7 @@ TEST_MODULES = [
     test_probe_evaluation,
     test_candidate_evaluation_contracts,
     test_dependency_tracing_contract,
+    test_python_dependency_edges,
     test_candidate_architecture,
     test_frontend_roles,
     test_react_starting_files,
