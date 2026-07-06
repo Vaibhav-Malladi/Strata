@@ -74,8 +74,28 @@ H3's bounded direct-edge contract permits.
 H3 does not traverse dependencies, resolve installed packages, or wire edges
 into product workflows.
 
+## H4: Direct Trace Orchestration
+
+H4 adds `strata.core.dependency_trace_runner`. The runner accepts repository-
+relative seed files, normalizes and deduplicates them, applies a default cap of
+20 seeds, and dispatches `.py` files to H2 and `.ts`, `.tsx`, `.js`, `.jsx`,
+`.mjs`, and `.cjs` files to H3. Callers may lower or remove the cap and may
+restrict the supported extension set.
+
+Seed processing follows normalized lexical order so cap behavior is stable.
+Unsupported extensions, missing files, unsafe paths, unreadable files, and
+over-cap seeds become deterministic skipped items. Child skips and warnings are
+qualified with their seed path. Extracted edges are merged and deduplicated
+using H1 helpers.
+
+The resulting H1 `DependencyTraceReport` includes selected seeds, direct edges,
+skips, warnings, and an aggregate `StageReport`. Measurement sums source bytes,
+source files touched, elapsed extraction time, and estimated cost across unique
+edges. Discovered target files are never dispatched, read, or executed: H4 is
+not recursive traversal and has no product or CLI wiring.
+
 ## Deferred Work
 
 Angular and React linking, dependency traversal, candidate-selection changes,
-and product workflow wiring begin in later batches. H1-H3 add no third-party
+and product workflow wiring begin in later batches. H1-H4 add no third-party
 parser dependency.
