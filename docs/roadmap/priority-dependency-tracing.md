@@ -1,170 +1,217 @@
-# Part H — Priority Import and Dependency Tracing
+# Part H - Priority Import and Dependency Tracing
 
-## H1: Dependency Edge Schema and Trace Contract
+Status: final foundation contract. H1-H7 are implemented; H8 locks their
+interfaces, policy, safety boundaries, evidence, and handoff to Part I.
 
-H1 defines the library-level contract that later Part H batches will produce
-and Part I will consume. It deliberately contains no import parser, framework
-linker, graph traversal, or CLI integration.
+Part H is library-level only. It does not change candidate scoring or candidate
+selection, and it has no CLI or product workflow wiring.
 
-The contract lives in `strata.core.dependency_tracing`. A directed dependency
-edge contains:
+## Contract Surface
 
-- repository-relative source and target files;
-- a bounded edge type: `import`, `re_export`, `route`, `template`, `style`,
-  `config`, or `unknown`;
-- a bounded priority: `critical`, `high`, `medium`, or `low`;
-- a human-readable reason;
-- Part G-aligned confidence metadata: `unknown`, `low`, `medium`, or `high`;
-- a finite, non-negative estimated cost.
+| Module | Final responsibility |
+| --- | --- |
+| `strata.core.dependency_tracing` | H1 immutable edge and direct-trace contracts, path validation, deterministic sorting, deduplication, and JSON conversion |
+| `strata.core.python_dependency_edges` | H2 direct Python import extraction |
+| `strata.core.js_ts_dependency_edges` | H3 direct JavaScript/TypeScript import and re-export extraction |
+| `strata.core.dependency_trace_runner` | H4 deterministic direct extraction from selected seed files |
+| `strata.core.dependency_traversal` | H5 priority-bounded traversal and traversal report |
+| `strata.core.dependency_priority` | H6 authoritative priority, cost, fallback, and traversal-order policy |
+| `strata.core.dependency_trace_evaluation` | H7 deterministic Part G fixture evaluation |
 
-Paths are normalized to forward-slash repository-relative form. Absolute paths
-and parent traversal are rejected. Edges sort deterministically by semantic
-priority and stable tie-breakers; only exactly identical edges are deduplicated.
+All public reports are immutable and/or expose stable JSON-ready `to_dict()`
+representations. Parser-specific internal values are not part of the handoff.
 
-`DependencyTraceReport` carries normalized seed files, sorted edges, skipped
-items, warnings, and an optional Part G `StageReport` cost summary. Its
-JSON-ready shape is the stable handoff to Part I, so later tracing producers can
-evolve without forcing Part I to understand parser-specific internal values.
+## H1 Edge and Report Contracts
+
+### `DependencyEdge`
+
+A dependency edge is directed from an importing/exporting source file to one
+resolved repository-local target file. It contains exactly:
+
+- `source_file` and `target_file`: normalized forward-slash paths relative to
+  the supplied repository root;
+- `edge_type`: `import`, `re_export`, `route`, `template`, `style`, `config`, or
+  `unknown`;
+- `priority`: `critical`, `high`, `medium`, or `low`;
+- `reason`: stable human-readable extraction evidence;
+- `confidence`: `unknown`, `low`, `medium`, or `high` metadata;
+- `estimated_cost`: a finite non-negative relative cost.
+
+Absolute paths, root escapes, empty paths, negative/non-finite costs, and
+out-of-vocabulary values are rejected. Edges are sorted by semantic priority
+and deterministic tie-breakers. Deduplication removes only exactly identical
+edges.
+
+### `DependencyTraceReport`
+
+The direct trace envelope contains normalized seed files, sorted/deduplicated
+edges, skipped items, warnings, and an optional `StageReport`. Warnings and
+skips are explicit evidence: an absent edge does not prove that no dependency
+exists.
+
+## H2 Python Extraction Policy
+
+`extract_python_import_edges()` uses only the Python standard-library AST and
+reads only the selected Python source file. It never imports or executes source
+or target modules and never reads target contents.
+
+Supported direct forms include:
+
+- `import package`, `import package.module`, and aliases;
+- `from package import name` and `from package.module import name`;
+- `from ... import *` resolved to its containing module;
+- safe relative imports such as `from . import helper` and
+  `from ..utils import thing`.
+
+Internal absolute imports search the repository root and existing `src/` and
+`lib/` source roots. Resolution prefers `package/module.py` and then
+`package/module/__init__.py`. Imported child modules are preferred when present;
+otherwise a resolved containing module is retained as lower-certainty symbol
+evidence.
+
+Installed packages, external modules, unsafe paths, and unresolved imports are
+not followed and produce deterministic skipped items. Syntax errors produce an
+empty trace with a warning. Python extraction is internal-only resolution.
+
+## H3 JavaScript and TypeScript Extraction Policy
+
+`extract_js_ts_import_edges()` uses standard-library lightweight lexical
+scanning and a bounded source read. It supports:
+
+- default, named, and namespace static imports;
+- side-effect imports;
+- named and star re-exports;
+- simple string-literal `import("./module")` calls;
+- simple string-literal CommonJS `require("./module")` calls.
+
+Resolution is relative-only. It accepts `.ts`, `.tsx`, `.js`, `.jsx`, `.mjs`,
+and `.cjs`, probing in that order when an extension is omitted. Directory
+resolution supports `index.ts`, `index.tsx`, `index.js`, and `index.jsx`.
+
+Part H performs no `node_modules` traversal and no installed-package or bare
+package resolution. It does not resolve `react`, `lodash`, `@angular/core`,
+tsconfig aliases, workspace packages, computed specifiers, or other unsupported
+forms. External, alias-like, unsafe, and unresolved imports become deterministic
+skipped items rather than fabricated edges. Targets must resolve inside the
+repository root; target contents are never read or executed.
+
+## H4 Seed Orchestration Policy
+
+`run_dependency_trace()` accepts a repository root, relative seed paths, an
+optional seed cap, and an optional supported-extension policy. Seeds are
+normalized, deduplicated, and processed in lexical order. The default maximum
+is `20` seed files; callers may lower it or explicitly use `None`.
+
+`.py` seeds dispatch to H2. `.ts`, `.tsx`, `.js`, `.jsx`, `.mjs`, and `.cjs`
+seeds dispatch to H3. Unsupported, missing, unsafe, unreadable, and over-cap
+seeds are skipped deterministically. Child edges are merged with H1 helpers.
+H4 extracts direct edges only and never dispatches discovered targets.
+
+## H5 Traversal and Report Contract
+
+`traverse_dependencies()` follows resolved targets only after they enter an
+allowed frontier. The authoritative defaults are:
+
+- maximum depth: `2`;
+- maximum visited files: `40`;
+- maximum edges: `100`;
+- maximum estimated cost: `100.0` relative units.
+
+The cost cap may be disabled with `None`; the other caps remain explicit.
+Cycles, duplicate files, and duplicate edges cannot expand traversal. A target
+at the depth boundary may be recorded as visited without opening it. No target
+is read until direct extraction is required at an admitted frontier position.
+
+`DependencyTraversalReport` wraps an H1 `DependencyTraceReport` and adds stable
+`visited_files` order plus `file_depths`. Its convenience properties expose
+seeds, edges, skips, warnings, and the aggregate `StageReport`. Its `to_dict()`
+shape is the primary Part I handoff.
+
+## H6 Priority, Cost, Confidence, and Fallback Policy
+
+Priority order is exactly `critical > high > medium > low`. Seeds enter before
+discovered targets. Frontier order is priority, estimated cost, depth, and
+stable path tie-breakers.
+
+Exact imports and re-exports are `medium`; symbol-import fallbacks, dynamic
+imports, and CommonJS requires are `low`. Current emitted import and re-export
+edges cost `1.0` relative unit. The central policy defines finite non-negative
+base costs for every H1 edge type. These costs bound work; they are not relevance
+scores.
 
 Confidence is metadata only. It is not an additive score, multiplier, priority
-boost, or substitute for the explicit edge priority.
+boost, cost adjustment, or traversal tie-breaker. Unresolved and unsupported
+targets use the explicit `skip` fallback and are never represented by invented
+target paths.
 
-## H2: Direct Python Import Edges
+## StageReport Measurement
 
-H2 adds `strata.core.python_dependency_edges`, a standard-library-only AST
-extractor for direct imports in one Python source file. It supports absolute and
-relative `import` and `from ... import ...` forms, including aliases, and emits
-only H1 `DependencyEdge` values whose target resolves inside the supplied
-repository root. It checks the repository root plus existing `src/` and `lib/`
-source roots, preferring `module.py` over `module/__init__.py`.
+Direct extraction, seed orchestration, traversal, and evaluation use Part G's
+`strata.core.stage_report.StageReport`. Reports account for inputs, outputs,
+metrics, warnings, skipped items, confidence metadata, elapsed milliseconds,
+bytes read, and files touched.
 
-Exact module and imported-child matches are medium priority with high
-confidence. A symbol imported from a resolved containing module is low priority
-with medium confidence because static analysis cannot prove that the attribute
-exists. Estimated cost is `1.0` per emitted edge as an initial lightweight AST
-unit; confidence remains metadata only.
+Traversal cost is the sum of accepted unique edge costs. `files_touched` counts
+source files actually inspected, not merely discovered depth-boundary leaves.
+Zero elapsed time remains the deterministic default when no clock is injected.
 
-Unresolved imports, including external and installed packages, are recorded as
-deterministic skipped items and are never followed. Syntax errors produce an
-empty trace with a deterministic warning. Target code is not read, imported, or
-executed. H2 performs no dependency traversal and has no CLI or product wiring.
+## H7 Evaluation and Current Evidence
 
-## H3: Direct JavaScript and TypeScript Edges
-
-H3 adds `strata.core.js_ts_dependency_edges`, a standard-library-only
-lightweight lexical extractor for static imports, side-effect imports,
-re-exports, simple string-literal dynamic imports, and simple string-literal
-CommonJS `require` calls. It reads one bounded JS/TS source file and emits H1
-`DependencyEdge` values for direct relationships only.
-
-Resolution is deliberately relative-only. Exact `.ts`, `.tsx`, `.js`, `.jsx`,
-`.mjs`, and `.cjs` files are supported, followed by extension probing in that
-order. Directory imports probe `index.ts`, `index.tsx`, `index.js`, and
-`index.jsx`. Every resolved target must remain inside the repository root.
-Target contents are never read or executed.
-
-Static imports and re-exports are medium priority with high confidence. Dynamic
-imports and CommonJS requires are low priority with medium confidence.
-Estimated cost is `1.0` per emitted edge. External packages, `node_modules`,
-unresolved paths, path aliases, and unsupported specifiers become deterministic
-skipped items rather than fabricated edges. Existing alias resolution is not
-reused because it performs broader repository/config/package discovery than
-H3's bounded direct-edge contract permits.
-
-H3 does not traverse dependencies, resolve installed packages, or wire edges
-into product workflows.
-
-## H4: Direct Trace Orchestration
-
-H4 adds `strata.core.dependency_trace_runner`. The runner accepts repository-
-relative seed files, normalizes and deduplicates them, applies a default cap of
-20 seeds, and dispatches `.py` files to H2 and `.ts`, `.tsx`, `.js`, `.jsx`,
-`.mjs`, and `.cjs` files to H3. Callers may lower or remove the cap and may
-restrict the supported extension set.
-
-Seed processing follows normalized lexical order so cap behavior is stable.
-Unsupported extensions, missing files, unsafe paths, unreadable files, and
-over-cap seeds become deterministic skipped items. Child skips and warnings are
-qualified with their seed path. Extracted edges are merged and deduplicated
-using H1 helpers.
-
-The resulting H1 `DependencyTraceReport` includes selected seeds, direct edges,
-skips, warnings, and an aggregate `StageReport`. Measurement sums source bytes,
-source files touched, elapsed extraction time, and estimated cost across unique
-edges. Discovered target files are never dispatched, read, or executed: H4 is
-not recursive traversal and has no product or CLI wiring.
-
-## H5: Priority-Bounded Traversal
-
-H5 adds `strata.core.dependency_traversal`, which repeatedly invokes the H4
-direct-edge runner only for files admitted to a deterministic priority
-frontier. The initial defaults are maximum depth `2`, maximum visited files
-`40`, maximum edges `100`, and maximum estimated edge cost `100.0`. Every cap is
-explicitly configurable; the cost cap may be disabled with `None`.
-
-Seeds are normalized, deduplicated, and ordered lexically. Discovered files are
-visited by H1 edge priority (`critical`, `high`, `medium`, then `low`), with
-depth and path as stable tie-breakers. Confidence remains metadata and never
-changes frontier order or cost. Cycles, duplicate files, and duplicate edges
-are suppressed.
-
-Missing, unsafe, unsupported, unresolved, external, over-depth, over-file,
-over-edge, and over-cost work is not followed. Target contents are read only if
-the target reaches an allowed frontier position that requires direct-edge
-extraction; depth-boundary leaves are recorded without being opened. No broad
-repository scan, installed-package lookup, `node_modules` traversal, network
-access, or code execution occurs.
-
-`DependencyTraversalReport` wraps the H1 `DependencyTraceReport` with stable
-visited-file order and per-file depth metadata. Its aggregate `StageReport`
-records visited and inspected files, edges, bytes, elapsed extraction time,
-estimated edge cost, skips, and warnings. H5 has no CLI or product wiring.
-
-## H6: Dependency Priority and Cost Policy
-
-H6 centralizes policy in `strata.core.dependency_priority`. Priority order is
-`critical`, `high`, `medium`, then `low`. Exact imports and re-exports remain
-medium priority; symbol-import fallbacks, dynamic imports, and CommonJS
-requires remain low priority. This preserves H2-H5 behavior while giving later
-edge producers one bounded vocabulary.
-
-Traversal orders edges by priority, estimated cost, depth, and stable paths.
-Current import and re-export edges cost `1.0` relative unit, preserving the H5
-cap behavior. The policy defines finite non-negative base costs for every H1
-edge type. Unresolved and unsupported targets use an explicit `skip` fallback.
-Confidence is metadata only: it is absent from priority, cost, and traversal
-keys and never acts as a score, multiplier, or boost.
-
-## H7: Part G Fixture Evaluation
-
-H7 adds `strata.core.dependency_trace_evaluation`. For every Part G manifest
-task, the unchanged current candidate baseline supplies a deterministic ranked
-pool. The first supported baseline candidate is the default trace seed. “Before”
-metrics grade that seed context at K; “after” metrics grade bounded visited-file
-order at the same K. The full baseline ranking is retained in each report for
-auditability. This measures tracing's marginal contribution without changing
-or replacing candidate selection.
+`evaluate_dependency_tracing()` evaluates every applicable Part G manifest task
+without mutating the candidate engine. The unchanged current baseline supplies
+a ranked pool; the first supported baseline candidate is the default seed.
+Before metrics grade seed context at K, and after metrics grade bounded visited
+order at the same K. The complete baseline ranking is retained for auditability.
 
 Task reports include fixture/task identity, baseline paths, seeds, visited
-files, edges, Part G metrics before and after, deltas, warnings, skips, and a
-cost-bearing `StageReport`. The aggregate reports average critical recall,
-useful coverage, distractor rate, and context waste; total missed critical
-files; files touched; and estimated edge cost. Every report is deterministic
-and JSON-ready.
+files, traced edges, Part G metrics before and after, deltas, warnings, skips,
+and a cost-bearing `StageReport`. The aggregate includes:
 
-Tracing “appears to earn its cost” only when critical recall, missed critical,
-or useful coverage improves; critical quality does not regress; distractor and
-waste rates do not increase; and measured edge cost is positive. Otherwise the
-conclusion explicitly records no improvement, mixed evidence, or regression.
-With the current five fixtures and default K=3/one-seed policy, critical recall
-averages `0.5` before and `0.7` after, missed critical files fall from `3` to
-`2`, useful coverage remains `0.2`, and distractor/waste rates remain `0.0` at
-an estimated edge cost of `1.0`. The improvement occurs in one Angular task;
-the other four tasks are unchanged, so this is bounded fixture evidence rather
-than a general product claim.
+- average critical recall before and after;
+- total missed critical files before and after;
+- average useful coverage, distractor rate, and context waste before and after;
+- total files touched and total estimated edge cost;
+- an evidence-based conclusion and whether tracing appears to earn its cost.
 
-## Deferred Work
+The conclusion rule requires a critical-recall, missed-critical, or useful-
+coverage improvement; no critical-quality regression; no distractor or context-
+waste increase; and positive measured cost. Otherwise the report states no
+improvement, mixed evidence, or regression rather than forcing a positive
+result.
 
-Angular and React linking, candidate-selection changes, and product workflow
-wiring remain later work. H8 final contract/handoff also remains deferred.
-H1-H7 add no third-party parser dependency.
+With the current five Part G tasks at K=`3` and one seed, average critical recall
+changes from `0.5` to `0.7`, missed critical files from `3` to `2`, useful
+coverage remains `0.2`, and distractor/context-waste rates remain `0.0`.
+Tracing touches `6` source files and accepts `1.0` estimated cost unit. The gain
+comes from one Angular task; four tasks are unchanged. Under the stated rule,
+tracing appears to earn its bounded fixture cost. This is synthetic fixture
+evidence, not a general product benchmark.
+
+## Safety Boundaries and Deferred Work
+
+Part H uses no network, model calls, third-party parser, code execution, broad
+traversal scan, installed-package resolution, or target-content read before
+frontier admission. Symlink targets must remain inside the repository root.
+
+There is no CLI/product wiring yet and no candidate behavior changes. Real
+GitHub repository benchmarking is not part of Part H. Representation and lazy
+outline work belong to Part I; frontend deep linking belongs to Part J; backend
+intelligence belongs to Part K.
+
+## Part I Handoff
+
+Part I should consume `DependencyTraversalReport.to_dict()` or the equivalent
+immutable properties. In particular it should:
+
+1. use `visited_files` and `file_depths` as bounded file-selection evidence;
+2. use H1 edges, priorities, reasons, and costs as relationship provenance;
+3. preserve repository-relative paths and deterministic order;
+4. surface warnings and skipped items instead of treating unresolved imports as
+   proof of no dependency;
+5. use `StageReport` bytes/files/cost fields when applying representation
+   budgets;
+6. keep confidence descriptive and separate from selection/scoring math;
+7. avoid depending on extractor internals or re-resolving imports differently.
+
+Part I may decide how much representation to allocate to each admitted file,
+but it should not silently broaden Part H's traversal caps or safety boundary.
