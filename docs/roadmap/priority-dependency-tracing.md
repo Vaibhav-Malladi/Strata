@@ -49,8 +49,33 @@ deterministic skipped items and are never followed. Syntax errors produce an
 empty trace with a deterministic warning. Target code is not read, imported, or
 executed. H2 performs no dependency traversal and has no CLI or product wiring.
 
+## H3: Direct JavaScript and TypeScript Edges
+
+H3 adds `strata.core.js_ts_dependency_edges`, a standard-library-only
+lightweight lexical extractor for static imports, side-effect imports,
+re-exports, simple string-literal dynamic imports, and simple string-literal
+CommonJS `require` calls. It reads one bounded JS/TS source file and emits H1
+`DependencyEdge` values for direct relationships only.
+
+Resolution is deliberately relative-only. Exact `.ts`, `.tsx`, `.js`, `.jsx`,
+`.mjs`, and `.cjs` files are supported, followed by extension probing in that
+order. Directory imports probe `index.ts`, `index.tsx`, `index.js`, and
+`index.jsx`. Every resolved target must remain inside the repository root.
+Target contents are never read or executed.
+
+Static imports and re-exports are medium priority with high confidence. Dynamic
+imports and CommonJS requires are low priority with medium confidence.
+Estimated cost is `1.0` per emitted edge. External packages, `node_modules`,
+unresolved paths, path aliases, and unsupported specifiers become deterministic
+skipped items rather than fabricated edges. Existing alias resolution is not
+reused because it performs broader repository/config/package discovery than
+H3's bounded direct-edge contract permits.
+
+H3 does not traverse dependencies, resolve installed packages, or wire edges
+into product workflows.
+
 ## Deferred Work
 
-JavaScript/TypeScript import parsing, Angular and React linking, dependency
-traversal, candidate-selection changes, and product workflow wiring begin in
-later batches. H1 and H2 add no third-party parser dependency.
+Angular and React linking, dependency traversal, candidate-selection changes,
+and product workflow wiring begin in later batches. H1-H3 add no third-party
+parser dependency.
