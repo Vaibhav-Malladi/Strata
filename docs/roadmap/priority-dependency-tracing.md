@@ -94,8 +94,34 @@ source files touched, elapsed extraction time, and estimated cost across unique
 edges. Discovered target files are never dispatched, read, or executed: H4 is
 not recursive traversal and has no product or CLI wiring.
 
+## H5: Priority-Bounded Traversal
+
+H5 adds `strata.core.dependency_traversal`, which repeatedly invokes the H4
+direct-edge runner only for files admitted to a deterministic priority
+frontier. The initial defaults are maximum depth `2`, maximum visited files
+`40`, maximum edges `100`, and maximum estimated edge cost `100.0`. Every cap is
+explicitly configurable; the cost cap may be disabled with `None`.
+
+Seeds are normalized, deduplicated, and ordered lexically. Discovered files are
+visited by H1 edge priority (`critical`, `high`, `medium`, then `low`), with
+depth and path as stable tie-breakers. Confidence remains metadata and never
+changes frontier order or cost. Cycles, duplicate files, and duplicate edges
+are suppressed.
+
+Missing, unsafe, unsupported, unresolved, external, over-depth, over-file,
+over-edge, and over-cost work is not followed. Target contents are read only if
+the target reaches an allowed frontier position that requires direct-edge
+extraction; depth-boundary leaves are recorded without being opened. No broad
+repository scan, installed-package lookup, `node_modules` traversal, network
+access, or code execution occurs.
+
+`DependencyTraversalReport` wraps the H1 `DependencyTraceReport` with stable
+visited-file order and per-file depth metadata. Its aggregate `StageReport`
+records visited and inspected files, edges, bytes, elapsed extraction time,
+estimated edge cost, skips, and warnings. H5 has no CLI or product wiring.
+
 ## Deferred Work
 
-Angular and React linking, dependency traversal, candidate-selection changes,
-and product workflow wiring begin in later batches. H1-H4 add no third-party
-parser dependency.
+Angular and React linking, final dependency priority policy, tracing evaluation,
+candidate-selection changes, and product workflow wiring remain later work.
+H1-H5 add no third-party parser dependency.

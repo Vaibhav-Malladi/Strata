@@ -119,6 +119,7 @@ from tests import test_dependency_tracing_contract
 from tests import test_python_dependency_edges
 from tests import test_js_ts_dependency_edges
 from tests import test_dependency_trace_runner
+from tests import test_dependency_traversal
 from tests import test_candidate_architecture
 from tests import test_frontend_roles
 from tests import test_react_starting_files
@@ -229,6 +230,7 @@ TEST_MODULES = [
     test_python_dependency_edges,
     test_js_ts_dependency_edges,
     test_dependency_trace_runner,
+    test_dependency_traversal,
     test_candidate_architecture,
     test_frontend_roles,
     test_react_starting_files,
