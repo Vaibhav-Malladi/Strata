@@ -115,6 +115,14 @@ from tests import test_probe_scoring
 from tests import test_content_probe
 from tests import test_probe_evaluation
 from tests import test_candidate_evaluation_contracts
+from tests import test_dependency_tracing_contract
+from tests import test_python_dependency_edges
+from tests import test_js_ts_dependency_edges
+from tests import test_dependency_trace_runner
+from tests import test_dependency_traversal
+from tests import test_dependency_priority
+from tests import test_dependency_trace_evaluation
+from tests import test_dependency_tracing_contracts
 from tests import test_candidate_architecture
 from tests import test_frontend_roles
 from tests import test_react_starting_files
@@ -221,6 +229,14 @@ TEST_MODULES = [
     test_content_probe,
     test_probe_evaluation,
     test_candidate_evaluation_contracts,
+    test_dependency_tracing_contract,
+    test_python_dependency_edges,
+    test_js_ts_dependency_edges,
+    test_dependency_trace_runner,
+    test_dependency_traversal,
+    test_dependency_priority,
+    test_dependency_trace_evaluation,
+    test_dependency_tracing_contracts,
     test_candidate_architecture,
     test_frontend_roles,
     test_react_starting_files,
