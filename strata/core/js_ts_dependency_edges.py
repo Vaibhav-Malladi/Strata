@@ -10,13 +10,16 @@ from strata.core.dependency_tracing import (
     create_dependency_edge,
     normalize_relative_path,
 )
+from strata.core.dependency_priority import (
+    estimate_dependency_cost,
+    priority_for_evidence,
+)
 from strata.core.stage_report import StageReport
 
 
 JS_TS_EXTENSIONS = (".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs")
 DIRECTORY_INDEX_EXTENSIONS = (".ts", ".tsx", ".js", ".jsx")
 DEFAULT_MAX_SOURCE_BYTES = 1024 * 1024
-_EDGE_ESTIMATED_COST = 1.0
 
 _STATIC_IMPORT_RE = re.compile(
     r"\bimport\s+(?P<clause>[^;\"']+?)\s+from\s*"
@@ -48,7 +51,7 @@ class _ImportReference:
     edge_type: str
     form: str
     statement: str
-    priority: str
+    evidence_kind: str
     confidence: str
 
 
@@ -112,7 +115,7 @@ def extract_js_ts_import_edges(
                 source_path,
                 target,
                 edge_type=reference.edge_type,
-                priority=reference.priority,
+                evidence_kind=reference.evidence_kind,
                 confidence=reference.confidence,
                 reason=f"JS/TS {reference.form}: {reference.statement}",
             )
@@ -137,13 +140,13 @@ def _extract_references(text: str) -> tuple[_ImportReference, ...]:
     code_positions = _code_positions(text)
     references: list[_ImportReference] = []
     patterns = (
-        (_RE_EXPORT_RE, "re_export", "re-export", "medium", "high"),
-        (_STATIC_IMPORT_RE, "import", "static import", "medium", "high"),
-        (_SIDE_EFFECT_IMPORT_RE, "import", "side-effect import", "medium", "high"),
-        (_DYNAMIC_IMPORT_RE, "import", "dynamic import", "low", "medium"),
-        (_REQUIRE_RE, "import", "CommonJS require", "low", "medium"),
+        (_RE_EXPORT_RE, "re_export", "re-export", "exact_re_export", "high"),
+        (_STATIC_IMPORT_RE, "import", "static import", "exact_import", "high"),
+        (_SIDE_EFFECT_IMPORT_RE, "import", "side-effect import", "exact_import", "high"),
+        (_DYNAMIC_IMPORT_RE, "import", "dynamic import", "dynamic_import", "medium"),
+        (_REQUIRE_RE, "import", "CommonJS require", "commonjs_require", "medium"),
     )
-    for pattern, edge_type, form, priority, confidence in patterns:
+    for pattern, edge_type, form, evidence_kind, confidence in patterns:
         for match in pattern.finditer(text):
             if not code_positions[match.start()]:
                 continue
@@ -154,7 +157,7 @@ def _extract_references(text: str) -> tuple[_ImportReference, ...]:
                     edge_type=edge_type,
                     form=form,
                     statement=_compact_statement(match.group(0)),
-                    priority=priority,
+                    evidence_kind=evidence_kind,
                     confidence=confidence,
                 )
             )
@@ -305,7 +308,7 @@ def _edge(
     target_file: str,
     *,
     edge_type: str,
-    priority: str,
+    evidence_kind: str,
     confidence: str,
     reason: str,
 ) -> DependencyEdge:
@@ -313,10 +316,10 @@ def _edge(
         source_file=source_file,
         target_file=target_file,
         edge_type=edge_type,
-        priority=priority,
+        priority=priority_for_evidence(evidence_kind),
         reason=reason,
         confidence=confidence,
-        estimated_cost=_EDGE_ESTIMATED_COST,
+        estimated_cost=estimate_dependency_cost(edge_type, evidence_kind),
     )
 
 

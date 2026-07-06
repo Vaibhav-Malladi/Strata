@@ -120,8 +120,51 @@ visited-file order and per-file depth metadata. Its aggregate `StageReport`
 records visited and inspected files, edges, bytes, elapsed extraction time,
 estimated edge cost, skips, and warnings. H5 has no CLI or product wiring.
 
+## H6: Dependency Priority and Cost Policy
+
+H6 centralizes policy in `strata.core.dependency_priority`. Priority order is
+`critical`, `high`, `medium`, then `low`. Exact imports and re-exports remain
+medium priority; symbol-import fallbacks, dynamic imports, and CommonJS
+requires remain low priority. This preserves H2-H5 behavior while giving later
+edge producers one bounded vocabulary.
+
+Traversal orders edges by priority, estimated cost, depth, and stable paths.
+Current import and re-export edges cost `1.0` relative unit, preserving the H5
+cap behavior. The policy defines finite non-negative base costs for every H1
+edge type. Unresolved and unsupported targets use an explicit `skip` fallback.
+Confidence is metadata only: it is absent from priority, cost, and traversal
+keys and never acts as a score, multiplier, or boost.
+
+## H7: Part G Fixture Evaluation
+
+H7 adds `strata.core.dependency_trace_evaluation`. For every Part G manifest
+task, the unchanged current candidate baseline supplies a deterministic ranked
+pool. The first supported baseline candidate is the default trace seed. “Before”
+metrics grade that seed context at K; “after” metrics grade bounded visited-file
+order at the same K. The full baseline ranking is retained in each report for
+auditability. This measures tracing's marginal contribution without changing
+or replacing candidate selection.
+
+Task reports include fixture/task identity, baseline paths, seeds, visited
+files, edges, Part G metrics before and after, deltas, warnings, skips, and a
+cost-bearing `StageReport`. The aggregate reports average critical recall,
+useful coverage, distractor rate, and context waste; total missed critical
+files; files touched; and estimated edge cost. Every report is deterministic
+and JSON-ready.
+
+Tracing “appears to earn its cost” only when critical recall, missed critical,
+or useful coverage improves; critical quality does not regress; distractor and
+waste rates do not increase; and measured edge cost is positive. Otherwise the
+conclusion explicitly records no improvement, mixed evidence, or regression.
+With the current five fixtures and default K=3/one-seed policy, critical recall
+averages `0.5` before and `0.7` after, missed critical files fall from `3` to
+`2`, useful coverage remains `0.2`, and distractor/waste rates remain `0.0` at
+an estimated edge cost of `1.0`. The improvement occurs in one Angular task;
+the other four tasks are unchanged, so this is bounded fixture evidence rather
+than a general product claim.
+
 ## Deferred Work
 
-Angular and React linking, final dependency priority policy, tracing evaluation,
-candidate-selection changes, and product workflow wiring remain later work.
-H1-H5 add no third-party parser dependency.
+Angular and React linking, candidate-selection changes, and product workflow
+wiring remain later work. H8 final contract/handoff also remains deferred.
+H1-H7 add no third-party parser dependency.

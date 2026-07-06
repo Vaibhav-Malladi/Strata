@@ -11,6 +11,13 @@ from strata.core.dependency_trace_runner import (
     SUPPORTED_SEED_EXTENSIONS,
     run_dependency_trace,
 )
+from strata.core.dependency_priority import (
+    DEFAULT_MAX_DEPTH,
+    DEFAULT_MAX_EDGES,
+    DEFAULT_MAX_ESTIMATED_COST,
+    DEFAULT_MAX_FILES,
+    traversal_order_key,
+)
 from strata.core.dependency_tracing import (
     DependencyEdge,
     DependencyTraceReport,
@@ -20,17 +27,6 @@ from strata.core.dependency_tracing import (
 from strata.core.stage_report import StageReport
 
 
-DEFAULT_MAX_DEPTH = 2
-DEFAULT_MAX_FILES = 40
-DEFAULT_MAX_EDGES = 100
-DEFAULT_MAX_ESTIMATED_COST = 100.0
-
-_PRIORITY_ORDER = {
-    "critical": 0,
-    "high": 1,
-    "medium": 2,
-    "low": 3,
-}
 _SEED_PRIORITY = -1
 
 
@@ -121,8 +117,8 @@ def traverse_dependencies(
     skipped_items = list(initial_skips)
     warnings: list[str] = []
     accepted_seeds: list[str] = []
-    frontier: list[tuple[int, int, str]] = []
-    frontier_keys: dict[str, tuple[int, int]] = {}
+    frontier: list[tuple[int, float, int, str]] = []
+    frontier_keys: dict[str, tuple[int, float, int]] = {}
     for seed in normalized_seeds:
         status = _source_status(root, seed, extension_policy)
         if status is not None:
@@ -133,8 +129,7 @@ def traverse_dependencies(
             frontier,
             frontier_keys,
             seed,
-            depth=0,
-            priority=_SEED_PRIORITY,
+            order_key=(_SEED_PRIORITY, 0.0, 0),
         )
 
     visited: list[str] = []
@@ -149,8 +144,8 @@ def traverse_dependencies(
     stop_reason: str | None = None
 
     while frontier:
-        priority, depth, source_file = heapq.heappop(frontier)
-        if frontier_keys.get(source_file) != (priority, depth):
+        priority, frontier_cost, depth, source_file = heapq.heappop(frontier)
+        if frontier_keys.get(source_file) != (priority, frontier_cost, depth):
             continue
         del frontier_keys[source_file]
         if source_file in visited_set:
@@ -218,8 +213,7 @@ def traverse_dependencies(
                 frontier,
                 frontier_keys,
                 edge.target_file,
-                depth=depth + 1,
-                priority=_PRIORITY_ORDER[edge.priority],
+                order_key=traversal_order_key(edge, depth + 1)[:3],
             )
             if len(edges) >= max_edges:
                 stop_reason = "max_edges cap reached"
@@ -273,19 +267,17 @@ def traverse_dependencies(
 
 
 def _offer_frontier(
-    frontier: list[tuple[int, int, str]],
-    frontier_keys: dict[str, tuple[int, int]],
+    frontier: list[tuple[int, float, int, str]],
+    frontier_keys: dict[str, tuple[int, float, int]],
     path: str,
     *,
-    depth: int,
-    priority: int,
+    order_key: tuple[int, float, int],
 ) -> None:
-    key = (priority, depth)
     previous = frontier_keys.get(path)
-    if previous is not None and previous <= key:
+    if previous is not None and previous <= order_key:
         return
-    frontier_keys[path] = key
-    heapq.heappush(frontier, (priority, depth, path))
+    frontier_keys[path] = order_key
+    heapq.heappush(frontier, (*order_key, path))
 
 
 def _qualify_message(source_file: str, message: str) -> str:

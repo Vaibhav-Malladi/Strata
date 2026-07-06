@@ -9,11 +9,14 @@ from strata.core.dependency_tracing import (
     create_dependency_edge,
     normalize_relative_path,
 )
+from strata.core.dependency_priority import (
+    estimate_dependency_cost,
+    priority_for_evidence,
+)
 from strata.core.stage_report import StageReport
 
 
 _COMMON_SOURCE_ROOTS = ("src", "lib")
-_EDGE_ESTIMATED_COST = 1.0
 
 
 def extract_python_import_edges(
@@ -68,7 +71,7 @@ def extract_python_import_edges(
                         source_path,
                         target,
                         reason=f"Python import: {import_text}",
-                        priority="medium",
+                        evidence_kind="exact_import",
                         confidence="high",
                     )
                 )
@@ -128,7 +131,7 @@ def _extract_from_import(
                     source_path,
                     child_target,
                     reason=f"Python import: {import_text}",
-                    priority="medium",
+                    evidence_kind="exact_import",
                     confidence="high",
                 )
             )
@@ -148,7 +151,7 @@ def _extract_from_import(
                 source_path,
                 base_target,
                 reason=f"Python import: {import_text}",
-                priority="low",
+                evidence_kind="symbol_import",
                 confidence="medium",
             )
         )
@@ -257,17 +260,17 @@ def _edge(
     target_file: str,
     *,
     reason: str,
-    priority: str,
+    evidence_kind: str,
     confidence: str,
 ) -> DependencyEdge:
     return create_dependency_edge(
         source_file=source_file,
         target_file=target_file,
         edge_type="import",
-        priority=priority,
+        priority=priority_for_evidence(evidence_kind),
         reason=reason,
         confidence=confidence,
-        estimated_cost=_EDGE_ESTIMATED_COST,
+        estimated_cost=estimate_dependency_cost("import", evidence_kind),
     )
 
 
