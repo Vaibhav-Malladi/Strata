@@ -60,6 +60,7 @@ import test_agent_adapters
 import test_status
 import test_context_matching
 import test_context_pack
+import test_context_artifacts
 import test_context_budget
 import test_test_mapping
 import test_symbol_slicing
@@ -177,6 +178,7 @@ TEST_MODULES = [
     test_status,
     test_context_matching,
     test_context_pack,
+    test_context_artifacts,
     test_context_budget,
     test_test_mapping,
     test_symbol_slicing,
