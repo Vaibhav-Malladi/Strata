@@ -9,6 +9,14 @@ from strata.core.context_artifacts import (
     REPRESENTATION_TIER_SYMBOL_SLICE,
     REPRESENTATION_TIER_WHOLE_FILE,
     REPRESENTATION_TIERS,
+    REPRESENTATION_FAILURE_REASONS,
+    REPRESENTATION_FAILURE_SYNTAX_ERROR,
+    REPRESENTATION_FAILURE_PARSE_TIMEOUT,
+    REPRESENTATION_FAILURE_EMPTY_LARGE_FILE,
+    REPRESENTATION_FAILURE_UNSAFE_DECODE,
+    REPRESENTATION_SKIP_MISSING,
+    REPRESENTATION_SKIP_REASONS,
+    REPRESENTATION_SKIP_UNSAFE,
     REPOSITORY_CONTENT_BEGIN,
     REPOSITORY_CONTENT_END,
     RUN_STATE_ARTIFACT_PATH,
@@ -23,6 +31,9 @@ from strata.core.context_artifacts import (
     build_token_savings_entry,
     count_representations_by_tier,
     estimate_tokens_conservative,
+    explicit_skip_representation,
+    next_lighter_tier,
+    representation_after_failure,
     render_strata_context,
 )
 
@@ -412,6 +423,129 @@ def test_budget_contract_introduces_no_allocator_api():
     assert "downgrade_representations_for_budget" not in public_names
 
 
+def test_lazy_outline_downgrade_order_is_stable():
+    assert next_lighter_tier(REPRESENTATION_TIER_WHOLE_FILE) == REPRESENTATION_TIER_SYMBOL_SLICE
+    assert next_lighter_tier(REPRESENTATION_TIER_SYMBOL_SLICE) == REPRESENTATION_TIER_METHOD_CLASS_SLICE
+    assert next_lighter_tier(REPRESENTATION_TIER_METHOD_CLASS_SLICE) == REPRESENTATION_TIER_FILE_OUTLINE
+    assert next_lighter_tier(REPRESENTATION_TIER_FILE_OUTLINE) == REPRESENTATION_TIER_PATH_ONLY
+
+
+def test_path_only_and_skipped_terminal_behavior_is_safe():
+    assert next_lighter_tier(REPRESENTATION_TIER_PATH_ONLY) == REPRESENTATION_TIER_PATH_ONLY
+    assert next_lighter_tier(REPRESENTATION_TIER_SKIPPED) == REPRESENTATION_TIER_SKIPPED
+    assert next_lighter_tier(REPRESENTATION_TIER_PATH_ONLY, skip_reason=REPRESENTATION_SKIP_MISSING) == REPRESENTATION_TIER_SKIPPED
+
+
+def test_skipped_is_allowed_only_for_explicit_skip_reasons():
+    assert REPRESENTATION_SKIP_REASONS == (
+        "irrelevant",
+        "unsafe",
+        "missing",
+        "unavailable",
+    )
+    skipped = explicit_skip_representation(
+        path="secret.env",
+        skip_reason=REPRESENTATION_SKIP_UNSAFE,
+        reason="Secret-like file.",
+    )
+
+    assert skipped["tier"] == REPRESENTATION_TIER_SKIPPED
+    assert skipped["reason"] == "Secret-like file."
+    assert skipped["warnings"] == ["Skipped because unsafe: Secret-like file."]
+
+    for call in (
+        lambda: next_lighter_tier(REPRESENTATION_TIER_PATH_ONLY, skip_reason="large"),
+        lambda: explicit_skip_representation(path="x.py", skip_reason="large", reason="Large file."),
+    ):
+        try:
+            call()
+        except ValueError as error:
+            assert "skip reason" in str(error)
+        else:
+            raise AssertionError("Skipped representation accepted a non-explicit skip reason")
+
+
+def test_failure_reason_constants_are_stable():
+    assert REPRESENTATION_FAILURE_REASONS == (
+        "syntax_error",
+        "parse_timeout",
+        "empty_large_file",
+        "exception",
+        "unsafe_decode",
+    )
+
+
+def test_syntax_error_failure_downgrades_safely_with_warning():
+    result = representation_after_failure(
+        REPRESENTATION_TIER_WHOLE_FILE,
+        REPRESENTATION_FAILURE_SYNTAX_ERROR,
+        path="src/app.py",
+    )
+
+    assert result["tier"] == REPRESENTATION_TIER_SYMBOL_SLICE
+    assert result["failure_reason"] == "syntax_error"
+    assert "syntax error" in result["reason"]
+    assert "downgraded from whole file to symbol slice" in result["warning"]
+
+
+def test_timeout_empty_large_and_unsafe_decode_failures_downgrade_safely():
+    cases = [
+        (REPRESENTATION_FAILURE_PARSE_TIMEOUT, "parse timeout over 5 seconds"),
+        (REPRESENTATION_FAILURE_EMPTY_LARGE_FILE, "empty extraction result for a file over 100 lines"),
+        (REPRESENTATION_FAILURE_UNSAFE_DECODE, "unsafe decode"),
+    ]
+
+    for reason_code, expected_text in cases:
+        result = representation_after_failure(
+            REPRESENTATION_TIER_SYMBOL_SLICE,
+            reason_code,
+            path="src/large.py",
+        )
+
+        assert result["tier"] == REPRESENTATION_TIER_METHOD_CLASS_SLICE
+        assert result["warning"] == result["reason"]
+        assert expected_text in result["reason"]
+
+
+def test_failure_from_file_outline_falls_through_to_path_only_with_reason():
+    result = representation_after_failure(
+        REPRESENTATION_TIER_FILE_OUTLINE,
+        REPRESENTATION_FAILURE_PARSE_TIMEOUT,
+        path="src/huge.py",
+    )
+    item = build_represented_item(
+        path=result["path"],
+        tier=result["tier"],
+        reason=result["reason"],
+        warnings=[result["warning"]],
+    )
+
+    assert item["tier"] == REPRESENTATION_TIER_PATH_ONLY
+    assert "downgraded from file outline to path-only with reason" in item["reason"]
+    assert item["warnings"]
+
+
+def test_lazy_outline_policy_introduces_no_parser_scanner_or_allocator_api():
+    public_names = {
+        name
+        for name in vars(context_artifacts)
+        if not name.startswith("_")
+    }
+
+    forbidden = {
+        "parse_symbols",
+        "parse_file_symbols",
+        "scan_for_outlines",
+        "read_file_for_outline",
+        "allocate_budget",
+        "allocate_context_budget",
+        "pack_tokens",
+        "choose_representation_tier",
+    }
+
+    assert not (public_names & forbidden)
+
+
 def _sample_context() -> str:
     return render_strata_context(
         task="Implement I1",
@@ -473,4 +607,12 @@ TESTS = [
     test_budget_summary_renders_savings_and_skipped_entries_outside_untrusted_boundary,
     test_invalid_negative_token_values_are_rejected_safely,
     test_budget_contract_introduces_no_allocator_api,
+    test_lazy_outline_downgrade_order_is_stable,
+    test_path_only_and_skipped_terminal_behavior_is_safe,
+    test_skipped_is_allowed_only_for_explicit_skip_reasons,
+    test_failure_reason_constants_are_stable,
+    test_syntax_error_failure_downgrades_safely_with_warning,
+    test_timeout_empty_large_and_unsafe_decode_failures_downgrade_safely,
+    test_failure_from_file_outline_falls_through_to_path_only_with_reason,
+    test_lazy_outline_policy_introduces_no_parser_scanner_or_allocator_api,
 ]

@@ -48,6 +48,14 @@ The budget summary records estimated used tokens, representation counts, largest
 
 Token estimates are approximate and intentionally conservative: Strata should overestimate rather than underestimate. Model-aware tokenizer behavior belongs to later adapter work. I4 does not read files, scan repositories, choose downgrades, extract symbols, generate lazy outlines, or allocate budget.
 
+## I5: Lazy Outline Policy
+
+I5 adds deterministic policy primitives for falling through the representation ladder when content does not fit or extraction fails. The downgrade path is whole file to symbol slice to method/class slice to file outline to path-only. Path-only is terminal unless the item is explicitly skipped because it is irrelevant, unsafe, missing, or unavailable; skipped is terminal.
+
+Symbol extraction failures are modeled as data, not implemented as parsing: syntax error, parse timeout over five seconds, empty extraction result for a file over 100 lines, exception, and unsafe decode. A failure produces a clear reason and warning and falls through to the next lighter tier without crashing context generation.
+
+I5 does not read files, parse ASTs, scan repositories, allocate budget, pack tokens, or choose complete representation plans. Later batches can use these policy contracts when real outline generation exists.
+
 ## Later Part I Batches
 
 Later batches can build on this contract to add representation tiers, budget profiles, lazy outline policy, and richer workspace intelligence while preserving the same artifact names and trust boundaries.

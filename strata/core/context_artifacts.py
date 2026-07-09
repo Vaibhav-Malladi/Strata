@@ -166,6 +166,46 @@ DEFAULT_MAX_CONTEXT_PACK_TOKENS = 10000
 DEFAULT_TOKENIZER_STRATEGY = "conservative_char_estimate"
 DEFAULT_SAFETY_MARGIN = 0.15
 
+REPRESENTATION_FAILURE_SYNTAX_ERROR = "syntax_error"
+REPRESENTATION_FAILURE_PARSE_TIMEOUT = "parse_timeout"
+REPRESENTATION_FAILURE_EMPTY_LARGE_FILE = "empty_large_file"
+REPRESENTATION_FAILURE_EXCEPTION = "exception"
+REPRESENTATION_FAILURE_UNSAFE_DECODE = "unsafe_decode"
+REPRESENTATION_FAILURE_REASONS = (
+    REPRESENTATION_FAILURE_SYNTAX_ERROR,
+    REPRESENTATION_FAILURE_PARSE_TIMEOUT,
+    REPRESENTATION_FAILURE_EMPTY_LARGE_FILE,
+    REPRESENTATION_FAILURE_EXCEPTION,
+    REPRESENTATION_FAILURE_UNSAFE_DECODE,
+)
+REPRESENTATION_FAILURE_LABELS = {
+    REPRESENTATION_FAILURE_SYNTAX_ERROR: "syntax error",
+    REPRESENTATION_FAILURE_PARSE_TIMEOUT: "parse timeout over 5 seconds",
+    REPRESENTATION_FAILURE_EMPTY_LARGE_FILE: "empty extraction result for a file over 100 lines",
+    REPRESENTATION_FAILURE_EXCEPTION: "symbol extraction exception",
+    REPRESENTATION_FAILURE_UNSAFE_DECODE: "unsafe decode",
+}
+
+REPRESENTATION_SKIP_IRRELEVANT = "irrelevant"
+REPRESENTATION_SKIP_UNSAFE = "unsafe"
+REPRESENTATION_SKIP_MISSING = "missing"
+REPRESENTATION_SKIP_UNAVAILABLE = "unavailable"
+REPRESENTATION_SKIP_REASONS = (
+    REPRESENTATION_SKIP_IRRELEVANT,
+    REPRESENTATION_SKIP_UNSAFE,
+    REPRESENTATION_SKIP_MISSING,
+    REPRESENTATION_SKIP_UNAVAILABLE,
+)
+
+REPRESENTATION_DOWNGRADE_MAP = {
+    REPRESENTATION_TIER_WHOLE_FILE: REPRESENTATION_TIER_SYMBOL_SLICE,
+    REPRESENTATION_TIER_SYMBOL_SLICE: REPRESENTATION_TIER_METHOD_CLASS_SLICE,
+    REPRESENTATION_TIER_METHOD_CLASS_SLICE: REPRESENTATION_TIER_FILE_OUTLINE,
+    REPRESENTATION_TIER_FILE_OUTLINE: REPRESENTATION_TIER_PATH_ONLY,
+    REPRESENTATION_TIER_PATH_ONLY: REPRESENTATION_TIER_PATH_ONLY,
+    REPRESENTATION_TIER_SKIPPED: REPRESENTATION_TIER_SKIPPED,
+}
+
 
 def render_strata_context(
     *,
@@ -411,6 +451,69 @@ def order_budget_entries(items: list[dict] | tuple[dict, ...]) -> list[dict]:
             str(item.get("source_type") or ""),
             str(item.get("reason") or ""),
         ),
+    )
+
+
+def next_lighter_tier(current_tier: str, *, skip_reason: str | None = None) -> str:
+    """Return the next lighter representation tier without allocating budget."""
+
+    tier = _require_representation_tier(current_tier)
+    if tier == REPRESENTATION_TIER_PATH_ONLY and skip_reason is not None:
+        if skip_reason not in REPRESENTATION_SKIP_REASONS:
+            raise ValueError(f"Skipped representation requires an explicit skip reason: {skip_reason}")
+        return REPRESENTATION_TIER_SKIPPED
+    return REPRESENTATION_DOWNGRADE_MAP[tier]
+
+
+def representation_after_failure(
+    current_tier: str,
+    failure_reason: str,
+    *,
+    path: str = "",
+) -> dict:
+    """Describe a safe fall-through after extraction failure."""
+
+    tier = _require_representation_tier(current_tier)
+    reason_code = str(failure_reason or "").strip()
+    if reason_code not in REPRESENTATION_FAILURE_REASONS:
+        raise ValueError(f"Unknown representation failure reason: {failure_reason}")
+
+    next_tier = next_lighter_tier(tier)
+    failure_label = REPRESENTATION_FAILURE_LABELS[reason_code]
+    current_label = REPRESENTATION_TIER_LABELS[tier]
+    next_label = REPRESENTATION_TIER_LABELS[next_tier]
+    target = str(path or "").replace("\\", "/").strip()
+    prefix = f"{target}: " if target else ""
+    reason = f"{prefix}{failure_label}; downgraded from {current_label} to {next_label}."
+
+    return {
+        "path": target,
+        "from_tier": tier,
+        "tier": next_tier,
+        "failure_reason": reason_code,
+        "reason": reason,
+        "warning": reason,
+    }
+
+
+def explicit_skip_representation(
+    *,
+    path: str,
+    skip_reason: str,
+    reason: str,
+    source_type: str = SOURCE_TYPE_WARNING,
+) -> dict:
+    """Build a skipped represented item only for explicit skip reasons."""
+
+    reason_code = str(skip_reason or "").strip()
+    if reason_code not in REPRESENTATION_SKIP_REASONS:
+        raise ValueError(f"Unknown explicit skip reason: {skip_reason}")
+    return build_represented_item(
+        path=path,
+        tier=REPRESENTATION_TIER_SKIPPED,
+        reason=reason,
+        source_type=source_type,
+        warnings=[f"Skipped because {reason_code}: {reason}"],
     )
 
 
@@ -791,3 +894,10 @@ def _tier_index(value) -> int:
         return REPRESENTATION_TIERS.index(value)
     except ValueError:
         return len(REPRESENTATION_TIERS)
+
+
+def _require_representation_tier(value: str) -> str:
+    tier = str(value or "").strip()
+    if tier not in REPRESENTATION_TIERS:
+        raise ValueError(f"Unknown representation tier: {value}")
+    return tier
