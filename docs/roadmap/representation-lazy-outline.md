@@ -25,6 +25,21 @@ I2 also adds a small stored-baseline validation helper for later review flows. M
 
 No competing state artifacts are introduced; `run_state.json` remains the single machine-readable state contract for Part I.
 
+## I3: Representation Tiers
+
+I3 defines the representation ladder Strata will use before later batches decide when to downgrade content:
+
+- whole file (`full content`)
+- symbol slice (`useful symbols`)
+- method/class slice (`relevant method/class only`)
+- file outline (`outline`)
+- path-only with reason (`path and reason only`)
+- skipped with reason (`skipped`)
+
+The contract records represented items as deterministic JSON-ready dictionaries with path, tier, source type, reason, optional priority/score, optional token placeholder fields, warnings, and supplied content or excerpts. Source types are limited to candidate, trace, internal library, warning, and workspace placeholder.
+
+Rendered represented items live in the `Relevant Files` section, which remains inside the untrusted repository-content boundary from I1. I3 does not read files, estimate tokens, allocate budgets, extract symbols, or choose lazy downgrade policy.
+
 ## Later Part I Batches
 
 Later batches can build on this contract to add representation tiers, budget profiles, lazy outline policy, and richer workspace intelligence while preserving the same artifact names and trust boundaries.

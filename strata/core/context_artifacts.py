@@ -78,6 +78,71 @@ MISSING_BASELINE_WARNING = (
     "Stored baseline commit is missing or unreachable; re-run context before review diff."
 )
 
+REPRESENTATION_TIER_WHOLE_FILE = "whole_file"
+REPRESENTATION_TIER_SYMBOL_SLICE = "symbol_slice"
+REPRESENTATION_TIER_METHOD_CLASS_SLICE = "method_class_slice"
+REPRESENTATION_TIER_FILE_OUTLINE = "file_outline"
+REPRESENTATION_TIER_PATH_ONLY = "path_only"
+REPRESENTATION_TIER_SKIPPED = "skipped"
+REPRESENTATION_TIERS = (
+    REPRESENTATION_TIER_WHOLE_FILE,
+    REPRESENTATION_TIER_SYMBOL_SLICE,
+    REPRESENTATION_TIER_METHOD_CLASS_SLICE,
+    REPRESENTATION_TIER_FILE_OUTLINE,
+    REPRESENTATION_TIER_PATH_ONLY,
+    REPRESENTATION_TIER_SKIPPED,
+)
+REPRESENTATION_TIER_LABELS = {
+    REPRESENTATION_TIER_WHOLE_FILE: "whole file",
+    REPRESENTATION_TIER_SYMBOL_SLICE: "symbol slice",
+    REPRESENTATION_TIER_METHOD_CLASS_SLICE: "method/class slice",
+    REPRESENTATION_TIER_FILE_OUTLINE: "file outline",
+    REPRESENTATION_TIER_PATH_ONLY: "path-only with reason",
+    REPRESENTATION_TIER_SKIPPED: "skipped with reason",
+}
+REPRESENTATION_TIER_PLAIN_LANGUAGE = {
+    REPRESENTATION_TIER_WHOLE_FILE: "full content",
+    REPRESENTATION_TIER_SYMBOL_SLICE: "useful symbols",
+    REPRESENTATION_TIER_METHOD_CLASS_SLICE: "relevant method/class only",
+    REPRESENTATION_TIER_FILE_OUTLINE: "outline",
+    REPRESENTATION_TIER_PATH_ONLY: "path and reason only",
+    REPRESENTATION_TIER_SKIPPED: "skipped",
+}
+REPRESENTATION_TIERS_REQUIRING_REASON = (
+    REPRESENTATION_TIER_PATH_ONLY,
+    REPRESENTATION_TIER_SKIPPED,
+)
+
+SOURCE_TYPE_CANDIDATE = "candidate"
+SOURCE_TYPE_TRACE = "trace"
+SOURCE_TYPE_INTERNAL_LIBRARY = "internal_library"
+SOURCE_TYPE_WARNING = "warning"
+SOURCE_TYPE_WORKSPACE_PLACEHOLDER = "workspace_placeholder"
+REPRESENTATION_SOURCE_TYPES = (
+    SOURCE_TYPE_CANDIDATE,
+    SOURCE_TYPE_TRACE,
+    SOURCE_TYPE_INTERNAL_LIBRARY,
+    SOURCE_TYPE_WARNING,
+    SOURCE_TYPE_WORKSPACE_PLACEHOLDER,
+)
+
+REPRESENTED_ITEM_FIELD_ORDER = (
+    "path",
+    "tier",
+    "tier_label",
+    "plain_language",
+    "reason",
+    "source_type",
+    "priority",
+    "score",
+    "estimated_tokens",
+    "original_estimated_tokens",
+    "savings_estimated_tokens",
+    "warnings",
+    "content",
+    "excerpt",
+)
+
 
 def render_strata_context(
     *,
@@ -109,6 +174,68 @@ def render_strata_context(
     _append_section(lines, "## Warnings", warnings)
 
     return "\n".join(lines).rstrip() + "\n"
+
+
+def build_represented_item(
+    *,
+    path: str,
+    tier: str,
+    reason: str = "",
+    source_type: str = SOURCE_TYPE_CANDIDATE,
+    priority: int | None = None,
+    score: int | float | None = None,
+    estimated_tokens: int | None = None,
+    original_estimated_tokens: int | None = None,
+    savings_estimated_tokens: int | None = None,
+    warnings: list[str] | tuple[str, ...] | None = None,
+    content: str | None = None,
+    excerpt: str | None = None,
+) -> dict:
+    """Build a deterministic JSON-ready represented item contract."""
+
+    tier = str(tier or "").strip()
+    source_type = str(source_type or "").strip()
+    reason = str(reason or "").strip()
+
+    if tier not in REPRESENTATION_TIERS:
+        raise ValueError(f"Unknown representation tier: {tier}")
+    if source_type not in REPRESENTATION_SOURCE_TYPES:
+        raise ValueError(f"Unknown representation source type: {source_type}")
+    if tier in REPRESENTATION_TIERS_REQUIRING_REASON and not reason:
+        raise ValueError(f"Representation tier requires a reason: {tier}")
+
+    return {
+        "path": str(path or "").replace("\\", "/").strip(),
+        "tier": tier,
+        "tier_label": REPRESENTATION_TIER_LABELS[tier],
+        "plain_language": REPRESENTATION_TIER_PLAIN_LANGUAGE[tier],
+        "reason": reason,
+        "source_type": source_type,
+        "priority": priority,
+        "score": score,
+        "estimated_tokens": estimated_tokens,
+        "original_estimated_tokens": original_estimated_tokens,
+        "savings_estimated_tokens": savings_estimated_tokens,
+        "warnings": _string_list(warnings),
+        "content": content,
+        "excerpt": excerpt,
+    }
+
+
+def order_represented_items(items: list[dict] | tuple[dict, ...]) -> list[dict]:
+    """Return represented items in stable display order without allocating budget."""
+
+    return sorted(
+        [dict(item) for item in items],
+        key=lambda item: (
+            _none_last_number(item.get("priority")),
+            _none_last_number(item.get("score")),
+            _tier_index(item.get("tier")),
+            str(item.get("path") or ""),
+            str(item.get("source_type") or ""),
+            str(item.get("reason") or ""),
+        ),
+    )
 
 
 def build_run_state(
@@ -314,6 +441,42 @@ def _looks_like_commit_id(value: str) -> bool:
     return all(character in "0123456789abcdefABCDEF" for character in text)
 
 
+def render_represented_items(items: list[dict] | tuple[dict, ...]) -> list[str]:
+    lines: list[str] = []
+
+    for item in order_represented_items(items):
+        path = _neutralize_delimiter_collision(str(item.get("path") or ""))
+        tier_label = _neutralize_delimiter_collision(str(item.get("tier_label") or item.get("tier") or ""))
+        plain_language = _neutralize_delimiter_collision(str(item.get("plain_language") or ""))
+        source_type = _neutralize_delimiter_collision(str(item.get("source_type") or ""))
+        reason = _neutralize_delimiter_collision(str(item.get("reason") or "").strip())
+
+        lines.append(f"- `{path}` — {tier_label} ({plain_language})")
+        lines.append(f"  - Source: `{source_type}`")
+        if reason:
+            lines.append(f"  - Reason: {reason}")
+        _append_optional_number(lines, "Priority", item.get("priority"))
+        _append_optional_number(lines, "Score", item.get("score"))
+        _append_optional_number(lines, "Estimated tokens", item.get("estimated_tokens"))
+        _append_optional_number(lines, "Original estimated tokens", item.get("original_estimated_tokens"))
+        _append_optional_number(lines, "Savings estimated tokens", item.get("savings_estimated_tokens"))
+
+        for warning in _string_list(item.get("warnings")):
+            lines.append(f"  - Warning: {_neutralize_delimiter_collision(warning)}")
+
+        excerpt = item.get("excerpt")
+        if excerpt:
+            lines.append("  - Excerpt:")
+            lines.extend(f"    {line}" for line in _content_lines(excerpt))
+
+        content = item.get("content")
+        if content:
+            lines.append("  - Content:")
+            lines.extend(f"    {line}" for line in _content_lines(content))
+
+    return lines or ["- none"]
+
+
 def _append_section(lines: list[str], heading: str, content, *, empty_text: str = "- none") -> None:
     lines.append(heading)
     lines.append("")
@@ -337,6 +500,8 @@ def _markdown_lines(content, *, empty_text: str) -> list[str]:
     if isinstance(content, (list, tuple)):
         if not content:
             return [empty_text] if empty_text != "" else []
+        if all(isinstance(item, dict) and _is_represented_item(item) for item in content):
+            return render_represented_items(content)
 
         rendered: list[str] = []
         for item in content:
@@ -375,3 +540,46 @@ def _list_copy(values) -> list:
     if values is None:
         return []
     return list(values)
+
+
+def _string_list(values) -> list[str]:
+    if values is None:
+        return []
+    return [str(value) for value in values if str(value)]
+
+
+def _is_represented_item(value: dict) -> bool:
+    return (
+        value.get("tier") in REPRESENTATION_TIERS
+        and value.get("source_type") in REPRESENTATION_SOURCE_TYPES
+        and "path" in value
+    )
+
+
+def _append_optional_number(lines: list[str], label: str, value) -> None:
+    if value is None:
+        return
+    lines.append(f"  - {label}: `{value}`")
+
+
+def _content_lines(value) -> list[str]:
+    return [
+        _neutralize_delimiter_collision(line)
+        for line in str(value).splitlines()
+    ] or [""]
+
+
+def _none_last_number(value):
+    if value is None:
+        return (1, 0.0, "")
+    try:
+        return (0, float(value), "")
+    except (TypeError, ValueError):
+        return (0, 0.0, str(value))
+
+
+def _tier_index(value) -> int:
+    try:
+        return REPRESENTATION_TIERS.index(value)
+    except ValueError:
+        return len(REPRESENTATION_TIERS)
