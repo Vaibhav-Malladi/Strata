@@ -1,6 +1,10 @@
+from pathlib import Path
+
 import strata.core.context_artifacts as context_artifacts
 from strata.core.context_artifacts import (
+    ADAPTER_NEUTRAL_CONTEXT_NOTE,
     CONTEXT_ARTIFACT_PATH,
+    SUPPORTED_CONTEXT_SURFACES,
     REPRESENTATION_SOURCE_TYPES,
     REPRESENTATION_TIER_FILE_OUTLINE,
     REPRESENTATION_TIER_METHOD_CLASS_SLICE,
@@ -131,14 +135,87 @@ def test_internal_library_placeholders_exist_in_context_and_run_state():
 
 def test_context_artifact_module_introduces_no_competing_artifact_names():
     forbidden = {
+        "browser_prompt.md",
         "session.json",
         "scope_guard.json",
+        "terminal_prompt.md",
         "vscode_prompt.md",
     }
     strings = _collect_public_strings(context_artifacts)
 
     for artifact_name in forbidden:
         assert artifact_name not in strings
+
+
+def test_supported_context_surface_constants_are_stable():
+    assert SUPPORTED_CONTEXT_SURFACES == (
+        "browser_ai",
+        "cli_ai",
+        "vscode_terminal",
+        "vscode_side_chat",
+        "future_vscode_extension",
+    )
+    assert "canonical context artifacts" in ADAPTER_NEUTRAL_CONTEXT_NOTE
+    assert "independent sources of truth" in ADAPTER_NEUTRAL_CONTEXT_NOTE
+
+
+def test_context_markdown_remains_plain_deterministic_markdown():
+    item = build_represented_item(
+        path="src/app.py",
+        tier=REPRESENTATION_TIER_FILE_OUTLINE,
+        reason="Relevant owner.",
+        excerpt="class App",
+    )
+    summary = build_budget_summary(represented_items=[item])
+    first = render_strata_context(
+        task="fix app",
+        suggested_instructions=["Use canonical context."],
+        relevant_files=[item],
+        budget_summary=summary,
+        scope_guard=["Stay in scope."],
+        warnings=["No adapter-specific prompt files."],
+    )
+    second = render_strata_context(
+        task="fix app",
+        suggested_instructions=["Use canonical context."],
+        relevant_files=[item],
+        budget_summary=summary,
+        scope_guard=["Stay in scope."],
+        warnings=["No adapter-specific prompt files."],
+    )
+
+    assert first == second
+    assert first.startswith("# Strata Context\n")
+    assert "\r" not in first
+    assert all(ord(character) < 128 for character in first)
+    assert "<script" not in first.lower()
+
+
+def test_i6_boundaries_budget_and_represented_content_positions_are_stable():
+    item = build_represented_item(
+        path="src/app.py",
+        tier=REPRESENTATION_TIER_FILE_OUTLINE,
+        reason="Repository-derived representation.",
+        excerpt="class App",
+    )
+    summary = build_budget_summary(
+        represented_items=[item],
+        warnings=["Trusted Strata budget metadata."],
+    )
+    content = render_strata_context(
+        task="fix app",
+        relevant_files=[item],
+        budget_summary=summary,
+    )
+    begin = content.index(REPOSITORY_CONTENT_BEGIN)
+    end = content.index(REPOSITORY_CONTENT_END)
+    represented_position = content.index("Repository-derived representation.")
+    budget_position = content.index("## Context Budget Summary")
+
+    assert content.count(REPOSITORY_CONTENT_BEGIN) == 1
+    assert content.count(REPOSITORY_CONTENT_END) == 1
+    assert begin < represented_position < end
+    assert end < budget_position
 
 
 def test_representation_tier_names_and_order_are_stable():
@@ -546,6 +623,23 @@ def test_lazy_outline_policy_introduces_no_parser_scanner_or_allocator_api():
     assert not (public_names & forbidden)
 
 
+def test_final_part_i_docs_cover_adapter_surfaces_and_handoffs():
+    docs_path = Path(__file__).resolve().parents[1] / "docs" / "roadmap" / "representation-lazy-outline.md"
+    text = docs_path.read_text(encoding="utf-8").lower()
+
+    for term in (
+        "browser",
+        "cli",
+        "vs code terminal",
+        "vs code side chat",
+        "future vs code extension",
+    ):
+        assert term in text
+
+    for part in ("part j", "part k", "part m", "part o", "part q"):
+        assert part in text
+
+
 def _sample_context() -> str:
     return render_strata_context(
         task="Implement I1",
@@ -594,6 +688,9 @@ TESTS = [
     test_workspace_placeholders_exist_in_run_state,
     test_internal_library_placeholders_exist_in_context_and_run_state,
     test_context_artifact_module_introduces_no_competing_artifact_names,
+    test_supported_context_surface_constants_are_stable,
+    test_context_markdown_remains_plain_deterministic_markdown,
+    test_i6_boundaries_budget_and_represented_content_positions_are_stable,
     test_representation_tier_names_and_order_are_stable,
     test_representation_source_type_names_are_stable,
     test_represented_item_dict_output_is_deterministic_and_json_ready,
@@ -615,4 +712,5 @@ TESTS = [
     test_timeout_empty_large_and_unsafe_decode_failures_downgrade_safely,
     test_failure_from_file_outline_falls_through_to_path_only_with_reason,
     test_lazy_outline_policy_introduces_no_parser_scanner_or_allocator_api,
+    test_final_part_i_docs_cover_adapter_surfaces_and_handoffs,
 ]

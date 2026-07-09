@@ -56,6 +56,22 @@ Symbol extraction failures are modeled as data, not implemented as parsing: synt
 
 I5 does not read files, parse ASTs, scan repositories, allocate budget, pack tokens, or choose complete representation plans. Later batches can use these policy contracts when real outline generation exists.
 
+## I6: Adapter-Neutral Output and Part I Handoff
+
+I6 finalizes Part I as one adapter-neutral context contract. The canonical artifacts remain `.aidc/context/strata_context.md` and `.aidc/context/run_state.json`. Browser AI, CLI AI, VS Code terminal, VS Code side chat, and a future VS Code extension must consume or derive output from those canonical artifacts rather than storing independent prompt or session files.
+
+The context markdown is plain deterministic Markdown with visible trusted/untrusted boundaries. It is safe to open, copy, paste, or reference from a browser, terminal, VS Code terminal, or VS Code side chat without terminal-only assumptions or extension-specific duplicated intelligence.
+
+Part I hands off to later roadmap work:
+
+- Part J consumes represented frontend files and internal-library hints.
+- Part K consumes represented backend files later.
+- Part M consumes `run_state.json` and must not create competing session files.
+- Part O may add model-aware and adapter-aware budget behavior later.
+- Part Q consumes workspace placeholders later.
+
+Part I does not implement browser automation, CLI AI integration, a VS Code extension, model-aware budgeting, frontend/backend/workspace intelligence, or generated context artifacts.
+
 ## Later Part I Batches
 
 Later batches can build on this contract to add representation tiers, budget profiles, lazy outline policy, and richer workspace intelligence while preserving the same artifact names and trust boundaries.
