@@ -1,4 +1,8 @@
 import json
+from pathlib import Path
+from subprocess import SubprocessError
+
+from strata.utils.shell import run_argv
 
 
 CONTEXT_ARTIFACT_PATH = ".aidc/context/strata_context.md"
@@ -40,6 +44,8 @@ RUN_STATE_FIELD_ORDER = (
     "created_at",
     "baseline_commit",
     "baseline_commit_attached",
+    "baseline_status",
+    "baseline_warning",
     "in_scope_files",
     "expected_related_files",
     "allowed_new_files",
@@ -51,6 +57,25 @@ RUN_STATE_FIELD_ORDER = (
     "workspace",
     "cross_repo_references",
     "internal_libraries",
+)
+
+BASELINE_STATUS_ATTACHED = "attached"
+BASELINE_STATUS_DETACHED = "detached"
+BASELINE_STATUS_NO_COMMITS = "no_commits"
+BASELINE_STATUS_NOT_GIT = "not_git"
+BASELINE_STATUS_GIT_UNAVAILABLE = "git_unavailable"
+BASELINE_STATUS_AVAILABLE = "available"
+BASELINE_STATUS_MISSING = "missing"
+BASELINE_STATUS_NOT_PROVIDED = "not_provided"
+
+NO_COMMITS_BASELINE_WARNING = (
+    "Review diff is disabled until the repository has at least one commit."
+)
+DETACHED_HEAD_BASELINE_WARNING = (
+    "HEAD is detached; review can compare against the captured commit, but branch tracking is unavailable."
+)
+MISSING_BASELINE_WARNING = (
+    "Stored baseline commit is missing or unreachable; re-run context before review diff."
 )
 
 
@@ -93,6 +118,8 @@ def build_run_state(
     created_at: str | None = None,
     baseline_commit: str | None = None,
     baseline_commit_attached: bool = False,
+    baseline_status: str | None = None,
+    baseline_warning: str | None = None,
     in_scope_files: list[str] | tuple[str, ...] | None = None,
     expected_related_files: list[str] | tuple[str, ...] | None = None,
     allowed_new_files: list[str] | tuple[str, ...] | None = None,
@@ -113,6 +140,8 @@ def build_run_state(
         "created_at": created_at,
         "baseline_commit": baseline_commit,
         "baseline_commit_attached": bool(baseline_commit_attached),
+        "baseline_status": baseline_status,
+        "baseline_warning": baseline_warning,
         "in_scope_files": _list_copy(in_scope_files),
         "expected_related_files": _list_copy(expected_related_files),
         "allowed_new_files": _list_copy(allowed_new_files),
@@ -127,10 +156,162 @@ def build_run_state(
     }
 
 
+def capture_git_baseline(root_path: str | Path) -> dict:
+    """Capture the current git HEAD state for run_state.json."""
+
+    root = Path(root_path)
+    repo_check = _run_git(root, "rev-parse", "--is-inside-work-tree")
+    if repo_check is None:
+        return _baseline_state(
+            None,
+            False,
+            BASELINE_STATUS_GIT_UNAVAILABLE,
+            "Git is unavailable; review diff baseline cannot be captured.",
+        )
+    if repo_check.returncode != 0:
+        return _baseline_state(
+            None,
+            False,
+            BASELINE_STATUS_NOT_GIT,
+            "Review diff baseline is unavailable because this path is not a git repository.",
+        )
+
+    attached = _is_head_attached(root)
+    head = _run_git(root, "rev-parse", "--verify", "HEAD")
+    if head is None:
+        return _baseline_state(
+            None,
+            attached,
+            BASELINE_STATUS_GIT_UNAVAILABLE,
+            "Git is unavailable; review diff baseline cannot be captured.",
+        )
+
+    if head.returncode != 0:
+        return _baseline_state(
+            None,
+            attached,
+            BASELINE_STATUS_NO_COMMITS,
+            NO_COMMITS_BASELINE_WARNING,
+        )
+
+    commit = _first_output_line(head.stdout)
+    if attached:
+        return _baseline_state(commit, True, BASELINE_STATUS_ATTACHED, None)
+
+    return _baseline_state(
+        commit,
+        False,
+        BASELINE_STATUS_DETACHED,
+        DETACHED_HEAD_BASELINE_WARNING,
+    )
+
+
+def build_run_state_for_repo(root_path: str | Path, **values) -> dict:
+    """Build run_state.json fields with the current git baseline attached."""
+
+    baseline = capture_git_baseline(root_path)
+    merged = dict(values)
+    merged.setdefault("baseline_commit", baseline["baseline_commit"])
+    merged.setdefault("baseline_commit_attached", baseline["baseline_commit_attached"])
+    merged.setdefault("baseline_status", baseline["baseline_status"])
+    merged.setdefault("baseline_warning", baseline["baseline_warning"])
+    return build_run_state(**merged)
+
+
+def validate_stored_baseline(root_path: str | Path, baseline_commit: str | None) -> dict:
+    """Validate that a stored baseline commit can still be used safely."""
+
+    commit = str(baseline_commit or "").strip()
+    if not commit:
+        return _baseline_validation(
+            None,
+            False,
+            BASELINE_STATUS_NOT_PROVIDED,
+            "No stored baseline commit is available; re-run context before review diff.",
+        )
+
+    if not _looks_like_commit_id(commit):
+        return _baseline_validation(commit, False, BASELINE_STATUS_MISSING, MISSING_BASELINE_WARNING)
+
+    root = Path(root_path)
+    repo_check = _run_git(root, "rev-parse", "--is-inside-work-tree")
+    if repo_check is None:
+        return _baseline_validation(
+            commit,
+            False,
+            BASELINE_STATUS_GIT_UNAVAILABLE,
+            "Git is unavailable; stored baseline cannot be validated.",
+        )
+    if repo_check.returncode != 0:
+        return _baseline_validation(
+            commit,
+            False,
+            BASELINE_STATUS_NOT_GIT,
+            "Stored baseline cannot be validated because this path is not a git repository.",
+        )
+
+    result = _run_git(root, "cat-file", "-e", f"{commit}^{{commit}}")
+    if result is not None and result.returncode == 0:
+        return _baseline_validation(commit, True, BASELINE_STATUS_AVAILABLE, None)
+
+    return _baseline_validation(commit, False, BASELINE_STATUS_MISSING, MISSING_BASELINE_WARNING)
+
+
 def render_run_state_json(run_state: dict) -> str:
     """Render run_state.json with stable formatting."""
 
     return json.dumps(run_state, indent=2, ensure_ascii=False) + "\n"
+
+
+def _baseline_state(commit: str | None, attached: bool, status: str, warning: str | None) -> dict:
+    return {
+        "baseline_commit": commit,
+        "baseline_commit_attached": bool(attached),
+        "baseline_status": status,
+        "baseline_warning": warning,
+    }
+
+
+def _baseline_validation(commit: str | None, available: bool, status: str, warning: str | None) -> dict:
+    return {
+        "baseline_commit": commit,
+        "baseline_available": bool(available),
+        "baseline_status": status,
+        "baseline_warning": warning,
+    }
+
+
+def _run_git(root: Path, *args: str):
+    try:
+        return run_argv(
+            ["git", *args],
+            cwd=root,
+            encoding="utf-8",
+            errors="replace",
+            timeout=10,
+        )
+    except (FileNotFoundError, OSError, SubprocessError):
+        return None
+
+
+def _is_head_attached(root: Path) -> bool:
+    result = _run_git(root, "symbolic-ref", "-q", "HEAD")
+    return result is not None and result.returncode == 0
+
+
+def _first_output_line(value: str) -> str | None:
+    for line in str(value or "").splitlines():
+        text = line.strip()
+        if text:
+            return text
+    return None
+
+
+def _looks_like_commit_id(value: str) -> bool:
+    text = str(value or "").strip()
+    if len(text) < 4:
+        return False
+    return all(character in "0123456789abcdefABCDEF" for character in text)
 
 
 def _append_section(lines: list[str], heading: str, content, *, empty_text: str = "- none") -> None:
