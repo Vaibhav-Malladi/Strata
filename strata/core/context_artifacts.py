@@ -143,6 +143,29 @@ REPRESENTED_ITEM_FIELD_ORDER = (
     "excerpt",
 )
 
+BUDGET_PROFILE_FIELD_ORDER = (
+    "target_context_tokens",
+    "reserved_output_tokens",
+    "max_context_pack_tokens",
+    "tokenizer_strategy",
+    "safety_margin",
+)
+BUDGET_SUMMARY_FIELD_ORDER = (
+    "target_context_tokens",
+    "estimated_used_tokens",
+    "reserved_output_tokens",
+    "safety_margin",
+    "representation_counts",
+    "largest_token_savings",
+    "skipped_or_downgraded",
+    "warnings",
+)
+DEFAULT_TARGET_CONTEXT_TOKENS = 12000
+DEFAULT_RESERVED_OUTPUT_TOKENS = 2000
+DEFAULT_MAX_CONTEXT_PACK_TOKENS = 10000
+DEFAULT_TOKENIZER_STRATEGY = "conservative_char_estimate"
+DEFAULT_SAFETY_MARGIN = 0.15
+
 
 def render_strata_context(
     *,
@@ -152,6 +175,7 @@ def render_strata_context(
     dependency_traces: str | list | tuple | dict | None = None,
     internal_library_apis: str | list | tuple | dict | None = None,
     cross_repo_external_references: str | list | tuple | dict | None = None,
+    budget_summary: dict | None = None,
     scope_guard: str | list | tuple | None = None,
     warnings: str | list | tuple | None = None,
 ) -> str:
@@ -170,6 +194,8 @@ def render_strata_context(
     lines.append(REPOSITORY_CONTENT_END)
     lines.append("")
 
+    if budget_summary is not None:
+        _append_section(lines, "## Context Budget Summary", budget_summary)
     _append_section(lines, "## Scope Guard", scope_guard)
     _append_section(lines, "## Warnings", warnings)
 
@@ -232,6 +258,156 @@ def order_represented_items(items: list[dict] | tuple[dict, ...]) -> list[dict]:
             _none_last_number(item.get("score")),
             _tier_index(item.get("tier")),
             str(item.get("path") or ""),
+            str(item.get("source_type") or ""),
+            str(item.get("reason") or ""),
+        ),
+    )
+
+
+def build_budget_profile(
+    *,
+    target_context_tokens: int | None = None,
+    reserved_output_tokens: int | None = None,
+    max_context_pack_tokens: int | None = None,
+    tokenizer_strategy: str = DEFAULT_TOKENIZER_STRATEGY,
+    safety_margin: int | float | None = None,
+) -> dict:
+    """Build the deterministic token-firewall budget profile contract."""
+
+    return {
+        "target_context_tokens": _nonnegative_int(
+            DEFAULT_TARGET_CONTEXT_TOKENS if target_context_tokens is None else target_context_tokens,
+            "target_context_tokens",
+        ),
+        "reserved_output_tokens": _nonnegative_int(
+            DEFAULT_RESERVED_OUTPUT_TOKENS if reserved_output_tokens is None else reserved_output_tokens,
+            "reserved_output_tokens",
+        ),
+        "max_context_pack_tokens": _nonnegative_int(
+            DEFAULT_MAX_CONTEXT_PACK_TOKENS if max_context_pack_tokens is None else max_context_pack_tokens,
+            "max_context_pack_tokens",
+        ),
+        "tokenizer_strategy": str(tokenizer_strategy or DEFAULT_TOKENIZER_STRATEGY),
+        "safety_margin": _nonnegative_number(
+            DEFAULT_SAFETY_MARGIN if safety_margin is None else safety_margin,
+            "safety_margin",
+        ),
+    }
+
+
+def estimate_tokens_conservative(text: str | None) -> int:
+    """Approximate tokens with a conservative stdlib-only character estimate."""
+
+    length = len(str(text or ""))
+    if length <= 0:
+        return 0
+    return max(1, (length + 2) // 3)
+
+
+def count_representations_by_tier(items: list[dict] | tuple[dict, ...] | None) -> dict:
+    counts = {tier: 0 for tier in REPRESENTATION_TIERS}
+
+    for item in items or []:
+        tier = item.get("tier") if isinstance(item, dict) else None
+        if tier in counts:
+            counts[tier] += 1
+
+    return counts
+
+
+def build_token_savings_entry(
+    *,
+    path: str,
+    tier: str,
+    savings_estimated_tokens: int | None = None,
+    original_estimated_tokens: int | None = None,
+    estimated_tokens: int | None = None,
+    reason: str = "",
+) -> dict:
+    return {
+        "path": str(path or "").replace("\\", "/").strip(),
+        "tier": str(tier or "").strip(),
+        "savings_estimated_tokens": _optional_nonnegative_int(
+            savings_estimated_tokens,
+            "savings_estimated_tokens",
+        ),
+        "original_estimated_tokens": _optional_nonnegative_int(
+            original_estimated_tokens,
+            "original_estimated_tokens",
+        ),
+        "estimated_tokens": _optional_nonnegative_int(estimated_tokens, "estimated_tokens"),
+        "reason": str(reason or "").strip(),
+    }
+
+
+def build_skipped_or_downgraded_entry(
+    *,
+    path: str,
+    tier: str,
+    reason: str,
+    source_type: str = SOURCE_TYPE_CANDIDATE,
+) -> dict:
+    if not str(reason or "").strip():
+        raise ValueError("Skipped or downgraded entries require a reason.")
+
+    return {
+        "path": str(path or "").replace("\\", "/").strip(),
+        "tier": str(tier or "").strip(),
+        "source_type": str(source_type or "").strip(),
+        "reason": str(reason or "").strip(),
+    }
+
+
+def build_budget_summary(
+    *,
+    profile: dict | None = None,
+    represented_items: list[dict] | tuple[dict, ...] | None = None,
+    estimated_used_tokens: int | None = None,
+    largest_token_savings: list[dict] | tuple[dict, ...] | None = None,
+    skipped_or_downgraded: list[dict] | tuple[dict, ...] | None = None,
+    warnings: list[str] | tuple[str, ...] | None = None,
+) -> dict:
+    """Build a deterministic budget summary without allocating budget."""
+
+    profile = build_budget_profile(**(profile or {}))
+    used = estimated_used_tokens
+    if used is None:
+        used = sum(
+            _optional_nonnegative_int(item.get("estimated_tokens"), "estimated_tokens") or 0
+            for item in represented_items or []
+            if isinstance(item, dict)
+        )
+
+    return {
+        "target_context_tokens": profile["target_context_tokens"],
+        "estimated_used_tokens": _nonnegative_int(used, "estimated_used_tokens"),
+        "reserved_output_tokens": profile["reserved_output_tokens"],
+        "safety_margin": profile["safety_margin"],
+        "representation_counts": count_representations_by_tier(represented_items),
+        "largest_token_savings": order_token_savings_entries(largest_token_savings or []),
+        "skipped_or_downgraded": order_budget_entries(skipped_or_downgraded or []),
+        "warnings": _string_list(warnings),
+    }
+
+
+def order_token_savings_entries(items: list[dict] | tuple[dict, ...]) -> list[dict]:
+    return sorted(
+        [dict(item) for item in items],
+        key=lambda item: (
+            -(_optional_nonnegative_int(item.get("savings_estimated_tokens"), "savings_estimated_tokens") or 0),
+            str(item.get("path") or ""),
+            str(item.get("tier") or ""),
+            str(item.get("reason") or ""),
+        ),
+    )
+
+
+def order_budget_entries(items: list[dict] | tuple[dict, ...]) -> list[dict]:
+    return sorted(
+        [dict(item) for item in items],
+        key=lambda item: (
+            str(item.get("path") or ""),
+            str(item.get("tier") or ""),
             str(item.get("source_type") or ""),
             str(item.get("reason") or ""),
         ),
@@ -451,7 +627,7 @@ def render_represented_items(items: list[dict] | tuple[dict, ...]) -> list[str]:
         source_type = _neutralize_delimiter_collision(str(item.get("source_type") or ""))
         reason = _neutralize_delimiter_collision(str(item.get("reason") or "").strip())
 
-        lines.append(f"- `{path}` — {tier_label} ({plain_language})")
+        lines.append(f"- `{path}` - {tier_label} ({plain_language})")
         lines.append(f"  - Source: `{source_type}`")
         if reason:
             lines.append(f"  - Reason: {reason}")
@@ -540,6 +716,38 @@ def _list_copy(values) -> list:
     if values is None:
         return []
     return list(values)
+
+
+def _nonnegative_int(value, field_name: str) -> int:
+    if isinstance(value, bool):
+        raise ValueError(f"{field_name} must be a non-negative integer.")
+    try:
+        number = int(value)
+    except (TypeError, ValueError) as error:
+        raise ValueError(f"{field_name} must be a non-negative integer.") from error
+    if number < 0:
+        raise ValueError(f"{field_name} must be a non-negative integer.")
+    return number
+
+
+def _optional_nonnegative_int(value, field_name: str) -> int | None:
+    if value is None:
+        return None
+    return _nonnegative_int(value, field_name)
+
+
+def _nonnegative_number(value, field_name: str) -> int | float:
+    if isinstance(value, bool):
+        raise ValueError(f"{field_name} must be a non-negative number.")
+    try:
+        number = float(value)
+    except (TypeError, ValueError) as error:
+        raise ValueError(f"{field_name} must be a non-negative number.") from error
+    if number < 0:
+        raise ValueError(f"{field_name} must be a non-negative number.")
+    if number.is_integer():
+        return int(number)
+    return number
 
 
 def _string_list(values) -> list[str]:

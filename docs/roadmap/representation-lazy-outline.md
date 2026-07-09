@@ -40,6 +40,14 @@ The contract records represented items as deterministic JSON-ready dictionaries 
 
 Rendered represented items live in the `Relevant Files` section, which remains inside the untrusted repository-content boundary from I1. I3 does not read files, estimate tokens, allocate budgets, extract symbols, or choose lazy downgrade policy.
 
+## I4: Budget Profile and Token Firewall
+
+I4 adds trusted token-firewall metadata without implementing allocation. The budget profile records target context tokens, reserved output tokens, maximum context-pack tokens, tokenizer strategy, and safety margin. Defaults are conservative and stdlib-only.
+
+The budget summary records estimated used tokens, representation counts, largest token-savings records, skipped or downgraded records, and warnings. It is always renderable and belongs to trusted Strata metadata outside the untrusted repository-content boundary.
+
+Token estimates are approximate and intentionally conservative: Strata should overestimate rather than underestimate. Model-aware tokenizer behavior belongs to later adapter work. I4 does not read files, scan repositories, choose downgrades, extract symbols, generate lazy outlines, or allocate budget.
+
 ## Later Part I Batches
 
 Later batches can build on this contract to add representation tiers, budget profiles, lazy outline policy, and richer workspace intelligence while preserving the same artifact names and trust boundaries.
