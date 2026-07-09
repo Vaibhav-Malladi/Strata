@@ -22,7 +22,8 @@ behind the appropriate Part I trust boundary.
 
 ## Later J Batches
 
-Later batches may populate the J1 contract without changing its public shape:
+Later batches may populate the J1 contract without changing its public shape.
+J2 now begins that population work for one Angular component at a time:
 
 1. J2 Angular component-template-style linking
 2. J3 Angular route/lazy route linking
@@ -31,7 +32,30 @@ Later batches may populate the J1 contract without changing its public shape:
 5. J6 Module Federation/custom element detection
 6. J7 Frontend linking evaluation/docs
 
-These later batches are intentionally not implemented by J1.
+J3-J7 remain intentionally outside J2.
+
+## J2: Angular Component-Template-Style Linking
+
+J2 adds a small, stdlib-only helper for one supplied Angular component source
+string and path. It infers `component_template` and `component_style`
+relationships for common component metadata:
+
+- `templateUrl`
+- `styleUrl`
+- `styleUrls`
+- inline `template`
+- inline `styles`
+
+External template/style targets are resolved only when they are relative to the
+component file directory. Inline metadata is represented with a target symbol
+such as `inline template` or `inline styles` instead of a target path. Malformed
+metadata, absolute targets, and traversal outside the repository degrade to
+low-confidence relationship records with warnings rather than crashing.
+
+J2 does not scan repositories, read target files, parse `tsconfig`, read
+`package.json`, trace Angular routes, implement React linking, infer internal
+library usage, detect module federation, detect custom elements, update Part I
+canonical artifacts, or create generated `.aidc/context` artifacts.
 
 ## Boundaries
 
