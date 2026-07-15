@@ -66,6 +66,7 @@ import test_workflow_state
 import test_diagnostics
 import test_diagnostic_explanations
 import test_workflow_status
+import test_guided_workflow
 import test_error_artifacts
 import test_workflow_diagnostics_handoff
 import test_capability_profiles
@@ -221,6 +222,7 @@ TEST_MODULES = [
     test_diagnostics,
     test_diagnostic_explanations,
     test_workflow_status,
+    test_guided_workflow,
     test_error_artifacts,
     test_workflow_diagnostics_handoff,
     test_capability_profiles,
