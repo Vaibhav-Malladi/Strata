@@ -65,6 +65,7 @@ import test_run_state_baseline
 import test_workflow_state
 import test_diagnostics
 import test_diagnostic_explanations
+import test_workflow_status
 import test_context_budget
 import test_test_mapping
 import test_symbol_slicing
@@ -210,6 +211,7 @@ TEST_MODULES = [
     test_workflow_state,
     test_diagnostics,
     test_diagnostic_explanations,
+    test_workflow_status,
     test_context_budget,
     test_test_mapping,
     test_symbol_slicing,

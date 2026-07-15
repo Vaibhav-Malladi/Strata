@@ -121,6 +121,42 @@ exit codes.
 M3 explanations do not automatically enter Part I context artifacts. Part I
 remains the token firewall.
 
+## M4: Workflow Status Summary
+
+M4 adds pure workflow-status helpers in `strata/core/workflow_status.py`. The
+status result is a deterministic JSON-ready mapping with status, health, title,
+summary, current step, completed steps, pending steps, blocking issue count,
+warning count, one safe next action, a next-action label, and compact details.
+
+The health vocabulary is:
+
+- `healthy`
+- `attention`
+- `blocked`
+- `invalid`
+- `complete`
+
+Current, completed, and pending steps are derived conservatively from explicit
+workflow evidence. The ordered workflow steps are `prepare_context`,
+`request_ai_response`, `review_response`, `apply_patch`, `run_verification`, and
+`workflow_complete`. Invalid state uses `repair_run_state`, and blocking issues
+use `inspect_diagnostics`.
+
+M4 reuses M1 validation and next-action suggestions, M2 diagnostic normalization
+and compact counts, and M3 explanation summaries when supplied. It does not infer
+review success from patch receipt, does not infer verification success from patch
+application, and does not treat `workflow_status="complete"` as complete without
+explicit verification success.
+
+The text renderer returns a concise deterministic plain-text block with status,
+current step, blocking issue count, warning count, and next action. It does not
+print, use colors, inspect terminal width, or depend on Rich.
+
+M4 provides status data and pure rendering helpers only. M4 does not add or
+redesign a CLI command, does not automatically write status artifacts, and does
+not automatically enter Part I context artifacts. Part I remains the token
+firewall.
+
 ## Ownership Boundaries
 
 M owns workflow state and diagnostics.
@@ -130,6 +166,5 @@ delivery surfaces.
 
 N owns guided UX and workflow polish.
 
-M1, M2, and M3 are implemented. M4-M6 are not implemented. User-facing workflow
-status commands, persisted error artifacts, and final handoff remain later Part
-M work.
+M1, M2, M3, and M4 are implemented. M5-M6 are not implemented. Persisted error
+artifacts and final handoff remain later Part M work.
