@@ -141,6 +141,16 @@ from tests import test_frontend_relationships
 from tests import test_internal_library_resolution
 from tests import test_internal_library_discovery
 from tests import test_internal_library_resolution_evidence
+from tests import test_backend_relationships
+from tests import test_python_backend_common
+from tests import test_fastapi_routes
+from tests import test_flask_routes
+from tests import test_django_routes
+from tests import test_express_routes
+from tests import test_nestjs_routes
+from tests import test_go_backend_common
+from tests import test_go_routes
+from tests import test_backend_linking_summary
 from ui import get_console, is_rich_enabled, print_command_header, print_success
 
 
@@ -267,6 +277,16 @@ TEST_MODULES = [
     test_internal_library_resolution,
     test_internal_library_discovery,
     test_internal_library_resolution_evidence,
+    test_backend_relationships,
+    test_python_backend_common,
+    test_fastapi_routes,
+    test_flask_routes,
+    test_django_routes,
+    test_express_routes,
+    test_nestjs_routes,
+    test_go_backend_common,
+    test_go_routes,
+    test_backend_linking_summary,
 ]
 
 
