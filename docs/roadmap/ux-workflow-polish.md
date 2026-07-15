@@ -7,7 +7,7 @@ primary next action at a time.
 ## Batch Status
 
 - N1 - Guided Workflow UX Contract - implemented.
-- N2 - One Primary Guided Command - not implemented.
+- N2 - One Primary Guided Command - implemented.
 - N3 - Progress and Status Presentation - not implemented.
 - N4 - Confirmations, Recovery, and Next Actions - not implemented.
 - N5 - Settings Change Workflow - not implemented.
@@ -114,3 +114,42 @@ N1 does not replace Part M workflow state, Part M diagnostics, O6 session state,
 or O7 user settings. It does not write or persist state, mutate canonical
 context artifacts, inspect Git, read files, call commands, call models, validate
 patches, apply patches, add terminal rendering, or add new dependencies.
+
+## N2 Primary Command
+
+N2 makes `strata start` the primary normal-flow command. Advanced commands such
+as `ask`, `run`, `prepare`, `review`, `apply`, `verify`, `gate`, and `status`
+remain available for experienced users, but the ordinary workflow starts with
+`strata start` and shows exactly one recommended next action.
+
+N2 loads existing state and delegates stage/action decisions to the N1 guided
+workflow contract. It does not duplicate N1 decision logic. Missing optional
+session state is treated as absent, because O6 does not persist sessions yet.
+Missing setup or run-state artifacts are converted into conservative N1 inputs
+so the user gets setup or context guidance instead of a crash.
+
+N2 output is intentionally basic plain text:
+
+- a `Strata` heading
+- the N1 headline
+- the N1 summary
+- deterministic warnings when present
+- one `Next:` line for non-complete workflows
+
+When the N1 view is complete, N2 omits the `Next:` line and does not invent a
+follow-up action. When N1 marks an action as confirmation-required, N2 displays
+confirmation guidance but does not perform the action.
+
+N2 does not automatically apply changes.
+
+N2 does not perform confirmation prompts.
+
+N2 does not execute the recommended next action yet.
+
+N2 does not call AI models, deliver prompts, validate AI responses, run
+verification, inspect Git, refresh scan/snapshot artifacts, add Rich
+presentation, add progress bars, persist sessions, or modify settings.
+
+N3 will improve presentation and progress.
+
+N4 will implement confirmations and recovery behavior.

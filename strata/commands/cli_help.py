@@ -106,7 +106,7 @@ def print_usage() -> None:
 
 def _main_workflow_lines() -> list[tuple[str, str]]:
     return [
-        ("strata start [path]", "Set up Strata, build the repo snapshot cache, and understand this project."),
+        ("strata start [path]", "Continue with Strata's recommended next step."),
         ('strata ask [--file <reference>]... "<task>" [path]', "Prepare context for your configured AI mode and collect a safe patch."),
         ("strata review [path]", "Inspect and validate the patch before applying."),
         ("strata apply [--yes] [--dry-run] [path]", "Validate or apply the generated patch."),
