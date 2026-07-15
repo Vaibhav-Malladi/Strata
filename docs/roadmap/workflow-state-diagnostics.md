@@ -157,6 +157,43 @@ redesign a CLI command, does not automatically write status artifacts, and does
 not automatically enter Part I context artifacts. Part I remains the token
 firewall.
 
+## M5: Error Artifact and Recovery Guidance
+
+M5 adds local run-error artifact helpers in `strata/core/error_artifacts.py`.
+The artifact contract records schema version, artifact type, workflow status,
+health, stage, summary, primary code, next action, diagnostic summary, bounded
+diagnostics, bounded explanations, bounded recovery guidance, and metadata.
+
+Run-error artifacts are local-only and use `schema_version` 1 with
+`artifact_type` set to `run_error`. Supported stages are `prepare`, `context`,
+`ai_response`, `review`, `apply`, `verify`, `gate`, `workflow`, and `unknown`.
+
+M5 composes M1 validation, M2 diagnostic normalization and summaries, M3
+explanations, and M4 workflow status summaries. Diagnostic and explanation lists
+are capped at 25 entries each. Recovery guidance is capped at 10 entries.
+Truncation is recorded in compact metadata rather than silently discarded.
+
+Recovery guidance is derived only from existing diagnostic, explanation, and
+workflow next actions. Unsafe actions such as force apply, bypass review, disable
+gate, ignore warnings, or skip verification are never emitted; unknown actions
+fall back to inspecting details.
+
+Explicit JSON and Markdown writers target fixed repository-local paths under
+`.aidc/diagnostics/run_error.json` and `.aidc/diagnostics/run_error.md` by
+default. They reuse Strata artifact-writing helpers for repository-local path
+safety, traversal rejection, symlink checks, UTF-8 writing, and atomic
+replacement.
+
+M5 excludes API keys, environment values, full prompts, full model responses,
+complete patches, full source files, stack traces, user-home paths, and telemetry
+identifiers. M5 artifacts do not automatically enter Part I context artifacts.
+Part I remains the token firewall.
+
+M5 provides local error artifact builders, renderers, and explicit writers. M5
+does not create a logging system, does not add telemetry, does not automatically
+wire artifact writing into all commands, and does not change gate, review, apply,
+or verification enforcement.
+
 ## Ownership Boundaries
 
 M owns workflow state and diagnostics.
@@ -166,5 +203,5 @@ delivery surfaces.
 
 N owns guided UX and workflow polish.
 
-M1, M2, M3, and M4 are implemented. M5-M6 are not implemented. Persisted error
-artifacts and final handoff remain later Part M work.
+M1, M2, M3, M4, and M5 are implemented. M6 is not implemented. Final Part M
+handoff remains later Part M work.
