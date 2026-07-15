@@ -23,8 +23,8 @@ behind the appropriate Part I trust boundary.
 ## Later J Batches
 
 Later batches may populate the J1 contract without changing its public shape.
-J2-J6 now begin that population work for Angular, React, internal-library, and
-frontend boundary metadata:
+J2-J6 now do that for Angular, React, internal-library, and frontend boundary
+metadata. J7 adds deterministic evaluation/docs:
 
 1. J2 Angular component-template-style linking
 2. J3 Angular route/lazy route linking
@@ -33,7 +33,8 @@ frontend boundary metadata:
 5. J6 Module Federation/custom element detection
 6. J7 Frontend linking evaluation/docs
 
-J7 remains intentionally outside J6.
+Part J remains frontend relationship discovery. Part I remains the token
+firewall and decides how any relationship enters canonical context.
 
 ## J2: Angular Component-Template-Style Linking
 
@@ -157,10 +158,48 @@ read `package.json`, parse `tsconfig`, scan `node_modules`, look up workspace
 configuration, trace user journeys, update Part I canonical artifacts, or
 create generated `.aidc/context` artifacts.
 
-## Boundaries
+## J7: Frontend Linking Evaluation / Docs
 
-J1 does not implement Angular template parsing, Angular route tracing, React
-component/hook/API tracing, module federation detection, custom element
-detection, file scanning, `package.json` reading, `tsconfig` parsing, workspace
-intelligence, adapter-specific prompt files, generated context artifacts, model
-calls, or daemon/background processes.
+J7 closes Part J with deterministic integration coverage and a data-only
+frontend linking summary. The summary consumes already-inferred
+`FrontendRelationship` records and reports relationship counts, duplicate
+relationship counts, framework/type/confidence counts, source paths, target
+paths, target symbols, warnings, and the sorted relationship payloads.
+
+J7 proves that small synthetic Angular examples can combine component-template
+links, route/lazy-route links, internal-library usage, Module Federation
+signals, and custom-element signals deterministically. It also proves that
+small synthetic React examples can combine child component, hook, API/client,
+lazy component, internal-library, Module Federation, and custom-element signals
+deterministically.
+
+J7 does not add new frontend deep-linking feature scope beyond J1-J6. It does
+not scan repositories, read files, infer backend routes, traverse Angular or
+React route graphs, resolve workspaces, trace user journeys, update Part I
+canonical artifacts, or create generated `.aidc/context` artifacts.
+
+## Part J Handoff
+
+Part J hands off to later roadmap work while preserving ownership boundaries:
+
+- Part I remains the token firewall and owns context representation.
+- Part K Backend Intelligence Foundation owns backend intelligence and backend
+  route/API understanding.
+- Part M Workflow State and Diagnostics owns workflow/session diagnostics.
+- Part Q Workspace Intelligence owns workspace intelligence and cross-repo
+  workspace configuration.
+- Part P User Flow / Journey Intelligence owns user journey intelligence and
+  end-to-end flow tracing.
+
+Q owns workspace intelligence; Part J does not implement workspace config
+lookup or cross-repo relationship resolution. P owns user journey intelligence;
+Part J does not implement full user journey tracing.
+
+## Final Boundaries
+
+Part J does not replace Part I token firewall behavior, does not implement
+workspace intelligence, does not implement full user journey intelligence, does
+not implement backend/API route linking, and does not create new canonical
+context artifacts. It also does not read `package.json`, parse `tsconfig`, scan
+`node_modules`, scan real repositories, call models, use the internet, or run
+daemon/background processes.

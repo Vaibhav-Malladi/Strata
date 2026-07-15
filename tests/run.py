@@ -135,6 +135,7 @@ from tests import test_angular_route_links
 from tests import test_react_links
 from tests import test_frontend_internal_library_usage
 from tests import test_frontend_boundary_signals
+from tests import test_frontend_linking_summary
 from tests import test_frontend_frameworks
 from tests import test_frontend_relationships
 from tests import test_internal_library_resolution
@@ -260,6 +261,7 @@ TEST_MODULES = [
     test_react_links,
     test_frontend_internal_library_usage,
     test_frontend_boundary_signals,
+    test_frontend_linking_summary,
     test_frontend_frameworks,
     test_frontend_relationships,
     test_internal_library_resolution,
