@@ -32,12 +32,22 @@ L3 is primitives first. It does not yet perform broad extractor rewrites, does n
 
 Part I remains the token firewall. L3 reduces local extraction and diagnostic explosion, but it does not expand prompt content or change context artifact contracts.
 
+## L4 Scope - Implemented
+
+L4 implemented.
+
+L4 adds synthetic count-only and small generated records for scale stress coverage. It defines deterministic repository shapes, in-memory synthetic file facts, named count-only stress scenarios, synthetic backend relationship records for Python, JavaScript/TypeScript, and Go frameworks, and a stress evaluation helper that combines the L1 budget, L2 cache, and L3 relationship limit primitives.
+
+L4 does not create thousands of files, clone repositories, scan real repository directories, invoke extractors, read files, or run real repo UAT. The boundary is explicit: real cloned GitHub repo testing is not part of L4 and remains later product validation.
+
+Part I remains the token firewall. L4 stress fixtures test local scale behavior but do not increase default prompt/context size.
+
 ## Roadmap
 
 1. L1 Performance budget and benchmark harness - complete.
 2. L2 Incremental scan/cache primitives - implemented.
 3. L3 Bounded relationship extraction - implemented.
-4. L4 Large repo stress fixtures - pending.
+4. L4 Large repo stress fixtures - implemented.
 5. L5 Performance diagnostics/reporting - pending.
 6. L6 Final scale hardening docs - pending.
 
@@ -45,7 +55,7 @@ Part I remains the token firewall. L3 reduces local extraction and diagnostic ex
 
 - L2 owns cache invalidation and incremental scan/cache primitives.
 - L3 owns bounded relationship extraction primitives; broader extractor optimization remains future bounded work.
-- L4 owns large stress fixture trees.
+- L4 owns synthetic/count-only scale fixtures; real repo UAT remains later validation.
 - M/N own diagnostics and UX workflow changes.
 - O owns adapter/model behavior.
 - P owns user journey intelligence.

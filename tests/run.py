@@ -154,6 +154,7 @@ from tests import test_backend_linking_summary
 from tests import test_performance_budget
 from tests import test_incremental_cache
 from tests import test_relationship_limits
+from tests import test_scale_fixtures
 from ui import get_console, is_rich_enabled, print_command_header, print_success
 
 
@@ -293,6 +294,7 @@ TEST_MODULES = [
     test_performance_budget,
     test_incremental_cache,
     test_relationship_limits,
+    test_scale_fixtures,
 ]
 
 
