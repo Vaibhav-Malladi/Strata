@@ -42,13 +42,23 @@ L4 does not create thousands of files, clone repositories, scan real repository 
 
 Part I remains the token firewall. L4 stress fixtures test local scale behavior but do not increase default prompt/context size.
 
+## L5 Scope - Implemented
+
+L5 implemented.
+
+L5 turns budget, cache, relationship-limit, and stress-fixture outputs into concise reports. It defines stable diagnostic severities, categories, JSON-ready diagnostic records, bounded performance diagnostic summaries, top risks, next actions, compact evidence summaries, and deterministic Markdown rendering.
+
+L5 is reporting/helpers only. It does not add broad CLI workflow diagnostics, noisy logs, generated context artifacts, or UX workflow changes. M owns workflow diagnostics, and N owns UX polish.
+
+Part I remains the token firewall. L5 explains scale risk with no prompt-size expansion and does not change prompt/context output defaults.
+
 ## Roadmap
 
 1. L1 Performance budget and benchmark harness - complete.
 2. L2 Incremental scan/cache primitives - implemented.
 3. L3 Bounded relationship extraction - implemented.
 4. L4 Large repo stress fixtures - implemented.
-5. L5 Performance diagnostics/reporting - pending.
+5. L5 Performance diagnostics/reporting - implemented.
 6. L6 Final scale hardening docs - pending.
 
 ## Boundaries
