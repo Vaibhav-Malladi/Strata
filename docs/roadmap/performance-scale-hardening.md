@@ -52,6 +52,45 @@ L5 is reporting/helpers only. It does not add broad CLI workflow diagnostics, no
 
 Part I remains the token firewall. L5 explains scale risk with no prompt-size expansion and does not change prompt/context output defaults.
 
+## L6 Scope - Complete
+
+L6 complete.
+
+L6 finalizes Part L contracts, handoffs, and guardrails. It adds no new performance systems, no broad runtime behavior, no scanner or extractor rewrites, no cache integration into scanner commands, no CLI workflow diagnostics, and no real repo UAT.
+
+## Part L Contracts
+
+- L1 Performance budget and benchmark harness - complete. L1 measures from known counts and synthetic fixture counts only; it does not use flaky wall-clock timing assertions.
+- L2 Incremental scan/cache primitives - complete. L2 decides safe cache reuse from supplied metadata and file facts only; it does not perform a broad scanner rewrite or scanner integration.
+- L3 Bounded relationship extraction - complete. L3 bounds already-created relationship outputs and summaries; it does not expand prompt content or change Part I context artifacts.
+- L4 Large repo stress fixtures - complete. L4 uses synthetic/count-only scale testing and small generated records; no real cloned repos or real repo UAT are part of L4.
+- L5 Performance diagnostics/reporting - complete. L5 creates concise reports from budget/cache/limit/stress outputs; it does not add broad CLI workflow diagnostics or UX workflows.
+- L6 Final scale hardening docs - complete. L6 locks the contracts, scope boundaries, and future handoffs for Part L.
+
+## Token Firewall
+
+Part I remains the token firewall and the only layer deciding what enters `strata_context.md`, context packs, or other context artifacts. Part L may reduce repeated local work, bound relationship output, and lower diagnostic noise, but performance improvements must not increase default prompt/context size.
+
+## Scope Boundaries
+
+- No real GitHub repo cloning/testing in Part L.
+- No real repo UAT in L; real repo UAT remains later product validation after enough core foundations are complete.
+- No broad scanner/extractor rewrite in L; L2/L3 provide primitives that future parts may integrate carefully.
+- No workspace intelligence in L; Q owns workspace intelligence and workspace-scale safety should use L2/L4/L5 principles.
+- No user flow/journey intelligence in L; P owns journey intelligence and should use bounded relationship summaries, not raw unbounded graphs.
+- No adapter/model workflow control in L; O owns adapter/model workflow control and should respect L1/L3 budgets when shaping adapter/model context.
+- No broad workflow diagnostics or UX polish in L; M owns workflow diagnostics and should consume L5 diagnostics, while N owns UX polish and should use L5 output for low-noise UX.
+- Go remains in scope because it was explicitly reintroduced.
+- Java/Rust remain out of scope for Part L.
+
+## Handoffs
+
+- M should consume L5 diagnostics for workflow state/diagnostics.
+- N should use L5 output for low-noise UX.
+- O should respect L1/L3 budgets when shaping adapter/model context.
+- Q should use L2/L4/L5 principles for workspace-scale safety.
+- P should use bounded relationship summaries, not raw unbounded graphs.
+
 ## Roadmap
 
 1. L1 Performance budget and benchmark harness - complete.
@@ -59,7 +98,7 @@ Part I remains the token firewall. L5 explains scale risk with no prompt-size ex
 3. L3 Bounded relationship extraction - implemented.
 4. L4 Large repo stress fixtures - implemented.
 5. L5 Performance diagnostics/reporting - implemented.
-6. L6 Final scale hardening docs - pending.
+6. L6 Final scale hardening docs - complete.
 
 ## Boundaries
 

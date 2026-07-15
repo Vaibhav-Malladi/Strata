@@ -156,6 +156,7 @@ from tests import test_incremental_cache
 from tests import test_relationship_limits
 from tests import test_scale_fixtures
 from tests import test_performance_diagnostics
+from tests import test_performance_scale_handoff
 from ui import get_console, is_rich_enabled, print_command_header, print_success
 
 
@@ -297,6 +298,7 @@ TEST_MODULES = [
     test_relationship_limits,
     test_scale_fixtures,
     test_performance_diagnostics,
+    test_performance_scale_handoff,
 ]
 
 
