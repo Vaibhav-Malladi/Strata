@@ -13,7 +13,7 @@ workflow failures.
 - O3 - Prompt Template System - implemented.
 - O4 - AI Response Validation and Recovery - implemented.
 - O5 - Delivery Surface Adapters - implemented.
-- O6 - Multi-turn Session State - not implemented.
+- O6 - Multi-turn Session State - implemented.
 - O7 - User Settings and Capability Override - not implemented.
 
 ## Capability-First Design
@@ -487,3 +487,118 @@ O5 does not implement real browser, CLI-provider, or VS Code integrations.
 O5 does not write session state, persist settings, add provider registries,
 detect model names, add API keys, access the network, emit telemetry, or run
 background services.
+
+## Multi-Turn Session State
+
+O6 tracks one bounded AI patch interaction after an O3 prompt and O5 delivery
+payload have been prepared. It preserves continuity across prompt preparation,
+delivery, response receipt, response validation, one optional retry, terminal
+acceptance or rejection, and explicit closure.
+
+O6 uses these session statuses:
+
+- `prepared`
+- `delivered`
+- `response_received`
+- `retry_ready`
+- `accepted_for_review`
+- `rejected`
+- `closed`
+
+The caller supplies the `session_id`. O6 does not generate timestamps, random
+IDs, UUIDs, or persistent session filenames.
+
+## Session Contract
+
+O6 returns a deterministic JSON-ready state mapping with these fields:
+
+- `schema_version`
+- `session_id`
+- `status`
+- `task`
+- `profile_tier`
+- `surface`
+- `template_id`
+- `template_version`
+- `context_variant`
+- `turn_count`
+- `retry_count`
+- `max_retries`
+- `turns`
+- `latest_validation`
+- `closed_reason`
+- `metadata`
+
+The state stores compact prompt and delivery metadata such as prompt character
+count, delivery surface, and whether manual transfer is required. It does not
+store the complete prompt.
+
+## Transition Rules
+
+O6 allows only these state transitions:
+
+- `prepared` -> `delivered`
+- `delivered` -> `response_received`
+- `retry_ready` -> `response_received`
+- `response_received` -> `accepted_for_review`
+- `response_received` -> `retry_ready`
+- `response_received` -> `rejected`
+- `accepted_for_review` -> `closed`
+- `rejected` -> `closed`
+
+Invalid transitions raise `ValueError`. O6 does not silently repair invalid
+state, reset counters, or move directly from validation to `closed`.
+
+## Retry And History Bounds
+
+O6 supports only `max_retries` values of `0` or `1`. With one retry enabled, a
+session can contain at most two response turns.
+
+Each turn stores only:
+
+- turn number
+- response character count
+- validation status
+- failure types
+- retry allowed flag
+
+O6 does not store response text. It appends a retry turn only when a second
+response is actually recorded. A retry recommendation after the retry limit is
+exhausted transitions to `rejected`.
+
+## Validation Summary Boundary
+
+O6 accepts compact O4-style validation result mappings but does not import O4 or
+perform response validation. It reads only validation status, validity,
+failure types, retry metadata, change summary, and target files.
+
+The latest validation summary omits full patch text, full diagnostics, complete
+AI responses, and complete prompts. Target-file summaries are deterministic and
+bounded, with a count and truncation flag when needed.
+
+## Part M Boundary
+
+Part M remains the authority for general Strata workflow state, diagnostics,
+explanations, status summaries, and recovery artifacts. O6 tracks AI interaction
+turns within a run only.
+
+O6 does not replace Part M workflow state.
+
+O6 does not modify canonical `.aidc/context/run_state.json`.
+
+O6 does not create another canonical repository-run artifact.
+
+O6 does not persist sessions yet.
+
+## O6 Boundaries
+
+O6 does not call models.
+
+O6 does not deliver prompts.
+
+O6 does not validate or apply patches.
+
+O6 does not regenerate prompts or perform automatic retries.
+
+O6 does not add command wiring, session files, databases, settings persistence,
+provider or model detection, API keys, telemetry, or background services.
