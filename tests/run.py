@@ -152,6 +152,7 @@ from tests import test_go_backend_common
 from tests import test_go_routes
 from tests import test_backend_linking_summary
 from tests import test_performance_budget
+from tests import test_incremental_cache
 from ui import get_console, is_rich_enabled, print_command_header, print_success
 
 
@@ -289,6 +290,7 @@ TEST_MODULES = [
     test_go_routes,
     test_backend_linking_summary,
     test_performance_budget,
+    test_incremental_cache,
 ]
 
 
