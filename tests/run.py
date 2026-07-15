@@ -74,6 +74,7 @@ import test_prompt_templates
 import test_ai_response_validation
 import test_delivery_surfaces
 import test_session_state
+import test_user_settings
 import test_context_budget
 import test_test_mapping
 import test_symbol_slicing
@@ -228,6 +229,7 @@ TEST_MODULES = [
     test_ai_response_validation,
     test_delivery_surfaces,
     test_session_state,
+    test_user_settings,
     test_context_budget,
     test_test_mapping,
     test_symbol_slicing,

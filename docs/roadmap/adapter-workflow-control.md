@@ -14,7 +14,7 @@ workflow failures.
 - O4 - AI Response Validation and Recovery - implemented.
 - O5 - Delivery Surface Adapters - implemented.
 - O6 - Multi-turn Session State - implemented.
-- O7 - User Settings and Capability Override - not implemented.
+- O7 - User Settings and Capability Override - implemented.
 
 ## Capability-First Design
 
@@ -602,3 +602,115 @@ O6 does not regenerate prompts or perform automatic retries.
 
 O6 does not add command wiring, session files, databases, settings persistence,
 provider or model detection, API keys, telemetry, or background services.
+
+## User Settings and Capability Override
+
+O7 defines a pure JSON-ready user-settings contract for capability selection,
+delivery-surface preference, and the bounded profile overrides supported by O1.
+It does not read, write, or persist settings.
+
+O7 supports this capability-selection vocabulary:
+
+- `auto`
+- `unknown`
+- `weak`
+- `medium`
+- `strong`
+
+`auto` uses a caller-supplied detected capability tier when one is available.
+If the caller cannot supply a reliable detected tier, `auto` resolves to the
+conservative unknown profile. An explicitly detected `unknown` tier resolves to
+unknown with selection source `detected`.
+
+Manual selections `unknown`, `weak`, `medium`, and `strong` always use that
+tier and ignore any caller-supplied detected tier.
+
+## Settings Contract
+
+O7 settings contain:
+
+- `schema_version`
+- `capability_selection`
+- `delivery_surface`
+- `profile_overrides`
+
+The default settings use `auto`, the conservative `browser_copy` delivery
+surface, and an empty override mapping. `browser_copy` is the default because it
+is the safest existing O5 surface: it requires manual transfer and no runtime
+integration.
+
+Settings can be changed after initial setup through pure update helpers.
+Partial updates preserve unchanged fields. A supplied `profile_overrides`
+mapping replaces the previous override mapping completely, so `{}` clears prior
+overrides.
+
+## Capability Resolution
+
+O7 returns a deterministic capability-resolution result with:
+
+- `selected_tier`
+- `selection_source`
+- `profile`
+- `profile_overrides_applied`
+- `metadata`
+
+Selection sources are:
+
+- `manual`
+- `detected`
+- `unknown_fallback`
+
+O7 reuses O1 built-in profiles, the conservative unknown profile, O1 profile
+serialization, and O1 override validation. It applies overrides only after the
+base profile is selected.
+
+Supported profile overrides remain exactly the bounded O1 override surface:
+
+- `preferred_context_variant`
+- `max_recommended_files`
+
+O7 does not permit capability-tier overrides, provider or model names, file
+limits above O1 bounds, or unknown override fields.
+
+## Delivery Preference Boundary
+
+O7 validates the stored delivery surface against the O5 vocabulary:
+
+- `browser_copy`
+- `cli`
+- `vscode`
+
+O7 stores only the preference. It does not build delivery payloads, send
+prompts, access clipboards, launch browsers, inspect CLIs, or call VS Code APIs.
+
+## O7 Boundaries
+
+O7 does not detect model brands.
+
+O7 does not inspect browser, CLI, or VS Code state.
+
+O7 does not store secrets, API keys, tokens, passwords, credentials, user-home
+paths, or environment-variable values.
+
+O7 does not persist settings yet.
+
+O7 does not add command or onboarding wiring.
+
+O7 does not call models, execute delivery, validate responses, persist
+sessions, apply patches, add telemetry, or run background services.
+
+## Part O Completion Summary
+
+Part O now provides the adapter and AI workflow-control foundations:
+
+- O1 defines capability profiles and bounded profile overrides.
+- O2 renders approved context by capability profile.
+- O3 builds trusted versioned prompts.
+- O4 validates AI responses in the patch layer.
+- O5 packages prompts for delivery surfaces.
+- O6 tracks bounded in-memory AI interaction state.
+- O7 defines pure user settings for capability and delivery preferences.
+
+These foundations remain deliberately non-invasive. They do not call models,
+detect providers, persist sessions or settings, apply patches, replace Part I
+context authority, or replace Part M workflow-state diagnostics.
