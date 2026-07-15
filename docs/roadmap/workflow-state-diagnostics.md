@@ -1,16 +1,55 @@
 # Workflow State and Diagnostics
 
-Part M owns workflow state and diagnostics. Its purpose is to make the existing
-canonical run state reliable, deterministic, easy to validate, and useful for
-later diagnostic explanation.
+Part M owns workflow state and diagnostics. Its purpose is to make Strata's
+workflow evidence reliable, deterministic, easy to validate, and useful for
+later explanation without increasing prompt size.
 
-## M1: Run State Contract Hardening
+Strata should increase understanding, not prompt size.
 
-M1 adds pure data-level workflow-state primitives in
-`strata/core/workflow_state.py`. It does not add a command, persist diagnostic
-events, call an AI provider, or change the generated context artifacts.
+## Purpose and Product Value
 
-The bounded workflow status vocabulary is:
+Part M gives Strata a small, stable diagnostic language for workflow progress
+and workflow failure. It turns run-state evidence, gate findings, review
+findings, status summaries, and local error artifacts into deterministic
+JSON-ready records that later product layers can consume.
+
+Part M does not call model providers, choose adapters, render prompts, retry AI
+requests, redesign guided UX, or decide what enters AI context. Part I remains
+the token firewall.
+
+## Completed Batch Summary
+
+- M1 - complete. Run-state contract hardening, validation diagnostics,
+  workflow status vocabulary, workflow summaries, and conservative next-action
+  suggestions.
+- M2 - complete. Canonical diagnostic event mappings, bounded severity/source
+  vocabularies, deterministic normalization, sorting, exact deduplication, and
+  compact summaries.
+- M3 - complete. Plain-language gate and review explanations, recognized and
+  generic explanation behavior, bounded affected-item extraction, and
+  deterministic explanation summaries.
+- M4 - complete. Workflow-status summary contract, health vocabulary, explicit
+  completed and pending step derivation, one safe next action, and deterministic
+  plain-text rendering.
+- M5 - complete. Bounded run-error artifact contract, deterministic recovery
+  guidance, local JSON and Markdown renderers, explicit safe repository-local
+  writers, and privacy/token-firewall exclusions.
+- M6 - complete. Final Part M contract documentation, ownership boundaries,
+  stable vocabulary lock, and handoff to Part O.
+
+## Public Module Ownership
+
+| Module | Owns | Returns | Does not own |
+| --- | --- | --- | --- |
+| `strata/core/workflow_state.py` | Canonical run-state validation, workflow-state summaries, and conservative next-action derivation. | JSON-ready validation diagnostics, workflow summaries, and one next-action string. | Commands, artifact writing, model calls, prompts, or applying patches. |
+| `strata/core/diagnostics.py` | Canonical diagnostic event mappings and deterministic normalization. | JSON-ready diagnostic events, sorted/deduplicated event lists, and compact count summaries. | User-facing explanations, enforcement, command execution, or prompt expansion. |
+| `strata/core/diagnostic_explanations.py` | Plain-language explanations for existing gate/review/workflow diagnostics. | JSON-ready explanation records, explanation summaries, and bounded affected-item data. | Gate/review enforcement, apply safety, verification, or weakening safety decisions. |
+| `strata/core/workflow_status.py` | Compact workflow-status data and pure text rendering. | JSON-ready workflow-status summaries and deterministic plain-text status blocks. | CLI command wiring, terminal UI, artifact writing, or AI control flow. |
+| `strata/core/error_artifacts.py` | Bounded local run-error artifacts, deterministic recovery guidance, validation, and explicit safe writers. | JSON-ready run-error artifacts, JSON text, Markdown text, and explicit local artifact paths. | Logging frameworks, telemetry, automatic global hooks, prompt/context inclusion, or command redesign. |
+
+## Stable Vocabularies
+
+Workflow statuses:
 
 - `not_started`
 - `context_ready`
@@ -23,50 +62,28 @@ The bounded workflow status vocabulary is:
 - `blocked`
 - `failed`
 
-Run-state validation checks the existing canonical `run_state.json` contract
-defined by Part I. It returns deterministic JSON-ready diagnostics for missing
-required fields, invalid field types, invalid bounded values, malformed
-collection entries, and unsupported schema versions. Unknown extra fields are
-left alone so later parts can add data without breaking M1.
+M1 next actions:
 
-The next-action helper returns one conservative machine-readable action. Invalid
-core state asks for repair or regeneration. Context-ready state without a
-response asks for an AI response. A received response asks for review. Reviewed
-state asks for apply. Applied state asks for verification. Completion is returned
-only when explicit successful verification evidence exists.
+- `repair_or_regenerate_run_state`
+- `prepare_context`
+- `request_ai_response`
+- `review_response`
+- `apply_patch`
+- `run_verification`
+- `workflow_complete`
+- `inspect_diagnostics`
 
-Part I remains the token firewall. M1 consumes `run_state.json` but does not
-increase prompt size, add default prompt evidence, duplicate representation or
-budgeting authority, or create a competing state artifact.
+Safety rule: `apply_patch` is suggested only with explicit successful review
+evidence. `workflow_status="ready_to_apply"` is supporting metadata, not proof
+of review success by itself.
 
-## M2: Diagnostic Event Model
-
-M2 adds a small canonical diagnostic event mapping in
-`strata/core/diagnostics.py`. The public representation is plain JSON-ready data
-only: dictionaries, lists, strings, integers, booleans, and nulls.
-
-The canonical event shape is:
-
-- `code`
-- `severity`
-- `message`
-- `source`
-- `field`
-- `path`
-- `next_action`
-- `details`
-
-`code`, `severity`, `message`, and `source` are required. `field`, `path`, and
-`next_action` are optional string fields represented as null when absent.
-`details` is always a deterministic mapping, empty when absent.
-
-The bounded severity vocabulary is:
+Diagnostic severities:
 
 - `info`
 - `warning`
 - `error`
 
-The bounded source vocabulary is:
+Diagnostic sources:
 
 - `workflow_state`
 - `context`
@@ -76,59 +93,7 @@ The bounded source vocabulary is:
 - `gate`
 - `system`
 
-Normalization validates events, copies caller-owned details, preserves list
-order, and emits mapping keys in deterministic sorted order. Sorting is exact and
-deterministic: error, warning, info, then source, code, path, field, message,
-next action, and canonical details. Deduplication removes only exactly
-equivalent canonical mappings. Summaries contain only compact counts: total,
-errors, warnings, info, has_errors, and has_warnings.
-
-M2 does not change M1 diagnostic output. M1-style diagnostics can be adapted with
-`normalize_diagnostic_event(..., default_source="workflow_state")`; legacy
-`value` is placed only in `details["value"]` in canonical M2 form.
-
-M2 diagnostic events do not automatically enter Part I context artifacts. Part I
-remains the token firewall.
-
-## M3: Gate and Review Explanation Layer
-
-M3 adds pure explanation helpers in `strata/core/diagnostic_explanations.py`.
-The helpers turn canonical M2 diagnostics, or M1-style diagnostics normalized
-through M2, into concise JSON-ready plain-language explanations.
-
-Each explanation records the original code, severity, and source, plus a title,
-plain explanation, why-it-matters text, bounded affected items, one safe next
-action, and technical details. Recognized gate and review diagnostics get
-specific explanations. Unknown diagnostics get a conservative generic
-explanation that asks the user to inspect details rather than guessing a cause.
-
-Affected-item extraction reads only existing diagnostic data such as path, field,
-targets, paths, files, imports, failures, errors, and warnings. It removes exact
-duplicates, sorts deterministically, and shows at most 20 items while recording
-truncation metadata.
-
-M3 next actions are intentionally conservative, such as `inspect_details`,
-`revise_patch`, `remove_out_of_scope_changes`, `fix_imports`, `run_tests`,
-`run_verification`, `regenerate_context`, and `repair_run_state`. M3 never
-recommends applying, forcing, bypassing, or ignoring safety checks.
-
-Batch helpers deduplicate exact diagnostic events before explanation, preserve
-deterministic severity ordering, and provide compact summary counts with a
-deterministic primary next action. M3 does not change gate failure detection,
-review classifications, scope rules, apply safety, verification behavior, or
-exit codes.
-
-M3 explanations do not automatically enter Part I context artifacts. Part I
-remains the token firewall.
-
-## M4: Workflow Status Summary
-
-M4 adds pure workflow-status helpers in `strata/core/workflow_status.py`. The
-status result is a deterministic JSON-ready mapping with status, health, title,
-summary, current step, completed steps, pending steps, blocking issue count,
-warning count, one safe next action, a next-action label, and compact details.
-
-The health vocabulary is:
+Workflow health values:
 
 - `healthy`
 - `attention`
@@ -136,72 +101,305 @@ The health vocabulary is:
 - `invalid`
 - `complete`
 
-Current, completed, and pending steps are derived conservatively from explicit
-workflow evidence. The ordered workflow steps are `prepare_context`,
-`request_ai_response`, `review_response`, `apply_patch`, `run_verification`, and
-`workflow_complete`. Invalid state uses `repair_run_state`, and blocking issues
-use `inspect_diagnostics`.
+Workflow-status steps:
 
-M4 reuses M1 validation and next-action suggestions, M2 diagnostic normalization
-and compact counts, and M3 explanation summaries when supplied. It does not infer
-review success from patch receipt, does not infer verification success from patch
-application, and does not treat `workflow_status="complete"` as complete without
-explicit verification success.
+- `prepare_context`
+- `request_ai_response`
+- `review_response`
+- `apply_patch`
+- `run_verification`
+- `workflow_complete`
+- `repair_run_state`
+- `inspect_diagnostics`
 
-The text renderer returns a concise deterministic plain-text block with status,
-current step, blocking issue count, warning count, and next action. It does not
-print, use colors, inspect terminal width, or depend on Rich.
+Error-artifact stages:
 
-M4 provides status data and pure rendering helpers only. M4 does not add or
-redesign a CLI command, does not automatically write status artifacts, and does
-not automatically enter Part I context artifacts. Part I remains the token
-firewall.
+- `prepare`
+- `context`
+- `ai_response`
+- `review`
+- `apply`
+- `verify`
+- `gate`
+- `workflow`
+- `unknown`
 
-## M5: Error Artifact and Recovery Guidance
+M3 explanation next actions:
 
-M5 adds local run-error artifact helpers in `strata/core/error_artifacts.py`.
-The artifact contract records schema version, artifact type, workflow status,
-health, stage, summary, primary code, next action, diagnostic summary, bounded
-diagnostics, bounded explanations, bounded recovery guidance, and metadata.
+- `inspect_details`
+- `revise_patch`
+- `remove_out_of_scope_changes`
+- `approve_expected_file`
+- `fix_imports`
+- `run_tests`
+- `run_verification`
+- `regenerate_context`
+- `repair_run_state`
 
-Run-error artifacts are local-only and use `schema_version` 1 with
-`artifact_type` set to `run_error`. Supported stages are `prepare`, `context`,
-`ai_response`, `review`, `apply`, `verify`, `gate`, `workflow`, and `unknown`.
+M5 recovery guidance safe actions:
 
-M5 composes M1 validation, M2 diagnostic normalization and summaries, M3
-explanations, and M4 workflow status summaries. Diagnostic and explanation lists
-are capped at 25 entries each. Recovery guidance is capped at 10 entries.
-Truncation is recorded in compact metadata rather than silently discarded.
+- `repair_or_regenerate_run_state`
+- `prepare_context`
+- `request_ai_response`
+- `review_response`
+- `revise_patch`
+- `remove_out_of_scope_changes`
+- `approve_expected_file`
+- `fix_imports`
+- `run_tests`
+- `run_verification`
+- `regenerate_context`
+- `inspect_details`
+- `inspect_diagnostics`
 
-Recovery guidance is derived only from existing diagnostic, explanation, and
-workflow next actions. Unsafe actions such as force apply, bypass review, disable
-gate, ignore warnings, or skip verification are never emitted; unknown actions
-fall back to inspecting details.
+M3 and M5 never recommend applying, forcing, bypassing, disabling safety checks,
+or ignoring warnings as recovery guidance.
 
-Explicit JSON and Markdown writers target fixed repository-local paths under
-`.aidc/diagnostics/run_error.json` and `.aidc/diagnostics/run_error.md` by
-default. They reuse Strata artifact-writing helpers for repository-local path
-safety, traversal rejection, symlink checks, UTF-8 writing, and atomic
-replacement.
+## Stable Data Contracts
 
-M5 excludes API keys, environment values, full prompts, full model responses,
-complete patches, full source files, stack traces, user-home paths, and telemetry
-identifiers. M5 artifacts do not automatically enter Part I context artifacts.
-Part I remains the token firewall.
+Workflow-state validation diagnostics from M1 contain:
 
-M5 provides local error artifact builders, renderers, and explicit writers. M5
-does not create a logging system, does not add telemetry, does not automatically
-wire artifact writing into all commands, and does not change gate, review, apply,
-or verification enforcement.
+- `code`
+- `severity`
+- `message`
+- `field`
+- `value`
+
+Workflow-state summaries from M1 contain:
+
+- `workflow_status`
+- `is_valid`
+- `task_present`
+- `baseline_present`
+- `baseline_status`
+- `context_ready`
+- `response_received`
+- `patch_received`
+- `review_status`
+- `verification_status`
+- `diagnostic_count`
+- `next_action`
+- `diagnostics`
+
+Diagnostic events from M2 contain:
+
+- required: `code`, `severity`, `message`, `source`
+- optional string fields represented as null: `field`, `path`, `next_action`
+- deterministic mapping: `details`
+
+Diagnostic summaries from M2 contain:
+
+- `total`
+- `errors`
+- `warnings`
+- `info`
+- `has_errors`
+- `has_warnings`
+
+Diagnostic explanations from M3 contain:
+
+- `code`
+- `severity`
+- `source`
+- `title`
+- `explanation`
+- `why_it_matters`
+- `affected_items`
+- `next_action`
+- `technical_details`
+
+Explanation summaries from M3 contain:
+
+- `total`
+- `errors`
+- `warnings`
+- `has_blocking_issues`
+- `primary_next_action`
+
+Workflow-status summaries from M4 contain:
+
+- `status`
+- `health`
+- `title`
+- `summary`
+- `current_step`
+- `completed_steps`
+- `pending_steps`
+- `blocking_issues`
+- `warning_count`
+- `next_action`
+- `next_action_label`
+- `details`
+
+Run-error artifacts from M5 contain:
+
+- `schema_version`
+- `artifact_type`
+- `workflow_status`
+- `health`
+- `stage`
+- `summary`
+- `primary_code`
+- `next_action`
+- `diagnostic_summary`
+- `diagnostics`
+- `explanations`
+- `recovery_guidance`
+- `metadata`
+
+Recovery guidance records contain:
+
+- `action`
+- `label`
+- `reason`
+- `priority`
+
+All Part M outputs are deterministic, JSON-ready, bounded where user/project
+data could grow, and free of generated timestamps and random IDs.
+
+## Deterministic Behavior
+
+M1 validates run state without reading repository files or running commands.
+Unknown extra run-state fields are left alone so later parts can add data
+without breaking M1.
+
+M2 normalizes, sorts, and deduplicates diagnostic events deterministically.
+Deduplication removes only exactly equivalent canonical mappings.
+
+M3 explains exact unique diagnostics in deterministic order. Recognized gate and
+review diagnostics get specific explanations; unknown diagnostics get a generic
+inspect-details explanation.
+
+M4 derives status, health, completed steps, pending steps, and next action from
+explicit workflow evidence. It does not infer review success from patch receipt,
+does not infer verification success from patch application, and does not treat
+`workflow_status="complete"` as complete without explicit verification success.
+
+M5 selects a primary failure deterministically, builds bounded recovery guidance
+from existing diagnostic/explanation/workflow next actions, and degrades unknown
+or unsafe actions to `inspect_details`.
+
+## Bounded-Output Rules
+
+- M3 affected items per explanation: 20.
+- M5 diagnostics per run-error artifact: 25.
+- M5 explanations per run-error artifact: 25.
+- M5 recovery guidance items per run-error artifact: 10.
+
+When M5 truncates diagnostics, explanations, or recovery guidance, it records
+compact truncation metadata. Part M does not include unbounded messages, arrays,
+graphs, full prompts, full model responses, complete patches, full source files,
+or stack traces.
+
+## Path Safety and Privacy Rules
+
+M5 JSON and Markdown writers target fixed repository-local defaults:
+
+- `.aidc/diagnostics/run_error.json`
+- `.aidc/diagnostics/run_error.md`
+
+The writers are explicit helpers only. They reuse Strata artifact-writing
+helpers for repository-local path safety, parent traversal rejection, symlink
+checks, UTF-8 writing, and atomic replacement.
+
+Part M excludes API keys, environment values, complete prompts, complete model
+responses, complete patches, full source files, stack traces, user-home paths,
+telemetry identifiers, and generated prompt/context expansion.
+
+Part M does not create a logging system, add automatic CLI integration, add
+telemetry, background services, daemon behavior, rotating logs, or automatic
+global exception hooks.
+
+## Part I Token-Firewall Boundary
+
+Part I remains the token firewall. It alone decides what enters the canonical context artifacts.
+
+- `.aidc/context/strata_context.md`
+- `.aidc/context/context_pack.json`
+- `.aidc/context/run_state.json`
+
+Part M diagnostics and error artifacts do not automatically enter AI prompts.
+Part O may render approved Part I context differently by capability profile, but
+Part O must not treat Part M diagnostic storage as new prompt-budget authority.
+
+Part M increases recoverability and understanding; it does not increase default
+prompt size.
+
+## Command and Integration Boundaries
+
+Part M provides pure helpers, deterministic data contracts, renderers, and
+explicit writers. It does not automatically wire artifact writing into every
+failure path.
+
+Part M does not implement:
+
+- model or provider selection
+- prompt rendering
+- AI-response validation
+- retries or fallback policy
+- browser, CLI, or VS Code delivery surfaces
+- multi-turn sessions
+- user-level settings
+- primary guided UX redesign
+- workspace intelligence
+- journey tracing
+- telemetry
+- background services
+
+M5 writers are explicit helpers only. Part M does not automatically write error
+artifacts on every failure.
+
+## Handoff to Part O - Adapter and AI Workflow Control
+
+Part O may consume these Part M contracts:
+
+- validated workflow state
+- canonical diagnostic events
+- plain-language failure explanations
+- workflow-status summaries
+- safe next-action identifiers
+- bounded run-error artifacts
+- local recovery guidance
+
+Part O owns the next adapter and AI workflow work:
+
+- model capability profiles
+- compact, balanced, and expanded rendering
+- prompt template versioning
+- AI-response validation
+- retry and fallback policy
+- browser, CLI, and VS Code delivery surfaces
+- multi-turn session state
+- user-level AI workflow settings
+
+Part O must reuse Part M diagnostics rather than creating a competing failure
+format.
+
+## Remaining Roadmap Order
+
+After Part M, the remaining roadmap order is:
+
+- O - Adapter and AI Workflow Control
+- N - UX / Workflow Polish
+- Q - Workspace Intelligence
+- P - User Flow / Journey Intelligence
+
+O precedes N because UX should wrap the real adapter/model workflow. Q precedes
+P because cross-repo journeys require workspace awareness.
+
+Roadmap shorthand: M -> O -> N -> Q -> P. After M completion: O -> N -> Q -> P.
 
 ## Ownership Boundaries
 
 M owns workflow state and diagnostics.
 
-O owns adapters, model capability, prompts, AI response validation, retry, and
-delivery surfaces.
+O owns adapter and AI workflow control, including adapters, model capability
+profiles, prompts, AI response validation, retry, and delivery surfaces.
 
-N owns guided UX and workflow polish.
+N owns UX/workflow polish.
 
-M1, M2, M3, M4, and M5 are implemented. M6 is not implemented. Final Part M
-handoff remains later Part M work.
+Q owns workspace intelligence.
+
+P owns user flow and journey intelligence.
+
+M1, M2, M3, M4, M5, and M6 are complete.
