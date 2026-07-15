@@ -23,7 +23,8 @@ behind the appropriate Part I trust boundary.
 ## Later J Batches
 
 Later batches may populate the J1 contract without changing its public shape.
-J2-J4 now begin that population work for Angular and React source metadata:
+J2-J5 now begin that population work for Angular, React, and internal-library
+usage metadata:
 
 1. J2 Angular component-template-style linking
 2. J3 Angular route/lazy route linking
@@ -32,7 +33,7 @@ J2-J4 now begin that population work for Angular and React source metadata:
 5. J6 Module Federation/custom element detection
 6. J7 Frontend linking evaluation/docs
 
-J5-J7 remain intentionally outside J4.
+J6-J7 remain intentionally outside J5.
 
 ## J2: Angular Component-Template-Style Linking
 
@@ -103,6 +104,33 @@ repository scanning, `tsconfig` parsing, `package.json` reading, Angular
 linking, internal library usage inference, module federation detection, custom
 element detection, workspace intelligence, Part I artifact changes, or
 generated `.aidc/context` artifacts.
+
+## J5: Internal Library Usage Inference
+
+J5 adds a small, stdlib-only helper for one supplied frontend source/template
+string and path plus optional known internal packages, known internal symbols,
+and framework hints. It emits `internal_library_usage` relationships for
+conservative consuming-code signals:
+
+- imports from known internal packages
+- private-looking imports such as `@company/*`, `@org/*`, `@internal/*`, or
+  `@enterprise/*`
+- Angular template selectors, attribute directives, pipes, and injected
+  services matching known internal symbols
+- React JSX components, hooks, and API/client/service symbols matching known
+  internal symbols
+- low-confidence company-prefix selector guesses when no known symbol is
+  supplied
+
+Explicit imports from supplied known internal packages are high confidence.
+Known symbol usages in templates/code are medium confidence. Prefix-only
+private guesses are low confidence and carry warnings asking later stages to
+confirm with Bridge/internal-library resolution.
+
+J5 does not rediscover internal libraries, scan `node_modules`, read
+`package.json`, parse `tsconfig`, scan repositories, implement module federation
+or custom element detection, perform workspace intelligence, update Part I
+canonical artifacts, or create generated `.aidc/context` artifacts.
 
 ## Boundaries
 
