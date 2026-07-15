@@ -160,8 +160,9 @@ def test_start_reports_repo_readiness_and_intelligence():
 
         assert exit_code == 0
         assert "The AI response is ready for review." in output
-        assert "Next: Review the proposed changes" in output
-        assert output.count("Next:") == 1
+        assert "Next step" in output
+        assert "Review the proposed changes" in output
+        assert output.count("Next step") == 1
         assert "strata ask" not in output
         assert not (root / ".aidc" / "graph.json").exists()
         assert not (root / ".aidc" / "cache" / "repo_snapshot.json").exists()
@@ -176,8 +177,9 @@ def test_start_without_config_shows_connect_ai_guidance():
 
         assert exit_code == 0
         assert "Set up Strata before continuing." in output
-        assert "Next: Set up Strata" in output
-        assert output.count("Next:") == 1
+        assert "Next step" in output
+        assert "Set up Strata" in output
+        assert output.count("Next step") == 1
         assert "strata setup --manual" not in output
 
 

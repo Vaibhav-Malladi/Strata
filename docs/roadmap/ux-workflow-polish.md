@@ -8,7 +8,7 @@ primary next action at a time.
 
 - N1 - Guided Workflow UX Contract - implemented.
 - N2 - One Primary Guided Command - implemented.
-- N3 - Progress and Status Presentation - not implemented.
+- N3 - Progress and Status Presentation - implemented.
 - N4 - Confirmations, Recovery, and Next Actions - not implemented.
 - N5 - Settings Change Workflow - not implemented.
 - N6 - Help Text, Documentation, and Integration Polish - not implemented.
@@ -150,6 +150,59 @@ N2 does not call AI models, deliver prompts, validate AI responses, run
 verification, inspect Git, refresh scan/snapshot artifacts, add Rich
 presentation, add progress bars, persist sessions, or modify settings.
 
-N3 will improve presentation and progress.
+N3 improves presentation and progress.
 
 N4 will implement confirmations and recovery behavior.
+
+## N3 Progress Presentation
+
+N3 improves the `strata start` presentation without changing workflow
+decisions or command coordination. It renders the N1 guided view through a
+small deterministic progress model with eight display steps:
+
+- Setup
+- Prepare context
+- Send to AI
+- Receive response
+- Review
+- Apply
+- Verify
+- Complete
+
+N3 maps N1 stages onto those display steps only for presentation:
+
+- `setup_required` -> Setup
+- `ready`, `context_prepared` -> Prepare context
+- `prompt_ready`, `awaiting_ai_response` -> Send to AI
+- `response_received`, `retry_available` -> Receive response
+- `ready_for_review`, `review_blocked` -> Review
+- `ready_to_apply` -> Apply
+- `verification_required` -> Verify
+- `complete` -> Complete
+
+Progress items use the stable states `complete`, `current`, `upcoming`, and
+`blocked`. The normal text output renders those states with readable labels
+such as `[done]`, `[now]`, `[next]`, and `[blocked]`, so captured output and
+plain terminals remain understandable without color.
+
+Stage labels are plain language, such as `Ready for review`, `Review blocked`,
+and `Verification required`. Normal user output does not expose raw snake_case
+stage names, JSON, internal state dumps, or diagnostic payloads.
+
+Warnings are shown only when present, in the deterministic order supplied by
+N1. Warning messages are concise list items and do not create additional primary
+actions.
+
+N3 shows one `Next step` section for non-complete workflows and omits that
+section for complete workflows. Confirmation-required actions show a short note
+that confirmation is required before repository files are changed.
+
+N3 does not alter workflow decisions.
+
+N3 does not execute the next action.
+
+N3 does not prompt for confirmation.
+
+N3 does not redesign scan progress.
+
+N3 only improves guided workflow presentation.
