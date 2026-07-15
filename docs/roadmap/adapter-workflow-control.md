@@ -11,7 +11,7 @@ workflow failures.
 - O1 - Capability Profile Foundation - implemented.
 - O2 - Context Pack Rendering Layer - implemented.
 - O3 - Prompt Template System - implemented.
-- O4 - AI Response Validation and Recovery - not implemented.
+- O4 - AI Response Validation and Recovery - implemented.
 - O5 - Delivery Surface Adapters - not implemented.
 - O6 - Multi-turn Session State - not implemented.
 - O7 - User Settings and Capability Override - not implemented.
@@ -314,3 +314,95 @@ O4.
 O3 does not parse AI responses, validate patches, retry failed responses, create
 browser-copy files, pipe to CLI commands, add VS Code adapters, create sessions,
 persist settings, add provider registries, map model names, or include API keys.
+
+## AI Response Validation and Recovery
+
+O4 validates AI-generated patch responses before any review or application
+step. It accepts raw response text plus explicit approved scope lists and
+returns a deterministic JSON-ready validation result.
+
+The validation result records:
+
+- `status`
+- `is_valid`
+- `failure_types`
+- `diagnostics`
+- `patch`
+- `target_files`
+- `change_summary`
+- `retry`
+- `metadata`
+
+Accepted responses use `accepted_for_review`. This means the response is
+structurally valid, inside scope, and ready for human or workflow review. It
+does not mean the patch is approved, applied, or safe to merge.
+
+O4 uses this bounded failure vocabulary:
+
+- `empty_response`
+- `no_diff`
+- `malformed_diff`
+- `out_of_scope_files`
+- `blocked_new_files`
+- `unsafe_path`
+- `excessive_changes`
+- `injection_detected`
+
+Malformed arguments raise `ValueError`. Ordinary invalid AI responses return
+structured validation results with Part M diagnostic events.
+
+## Response Scope and Limits
+
+O4 reuses the existing patch validator for unified-diff structure and unsafe
+path checks. Paths must remain repository-relative. Absolute paths, parent
+traversal, forbidden repository metadata, and dangerous path targets are
+reported as `unsafe_path`.
+
+Existing file targets must be in the approved files or expected related files
+provided by the caller. New file targets must be explicitly listed as allowed
+new files. Out-of-scope existing changes report `out_of_scope_files`, while
+unapproved creations report `blocked_new_files`.
+
+O4 also enforces bounded response size by file count and total changed lines.
+Responses above those limits report `excessive_changes`.
+
+## Suspicious Instruction Detection
+
+O4 scans prose-like response text outside diff header and changed-line syntax
+for a small suspicious-instruction vocabulary. Matches such as attempts to
+ignore approved scope, bypass review, force apply, or reveal prompts report
+`injection_detected`.
+
+Suspicious instruction detection is conservative and response-local. It does
+not inspect the filesystem, call models, use providers, or infer user intent
+outside the supplied response text.
+
+## Retry Boundary
+
+O4 may recommend one retry for correctable response-shape failures:
+
+- `no_diff`
+- `malformed_diff`
+- `out_of_scope_files`
+- `blocked_new_files`
+- `excessive_changes`
+
+Retries are not recommended for `empty_response`, `unsafe_path`, or
+`injection_detected`. O4 only returns retry guidance. It does not perform the
+retry, call an AI model, or redesign the workflow loop.
+
+## O4 Boundaries
+
+O4 does not apply patches.
+
+O4 does not approve patches.
+
+O4 does not call models or delivery adapters.
+
+O4 does not create browser-copy files, pipe responses to CLI commands, add VS
+Code adapters, create sessions, persist settings, map model names, or add
+provider registries.
+
+Part I remains the token firewall. O4 validates responses against caller-supplied
+scope; it does not expand canonical context, discover new evidence, alter token
+budgets, or mutate Part I artifacts.
