@@ -90,15 +90,46 @@ M2 does not change M1 diagnostic output. M1-style diagnostics can be adapted wit
 M2 diagnostic events do not automatically enter Part I context artifacts. Part I
 remains the token firewall.
 
+## M3: Gate and Review Explanation Layer
+
+M3 adds pure explanation helpers in `strata/core/diagnostic_explanations.py`.
+The helpers turn canonical M2 diagnostics, or M1-style diagnostics normalized
+through M2, into concise JSON-ready plain-language explanations.
+
+Each explanation records the original code, severity, and source, plus a title,
+plain explanation, why-it-matters text, bounded affected items, one safe next
+action, and technical details. Recognized gate and review diagnostics get
+specific explanations. Unknown diagnostics get a conservative generic
+explanation that asks the user to inspect details rather than guessing a cause.
+
+Affected-item extraction reads only existing diagnostic data such as path, field,
+targets, paths, files, imports, failures, errors, and warnings. It removes exact
+duplicates, sorts deterministically, and shows at most 20 items while recording
+truncation metadata.
+
+M3 next actions are intentionally conservative, such as `inspect_details`,
+`revise_patch`, `remove_out_of_scope_changes`, `fix_imports`, `run_tests`,
+`run_verification`, `regenerate_context`, and `repair_run_state`. M3 never
+recommends applying, forcing, bypassing, or ignoring safety checks.
+
+Batch helpers deduplicate exact diagnostic events before explanation, preserve
+deterministic severity ordering, and provide compact summary counts with a
+deterministic primary next action. M3 does not change gate failure detection,
+review classifications, scope rules, apply safety, verification behavior, or
+exit codes.
+
+M3 explanations do not automatically enter Part I context artifacts. Part I
+remains the token firewall.
+
 ## Ownership Boundaries
 
 M owns workflow state and diagnostics.
 
-O owns AI adapters, capability profiles, prompts, response validation, retry,
-and delivery surfaces.
+O owns adapters, model capability, prompts, AI response validation, retry, and
+delivery surfaces.
 
 N owns guided UX and workflow polish.
 
-M1 and M2 are implemented. M3-M6 are not implemented. Plain-language gate/review
-explanations, user-facing workflow status commands, persisted error artifacts,
-and final handoff remain later Part M work.
+M1, M2, and M3 are implemented. M4-M6 are not implemented. User-facing workflow
+status commands, persisted error artifacts, and final handoff remain later Part
+M work.
