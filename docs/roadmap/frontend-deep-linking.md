@@ -23,8 +23,7 @@ behind the appropriate Part I trust boundary.
 ## Later J Batches
 
 Later batches may populate the J1 contract without changing its public shape.
-J2 and J3 now begin that population work for Angular component and route
-metadata:
+J2-J4 now begin that population work for Angular and React source metadata:
 
 1. J2 Angular component-template-style linking
 2. J3 Angular route/lazy route linking
@@ -33,7 +32,7 @@ metadata:
 5. J6 Module Federation/custom element detection
 6. J7 Frontend linking evaluation/docs
 
-J4-J7 remain intentionally outside J3.
+J5-J7 remain intentionally outside J4.
 
 ## J2: Angular Component-Template-Style Linking
 
@@ -81,6 +80,29 @@ many files, repository scanning, `tsconfig` parsing, `package.json` reading,
 component-template-style linking, React linking, internal library usage
 inference, module federation detection, custom element detection, workspace
 intelligence, Part I artifact changes, or generated `.aidc/context` artifacts.
+
+## J4: React Component/Hook/API Linking
+
+J4 adds a small, stdlib-only helper for one supplied React/JS/TS source string
+and path. It infers React relationships for conservative source-text signals:
+
+- uppercase JSX tags such as `<UserCard />` become `component_child_component`
+- custom hook calls such as `useOrders()` become `hook_component`
+- API/client-like calls such as `api.get(...)`, `OrdersClient(...)`, or
+  `fetch(...)` become `component_api_client` or `hook_api_client`
+- `React.lazy(() => import('./Feature'))` and `lazy(() => import('./Feature'))`
+  become `react_route_component`
+
+Lazy import targets are resolved only when they are relative to the source file
+directory. Unsafe lazy imports, absolute lazy imports, traversal outside the
+repository, or malformed lazy metadata degrade to low-confidence relationship
+records with warnings rather than crashing. Lowercase HTML tags are ignored.
+
+J4 does not implement Babel or TypeScript parsing, route graph traversal,
+repository scanning, `tsconfig` parsing, `package.json` reading, Angular
+linking, internal library usage inference, module federation detection, custom
+element detection, workspace intelligence, Part I artifact changes, or
+generated `.aidc/context` artifacts.
 
 ## Boundaries
 
