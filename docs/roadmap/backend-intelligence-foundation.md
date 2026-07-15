@@ -22,6 +22,12 @@ K3 covers FastAPI route extraction only, from supplied Python source text. It re
 
 K3 does not scan repositories, read files, import FastAPI, execute user code, infer dynamic route strings, or detect Flask, Django, or DRF routes. K4 Flask and K5 Django/DRF remain pending.
 
+## K4 Scope
+
+K4 covers Flask route extraction only, from supplied Python source text. It recognizes literal-path Flask app and Blueprint `.route` decorators, literal `methods` lists, and dotted Flask-style method shortcut decorators using the K2 AST helpers, then emits K1 `BackendRelationship` records.
+
+K4 does not scan repositories, read files, import Flask, execute user code, infer dynamic route strings, or detect FastAPI, Django, or DRF routes. K5 Django/DRF remains pending.
+
 ## Contract
 
 The contract can represent Python, JavaScript/TypeScript, and Go backend relationships.

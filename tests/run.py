@@ -144,6 +144,7 @@ from tests import test_internal_library_resolution_evidence
 from tests import test_backend_relationships
 from tests import test_python_backend_common
 from tests import test_fastapi_routes
+from tests import test_flask_routes
 from ui import get_console, is_rich_enabled, print_command_header, print_success
 
 
@@ -273,6 +274,7 @@ TEST_MODULES = [
     test_backend_relationships,
     test_python_backend_common,
     test_fastapi_routes,
+    test_flask_routes,
 ]
 
 
