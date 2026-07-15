@@ -145,6 +145,9 @@ from tests import test_backend_relationships
 from tests import test_python_backend_common
 from tests import test_fastapi_routes
 from tests import test_flask_routes
+from tests import test_django_routes
+from tests import test_express_routes
+from tests import test_nestjs_routes
 from ui import get_console, is_rich_enabled, print_command_header, print_success
 
 
@@ -275,6 +278,9 @@ TEST_MODULES = [
     test_python_backend_common,
     test_fastapi_routes,
     test_flask_routes,
+    test_django_routes,
+    test_express_routes,
+    test_nestjs_routes,
 ]
 
 

@@ -28,6 +28,12 @@ K4 covers Flask route extraction only, from supplied Python source text. It reco
 
 K4 does not scan repositories, read files, import Flask, execute user code, infer dynamic route strings, or detect FastAPI, Django, or DRF routes. K5 Django/DRF remains pending.
 
+## K5-K7 Scope
+
+K5-K7 are implemented as a controlled source-text-only batch. K5 covers conservative Django URL patterns and DRF `api_view`/router hints from supplied Python source text. K6 covers literal Express app/router route calls and simple chained router routes from supplied JavaScript/TypeScript source text. K7 covers literal NestJS controller and HTTP method decorators from supplied TypeScript source text.
+
+K5-K7 infer routes only from supplied source text. They do not scan repositories, read files, execute code, resolve imports, or require Django, DRF, Express, or NestJS to be installed. Cross-file route resolution, workspace linking, and frontend/backend journey linking remain future work. K8/K9 Go backend work remains pending, and K10 backend evaluation/docs remains pending.
+
 ## Contract
 
 The contract can represent Python, JavaScript/TypeScript, and Go backend relationships.
@@ -67,12 +73,12 @@ Confidence uses the shared vocabulary: `unknown`, `low`, `medium`, and `high`.
 2. K2 Python backend common model.
 3. K3 FastAPI.
 4. K4 Flask.
-5. K5 Django/DRF.
-6. K6 Express.
-7. K7 NestJS.
-8. K8 Go backend common model.
-9. K9 Go HTTP/router detection.
-10. K10 Backend evaluation/docs.
+5. K5 Django/DRF - implemented.
+6. K6 Express - implemented.
+7. K7 NestJS - implemented.
+8. K8 Go backend common model - pending.
+9. K9 Go HTTP/router detection - pending.
+10. K10 Backend evaluation/docs - pending.
 
 ## Validation
 
