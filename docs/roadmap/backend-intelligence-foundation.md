@@ -34,6 +34,14 @@ K5-K7 are implemented as a controlled source-text-only batch. K5 covers conserva
 
 K5-K7 infer routes only from supplied source text. They do not scan repositories, read files, execute code, resolve imports, or require Django, DRF, Express, or NestJS to be installed. Cross-file route resolution, workspace linking, and frontend/backend journey linking remain future work. K8/K9 Go backend work remains pending, and K10 backend evaluation/docs remains pending.
 
+## K8-K10 Scope
+
+K8-K10 complete Part K. K8 adds a small Go backend common model for source-line handling, conservative function symbols, string literal extraction, handler symbols, explicit HTTP method evidence, and evidence strings. K9 adds Go HTTP/router route detection for standard library handlers, ServeMux-like calls, gorilla/mux-style method chains, and chi-style method calls from supplied source text only. K10 adds a data-only backend relationship summary for already-created `BackendRelationship` records.
+
+Part K works from supplied source text only. It does not scan repositories, read files, execute code, resolve imports, perform cross-file route resolution, create context artifacts, implement workspace intelligence, or perform frontend/backend journey tracing. Go is included because it was explicitly reintroduced by product direction. Java and Rust remain out of scope.
+
+Handoffs: L owns performance/cache hardening. M owns workflow state/diagnostics. Q owns workspace intelligence and cross-repo awareness. P owns user flow/journey intelligence and frontend-backend journey linking.
+
 ## Contract
 
 The contract can represent Python, JavaScript/TypeScript, and Go backend relationships.
@@ -76,9 +84,9 @@ Confidence uses the shared vocabulary: `unknown`, `low`, `medium`, and `high`.
 5. K5 Django/DRF - implemented.
 6. K6 Express - implemented.
 7. K7 NestJS - implemented.
-8. K8 Go backend common model - pending.
-9. K9 Go HTTP/router detection - pending.
-10. K10 Backend evaluation/docs - pending.
+8. K8 Go backend common model - implemented.
+9. K9 Go HTTP/router detection - implemented.
+10. K10 Backend evaluation/docs - implemented.
 
 ## Validation
 
