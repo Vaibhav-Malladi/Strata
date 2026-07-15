@@ -16,6 +16,12 @@ K2 is common Python backend infrastructure only. It adds safe AST parsing for al
 
 K2 does not detect FastAPI, Flask, Django, or DRF routes. It does not scan repositories, read files, infer dynamic route strings, parse package manifests, or add framework-specific extraction APIs.
 
+## K3 Scope
+
+K3 covers FastAPI route extraction only, from supplied Python source text. It recognizes literal-path FastAPI-style method decorators and `api_route` method lists using the K2 AST helpers, then emits K1 `BackendRelationship` records.
+
+K3 does not scan repositories, read files, import FastAPI, execute user code, infer dynamic route strings, or detect Flask, Django, or DRF routes. K4 Flask and K5 Django/DRF remain pending.
+
 ## Contract
 
 The contract can represent Python, JavaScript/TypeScript, and Go backend relationships.
