@@ -22,11 +22,21 @@ L2 is primitives only. It does not yet perform broad scanner integration, does n
 
 Caching reduces repeated local work. It does not expand prompt size, bypass Part I, or change the token firewall.
 
+## L3 Scope - Implemented
+
+L3 implemented.
+
+L3 adds relationship caps and bounded summaries for already-created frontend/backend relationship payloads. It defines a stable relationship limit profile, generic payload normalization, deterministic ordering, duplicate counting, warning truncation, summary payload bounds, and drop reason codes for total, per-source, per-target, per-framework, per-type, route-path, malformed-record, and summary-payload limits.
+
+L3 is primitives first. It does not yet perform broad extractor rewrites, does not scan repositories, does not read files, and does not call frontend/backend extractors. Broad extractor integration remains bounded/future work unless a later step adds a tiny safe hook.
+
+Part I remains the token firewall. L3 reduces local extraction and diagnostic explosion, but it does not expand prompt content or change context artifact contracts.
+
 ## Roadmap
 
 1. L1 Performance budget and benchmark harness - complete.
 2. L2 Incremental scan/cache primitives - implemented.
-3. L3 Bounded relationship extraction - pending.
+3. L3 Bounded relationship extraction - implemented.
 4. L4 Large repo stress fixtures - pending.
 5. L5 Performance diagnostics/reporting - pending.
 6. L6 Final scale hardening docs - pending.
@@ -34,7 +44,7 @@ Caching reduces repeated local work. It does not expand prompt size, bypass Part
 ## Boundaries
 
 - L2 owns cache invalidation and incremental scan/cache primitives.
-- L3 owns bounded relationship extraction and extractor optimization.
+- L3 owns bounded relationship extraction primitives; broader extractor optimization remains future bounded work.
 - L4 owns large stress fixture trees.
 - M/N own diagnostics and UX workflow changes.
 - O owns adapter/model behavior.
