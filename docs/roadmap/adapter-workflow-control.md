@@ -10,7 +10,7 @@ workflow failures.
 
 - O1 - Capability Profile Foundation - implemented.
 - O2 - Context Pack Rendering Layer - implemented.
-- O3 - Prompt Template System - not implemented.
+- O3 - Prompt Template System - implemented.
 - O4 - AI Response Validation and Recovery - not implemented.
 - O5 - Delivery Surface Adapters - not implemented.
 - O6 - Multi-turn Session State - not implemented.
@@ -210,3 +210,107 @@ ANSI output, call models, or use provider-specific formatting.
 O2 is not the prompt template system. It does not create prompt template files,
 include unified-diff examples, select delivery surfaces, parse AI responses,
 retry model calls, or persist settings. O3 owns prompt templates.
+
+## Prompt Template System
+
+O3 consumes O2 rendered context and turns it into deterministic model-facing
+prompts. O3 does not discover or add evidence. O3 does not change Part I
+budgets. O3 does not call AI models. O3 does not validate AI responses. O3
+does not implement delivery adapters. Part I remains the token firewall.
+
+O3 defines trusted built-in prompt templates in Strata code. Repository
+configuration cannot rewrite trusted safety text, and O3 does not load remote
+templates, execute template code, use template inheritance, or add a templating
+dependency.
+
+## Template IDs and Versions
+
+O3 uses stable capability-based template IDs:
+
+- `weak_patch`
+- `medium_patch`
+- `strong_patch`
+- `unknown_patch`
+
+The prompt-template schema version is `1`, and each built-in template records a
+stable template version of `1`.
+
+Template selection is capability-tier based:
+
+- `weak` -> `weak_patch`
+- `medium` -> `medium_patch`
+- `strong` -> `strong_patch`
+- `unknown` -> `unknown_patch`
+
+Unknown is conservative and never silently selects the strong template. Template
+selection does not inspect model names, providers, delivery surfaces,
+environment variables, or adapter configuration.
+
+## Template Behavior
+
+Weak prompts are explicit and procedural. They include step-by-step guidance,
+scope boundaries, approved-evidence rules, a unified-diff requirement, and a
+small static synthetic unified-diff example.
+
+Unknown prompts are conservative. They include explicit scope and safety rules,
+the unified-diff requirement, insufficient-evidence guidance, and the same small
+static synthetic diff example.
+
+Medium prompts are the default. They include the task, O2 rendered context,
+scope boundaries, concise safety rules, and a unified-diff requirement without a
+diff example.
+
+Strong prompts are shorter but still safe. They keep approved-context scope,
+repository-relative unified-diff output, no invented files, and no out-of-scope
+changes.
+
+## Variables and Placeholder Safety
+
+O3 allows only this bounded variable vocabulary:
+
+- `task`
+- `rendered_context`
+- `approved_file_count`
+- `relationship_count`
+- `omission_count`
+- `profile_tier`
+- `context_variant`
+
+Template substitution is simple and explicit. Missing required variables,
+unsupported variables, unsupported placeholders, and unresolved placeholders
+raise `ValueError`. O3 does not use `eval`, execute expressions, or silently
+accept arbitrary variable names.
+
+## Section Ordering and Metadata
+
+Prompt sections render in deterministic order:
+
+1. role / purpose
+2. task
+3. instructions
+4. approved context
+5. scope
+6. output format
+7. safety
+8. diff example, only for weak and unknown templates
+
+O3 inserts O2 rendered context through the O2 Markdown renderer so it does not
+create a second context serializer.
+
+Prompt metadata is compact and deterministic. It records approved file count,
+relationship count, omission count, whether a diff example is included, whether
+explicit steps are needed, static instruction character count, rendered context
+character count, and prompt character count. These are character counts only;
+O3 does not claim exact token counts or create a second token-budget authority.
+
+## Prompt Safety Boundary
+
+All built-in templates require valid unified-diff output with repository-relative
+paths. The response must modify only approved files unless an allowed related or
+new file is explicitly listed in the supplied context. O3 tells the model not to
+mix Markdown explanation into the diff because response validation belongs to
+O4.
+
+O3 does not parse AI responses, validate patches, retry failed responses, create
+browser-copy files, pipe to CLI commands, add VS Code adapters, create sessions,
+persist settings, add provider registries, map model names, or include API keys.
