@@ -69,6 +69,7 @@ import test_workflow_status
 import test_error_artifacts
 import test_workflow_diagnostics_handoff
 import test_capability_profiles
+import test_context_rendering
 import test_context_budget
 import test_test_mapping
 import test_symbol_slicing
@@ -218,6 +219,7 @@ TEST_MODULES = [
     test_error_artifacts,
     test_workflow_diagnostics_handoff,
     test_capability_profiles,
+    test_context_rendering,
     test_context_budget,
     test_test_mapping,
     test_symbol_slicing,

@@ -9,7 +9,7 @@ workflow failures.
 ## Batch Status
 
 - O1 - Capability Profile Foundation - implemented.
-- O2 - Context Pack Rendering Layer - not implemented.
+- O2 - Context Pack Rendering Layer - implemented.
 - O3 - Prompt Template System - not implemented.
 - O4 - AI Response Validation and Recovery - not implemented.
 - O5 - Delivery Surface Adapters - not implemented.
@@ -127,3 +127,86 @@ O1 does not persist user settings.
 O1 does not add provider registries, model-name mappings, API calls, API keys,
 pricing data, latency policy, retry behavior, response parsing, telemetry, or
 background services.
+
+## Context Pack Rendering Layer
+
+O2 renders approved canonical context for different model capability profiles.
+It defines three rendering variants:
+
+- `compact`
+- `balanced`
+- `expanded`
+
+Profile-driven selection uses O1 `preferred_context_variant` values:
+
+- `weak` -> `compact`
+- `medium` -> `balanced`
+- `strong` -> `expanded`
+- `unknown` -> `balanced`
+
+Unknown remains conservative and never silently receives expanded output.
+
+O2 renders approved canonical context. O2 does not discover new evidence. O2
+does not change Part I budgets. O2 does not write canonical context artifacts.
+O2 does not call models. O2 does not implement delivery adapters. Part I
+remains the token firewall.
+
+## Rendering Behavior
+
+Compact rendering is for weak or small models. It prefers explicit instructions,
+fewer files, path plus role, concise summaries, selected symbols, and omission
+metadata. It does not include full file contents.
+
+Balanced rendering is the default for medium and unknown capability. It includes
+top relevant files, concise summaries, selected symbols or outlines when already
+approved, bounded relationships, clear task instructions, and omission metadata.
+
+Expanded rendering is for strong capability. It may preserve richer approved
+file evidence such as excerpts or whole-file content when Part I already
+approved that representation. Expanded remains bounded by Part I evidence, Part
+L scale principles, and the O1 profile file limit.
+
+## File and Relationship Limits
+
+O2 selects rendered files deterministically from canonical approved items. It
+uses existing priority and score evidence where present, falls back to path
+tie-breaking, and respects `max_recommended_files`. Compact uses a stricter
+file cap for concise rendering.
+
+Relationships are rendered only from approved canonical relationship evidence.
+They are sorted deterministically, exactly deduplicated, and capped by variant:
+compact is smaller than balanced, and balanced is smaller than expanded.
+
+## Representation Downgrade Only
+
+O2 may downgrade how approved evidence is displayed, such as full content to
+summary, summary to symbols or outline, or outline to path-only. O2 never
+upgrades evidence beyond the representation approved by Part I.
+
+Path-only items remain path-only. Skipped items do not become rendered content;
+they are represented only through omission metadata.
+
+## Omission and Budget Metadata
+
+O2 returns bounded omission metadata for file limits, relationship limits,
+representation downgrades, and unsupported optional item shapes. It does not
+expose full omitted content or long omitted file lists.
+
+O2 reuses canonical Part I budget summary fields as metadata. It does not
+recalculate token budgets, claim exact rendered token counts, or create a second
+budget authority.
+
+## Markdown Rendering
+
+O2 provides a deterministic pure Markdown renderer for rendered context packs.
+The Markdown contains task, instructions, approved files, relationships, budget
+metadata, and omitted evidence.
+
+The Markdown renderer does not print, write files, detect terminal width, emit
+ANSI output, call models, or use provider-specific formatting.
+
+## Prompt Boundary
+
+O2 is not the prompt template system. It does not create prompt template files,
+include unified-diff examples, select delivery surfaces, parse AI responses,
+retry model calls, or persist settings. O3 owns prompt templates.
