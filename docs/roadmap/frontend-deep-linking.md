@@ -23,8 +23,8 @@ behind the appropriate Part I trust boundary.
 ## Later J Batches
 
 Later batches may populate the J1 contract without changing its public shape.
-J2-J5 now begin that population work for Angular, React, and internal-library
-usage metadata:
+J2-J6 now begin that population work for Angular, React, internal-library, and
+frontend boundary metadata:
 
 1. J2 Angular component-template-style linking
 2. J3 Angular route/lazy route linking
@@ -33,7 +33,7 @@ usage metadata:
 5. J6 Module Federation/custom element detection
 6. J7 Frontend linking evaluation/docs
 
-J6-J7 remain intentionally outside J5.
+J7 remains intentionally outside J6.
 
 ## J2: Angular Component-Template-Style Linking
 
@@ -131,6 +131,31 @@ J5 does not rediscover internal libraries, scan `node_modules`, read
 `package.json`, parse `tsconfig`, scan repositories, implement module federation
 or custom element detection, perform workspace intelligence, update Part I
 canonical artifacts, or create generated `.aidc/context` artifacts.
+
+## J6: Module Federation / Custom Element Detection
+
+J6 adds a small, stdlib-only helper for one supplied source/config/template
+string and path. It emits boundary relationships for conservative signals:
+
+- `module_federation_remote` from `remotes` object/array config
+- `module_federation_remote` from `exposes` object config
+- `module_federation_remote` from `loadRemoteModule(...)`
+- `module_federation_remote` from federated-looking dynamic imports such as
+  `import('orders/Module')`
+- `module_federation_remote` from `remoteEntry.js` literals
+- `custom_element_usage` from `customElements.define(...)`
+- `custom_element_usage` from `document.createElement('custom-tag')`
+- low-confidence `custom_element_usage` from hyphenated template tags
+
+Explicit Module Federation config and `customElements.define(...)` are high
+confidence. Federated-looking dynamic imports and standalone `remoteEntry.js`
+literals are medium confidence. Hyphenated template tags without a definition
+are low confidence and carry warnings because ownership is not proven.
+
+J6 does not perform cross-repo scanning, read webpack config files from disk,
+read `package.json`, parse `tsconfig`, scan `node_modules`, look up workspace
+configuration, trace user journeys, update Part I canonical artifacts, or
+create generated `.aidc/context` artifacts.
 
 ## Boundaries
 
