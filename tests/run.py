@@ -72,6 +72,7 @@ import test_capability_profiles
 import test_context_rendering
 import test_prompt_templates
 import test_ai_response_validation
+import test_delivery_surfaces
 import test_context_budget
 import test_test_mapping
 import test_symbol_slicing
@@ -224,6 +225,7 @@ TEST_MODULES = [
     test_context_rendering,
     test_prompt_templates,
     test_ai_response_validation,
+    test_delivery_surfaces,
     test_context_budget,
     test_test_mapping,
     test_symbol_slicing,

@@ -12,7 +12,7 @@ workflow failures.
 - O2 - Context Pack Rendering Layer - implemented.
 - O3 - Prompt Template System - implemented.
 - O4 - AI Response Validation and Recovery - implemented.
-- O5 - Delivery Surface Adapters - not implemented.
+- O5 - Delivery Surface Adapters - implemented.
 - O6 - Multi-turn Session State - not implemented.
 - O7 - User Settings and Capability Override - not implemented.
 
@@ -406,3 +406,84 @@ provider registries.
 Part I remains the token firewall. O4 validates responses against caller-supplied
 scope; it does not expand canonical context, discover new evidence, alter token
 budgets, or mutate Part I artifacts.
+
+## Delivery Surface Adapters
+
+O5 packages an existing O3 prompt for user-facing delivery surfaces. It answers
+how the same trusted Strata prompt should be presented to a consuming surface;
+it does not create or change the prompt.
+
+O5 supports exactly these delivery surfaces:
+
+- `browser_copy`
+- `cli`
+- `vscode`
+
+Surfaces describe transfer behavior only. They do not identify model brands,
+providers, chats, terminals, editors, or exact runtime integrations.
+
+## Delivery Payload Contract
+
+O5 returns a deterministic JSON-ready payload with these fields:
+
+- `schema_version`
+- `surface`
+- `content_type`
+- `prompt`
+- `instructions`
+- `metadata`
+
+The payload metadata copies compact O3 prompt facts:
+
+- `template_id`
+- `template_version`
+- `profile_tier`
+- `context_variant`
+- `prompt_character_count`
+- `manual_transfer_required`
+
+The `vscode` surface also includes `display_title` with the value `Strata patch
+request`.
+
+## Prompt Integrity
+
+O5 preserves `prompt_result["prompt"]` exactly as the payload `prompt`. It does
+not prepend, append, wrap, escape, normalize, shorten, or duplicate the prompt.
+Surface instructions stay in the separate `instructions` collection.
+
+O3 remains the authority for model-facing task, scope, safety, and unified-diff
+instructions. O5 instructions describe only how to transfer the prompt and
+return the response.
+
+## Surface Behavior
+
+`browser_copy` uses `text/plain`, marks `manual_transfer_required` as true, and
+provides concise manual copy, submit, and response-return instructions. It does
+not access the clipboard, open browser tabs, create HTML, identify browsers, or
+identify models.
+
+`cli` uses `text/plain`, marks `manual_transfer_required` as false, and provides
+adapter-neutral instructions to send the complete prompt, capture the complete
+response, and pass the response to Strata validation. It does not execute
+subprocesses, construct provider-specific commands, create shell scripts,
+inspect environment variables, or store API keys.
+
+`vscode` uses `application/vnd.strata.prompt+json`, marks
+`manual_transfer_required` as false, and includes small metadata useful to a
+future editor UI. It does not import VS Code APIs, create extension files, add
+TypeScript, read the active editor, inspect workspace files, send editor
+messages, or implement a side panel.
+
+## O5 Boundaries
+
+O5 does not call models.
+
+O5 does not validate responses.
+
+O5 does not apply patches.
+
+O5 does not implement real browser, CLI-provider, or VS Code integrations.
+
+O5 does not write session state, persist settings, add provider registries,
+detect model names, add API keys, access the network, emit telemetry, or run
+background services.
