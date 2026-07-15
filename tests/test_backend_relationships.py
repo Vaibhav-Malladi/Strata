@@ -78,6 +78,7 @@ def test_framework_constants_are_stable_and_have_extraction_placeholders():
         "django_rest_framework",
         "express",
         "nestjs",
+        "go",
         "generic_backend",
         "unknown",
     )
@@ -88,6 +89,7 @@ def test_framework_constants_are_stable_and_have_extraction_placeholders():
         ("django_rest_framework", "reserved_for_k5_drf"),
         ("express", "reserved_for_k6_express"),
         ("nestjs", "reserved_for_k7_nestjs"),
+        ("go", "reserved_for_k8_k9_go"),
     )
 
 
@@ -260,7 +262,9 @@ def test_docs_mention_k1_contract_only_and_later_k_work():
 
     assert "K1 is contract-only" in content
     assert "does not implement framework detection or extraction" in content
-    for item in ("K2", "K3", "K4", "K5", "K6", "K7", "K8"):
+    assert "Go backend services" in content
+    assert "standard net/http and common router patterns later" in content
+    for item in ("K2", "K3", "K4", "K5", "K6", "K7", "K8", "K9", "K10"):
         assert item in content
 
 

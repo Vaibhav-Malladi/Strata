@@ -12,7 +12,14 @@ K1 does not implement framework detection or extraction, does not scan repositor
 
 ## Contract
 
-The contract can represent Python and JavaScript/TypeScript backend relationships across FastAPI, Flask, Django, Django REST Framework, Express, NestJS, generic backends, and unknown frameworks.
+The contract can represent Python, JavaScript/TypeScript, and Go backend relationships.
+
+Backend scope includes:
+
+- Python backend frameworks: FastAPI, Flask, Django/DRF.
+- JavaScript/TypeScript backend frameworks: Express, NestJS.
+- Go backend services: standard net/http and common router patterns later.
+- Generic backend and unknown framework relationships when a later producer cannot classify the source more specifically.
 
 Relationship records preserve:
 
@@ -45,7 +52,9 @@ Confidence uses the shared vocabulary: `unknown`, `low`, `medium`, and `high`.
 5. K5 Django/DRF.
 6. K6 Express.
 7. K7 NestJS.
-8. K8 Backend evaluation/docs.
+8. K8 Go backend common model.
+9. K9 Go HTTP/router detection.
+10. K10 Backend evaluation/docs.
 
 ## Validation
 
