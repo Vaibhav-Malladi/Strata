@@ -39,15 +39,66 @@ Part I remains the token firewall. M1 consumes `run_state.json` but does not
 increase prompt size, add default prompt evidence, duplicate representation or
 budgeting authority, or create a competing state artifact.
 
+## M2: Diagnostic Event Model
+
+M2 adds a small canonical diagnostic event mapping in
+`strata/core/diagnostics.py`. The public representation is plain JSON-ready data
+only: dictionaries, lists, strings, integers, booleans, and nulls.
+
+The canonical event shape is:
+
+- `code`
+- `severity`
+- `message`
+- `source`
+- `field`
+- `path`
+- `next_action`
+- `details`
+
+`code`, `severity`, `message`, and `source` are required. `field`, `path`, and
+`next_action` are optional string fields represented as null when absent.
+`details` is always a deterministic mapping, empty when absent.
+
+The bounded severity vocabulary is:
+
+- `info`
+- `warning`
+- `error`
+
+The bounded source vocabulary is:
+
+- `workflow_state`
+- `context`
+- `review`
+- `apply`
+- `verify`
+- `gate`
+- `system`
+
+Normalization validates events, copies caller-owned details, preserves list
+order, and emits mapping keys in deterministic sorted order. Sorting is exact and
+deterministic: error, warning, info, then source, code, path, field, message,
+next action, and canonical details. Deduplication removes only exactly
+equivalent canonical mappings. Summaries contain only compact counts: total,
+errors, warnings, info, has_errors, and has_warnings.
+
+M2 does not change M1 diagnostic output. M1-style diagnostics can be adapted with
+`normalize_diagnostic_event(..., default_source="workflow_state")`; legacy
+`value` is placed only in `details["value"]` in canonical M2 form.
+
+M2 diagnostic events do not automatically enter Part I context artifacts. Part I
+remains the token firewall.
+
 ## Ownership Boundaries
 
 M owns workflow state and diagnostics.
 
-O owns adapter, model-capability, prompt, AI-response, retry, and
-delivery-surface control.
+O owns AI adapters, capability profiles, prompts, response validation, retry,
+and delivery surfaces.
 
 N owns guided UX and workflow polish.
 
-M1 does not complete M2-M6 behavior. Broader diagnostic events, plain-language
-gate/review explanations, user-facing workflow status commands, persistence and
-recovery, and final handoff remain later Part M work.
+M1 and M2 are implemented. M3-M6 are not implemented. Plain-language gate/review
+explanations, user-facing workflow status commands, persisted error artifacts,
+and final handoff remain later Part M work.
