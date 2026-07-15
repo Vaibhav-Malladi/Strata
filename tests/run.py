@@ -68,6 +68,13 @@ import test_diagnostic_explanations
 import test_workflow_status
 import test_error_artifacts
 import test_workflow_diagnostics_handoff
+import test_capability_profiles
+import test_context_rendering
+import test_prompt_templates
+import test_ai_response_validation
+import test_delivery_surfaces
+import test_session_state
+import test_user_settings
 import test_context_budget
 import test_test_mapping
 import test_symbol_slicing
@@ -216,6 +223,13 @@ TEST_MODULES = [
     test_workflow_status,
     test_error_artifacts,
     test_workflow_diagnostics_handoff,
+    test_capability_profiles,
+    test_context_rendering,
+    test_prompt_templates,
+    test_ai_response_validation,
+    test_delivery_surfaces,
+    test_session_state,
+    test_user_settings,
     test_context_budget,
     test_test_mapping,
     test_symbol_slicing,
