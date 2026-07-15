@@ -10,6 +10,12 @@ K1 is contract-only. It defines stable constants, JSON-ready relationship fields
 
 K1 does not implement framework detection or extraction, does not scan repositories, does not read source files, does not parse package manifests, and does not integrate backend findings into canonical context artifacts.
 
+## K2 Scope
+
+K2 is common Python backend infrastructure only. It adds safe AST parsing for already-provided source text, decorator-name normalization, string-literal route path extraction, HTTP method normalization, Python function/class symbol candidates, source evidence helpers, and a conversion helper for explicit route facts supplied by later framework-specific producers.
+
+K2 does not detect FastAPI, Flask, Django, or DRF routes. It does not scan repositories, read files, infer dynamic route strings, parse package manifests, or add framework-specific extraction APIs.
+
 ## Contract
 
 The contract can represent Python, JavaScript/TypeScript, and Go backend relationships.

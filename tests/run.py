@@ -142,6 +142,7 @@ from tests import test_internal_library_resolution
 from tests import test_internal_library_discovery
 from tests import test_internal_library_resolution_evidence
 from tests import test_backend_relationships
+from tests import test_python_backend_common
 from ui import get_console, is_rich_enabled, print_command_header, print_success
 
 
@@ -269,6 +270,7 @@ TEST_MODULES = [
     test_internal_library_discovery,
     test_internal_library_resolution_evidence,
     test_backend_relationships,
+    test_python_backend_common,
 ]
 
 
