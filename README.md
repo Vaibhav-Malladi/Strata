@@ -119,20 +119,24 @@ From the repository you want Strata to understand:
 
 ```powershell
 strata start
-strata start --continue
 ```
 
 Strata shows your current status, progress, warnings when present, and one recommended next step.
-Run `strata start --continue` when you want Strata to attempt that step.
-Repository-changing actions still require confirmation.
+In an interactive terminal, Strata stays open and offers each next step.
+Safe progress happens one recommended action at a time.
+Manual AI-transfer steps pause the session until you complete the external step.
+Repository-changing actions still require explicit confirmation.
+Use `strata start --continue` when you want one recommended step and then an exit, such as in scripted use.
 
 ## Recommended workflow
 
 1. Run `strata start`.
 2. Read the current status and next step.
-3. Run `strata start --continue` when you want Strata to attempt that step.
-4. Confirm any repository-changing action.
-5. Use `strata settings` whenever you want to change workflow preferences.
+3. Continue from the prompt when you want Strata to attempt that step.
+4. Complete any manual AI-transfer step when Strata pauses for external work.
+5. Confirm any repository-changing action.
+6. Use `strata start --continue` for one-step or scripted use.
+7. Use `strata settings` whenever you want to change workflow preferences.
 
 Settings can be changed later:
 

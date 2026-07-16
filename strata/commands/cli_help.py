@@ -134,8 +134,8 @@ def _main_workflow_lines() -> list[tuple[str, str]]:
 
 def _primary_workflow_lines() -> list[tuple[str, str]]:
     return [
-        ("strata start [path]", "Show the current workflow status and one recommended next step."),
-        ("strata start --continue [path]", "Attempt the recommended next step. Repository-changing actions still require confirmation."),
+        ("strata start [path]", "Open the guided workflow. In an interactive terminal, Strata stays open and offers each next step."),
+        ("strata start --continue [path]", "Attempt one recommended step and exit. Repository-changing actions still require confirmation."),
     ]
 
 

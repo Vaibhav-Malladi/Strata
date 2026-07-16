@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import sys
 
 import strata.commands.apply_command as apply_command
 import strata.commands.review_command as review_command
@@ -12,6 +13,15 @@ from strata.utils.config import config_path, load_config
 
 
 _CONFIRMATION_NOTE = "Confirmation will be required before repository files are changed."
+_GUIDED_SESSION_PROMPT = "Continue with this step? [Y/n/q] "
+_GUIDED_SESSION_INVALID_CHOICE = "Enter y to continue, n to stop, or q to quit."
+_GUIDED_SESSION_ENDED = "Guided session ended.\nRun `strata start` whenever you are ready to continue."
+_GUIDED_SESSION_WAITING = (
+    "Strata is waiting for an external step before it can continue.\n"
+    "Run `strata start` again after completing that step."
+)
+_GUIDED_SESSION_LIMIT_REACHED = "Guided session stopped after too many steps. Run `strata start` again to continue."
+MAX_GUIDED_ITERATIONS = 20
 ACTION_STATUS_NOT_EXECUTED = "not_executed"
 ACTION_STATUS_CANCELLED = "cancelled"
 ACTION_STATUS_COMPLETED = "completed"
@@ -187,6 +197,26 @@ def _action_result(
     }
     json.dumps(result, allow_nan=False)
     return result
+
+
+def is_interactive_terminal(
+    *,
+    stdin=None,
+    stdout=None,
+) -> bool:
+    input_stream = sys.stdin if stdin is None else stdin
+    output_stream = sys.stdout if stdout is None else stdout
+    return _stream_is_tty(input_stream) and _stream_is_tty(output_stream)
+
+
+def _stream_is_tty(stream) -> bool:
+    isatty = getattr(stream, "isatty", None)
+    if not callable(isatty):
+        return False
+    try:
+        return bool(isatty())
+    except OSError:
+        return False
 
 
 def _recovery_for(action: str, status: str, guided_view: dict[str, object]) -> str | None:
@@ -389,6 +419,117 @@ def render_action_result(action_result) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
+def _emit(output_fn, text: str = "", *, end: str = "\n") -> None:
+    try:
+        output_fn(text, end=end)
+    except TypeError:
+        output_fn(text if end == "\n" else text + end)
+
+
+def _guided_view_signature(guided_view) -> tuple[object, ...]:
+    view = _require_guided_view(guided_view)
+    return (
+        view.get("stage"),
+        view.get("headline"),
+        view.get("summary"),
+        view.get("next_action"),
+        view.get("next_action_label"),
+        view.get("blocking") is True,
+    )
+
+
+def _read_guided_session_choice(input_fn=input, output_fn=print) -> str:
+    while True:
+        try:
+            response = input_fn(_GUIDED_SESSION_PROMPT)
+        except (EOFError, KeyboardInterrupt):
+            return "exit"
+
+        normalized = str(response or "").strip().lower()
+        if normalized in {"", "y", "yes"}:
+            return "continue"
+        if normalized in {"n", "no", "q", "quit", "exit"}:
+            return "exit"
+
+        _emit(output_fn, _GUIDED_SESSION_INVALID_CHOICE)
+
+
+def _should_stop_without_prompt(guided_view: dict[str, object]) -> bool:
+    view = _require_guided_view(guided_view)
+    if view.get("next_action") == guided_workflow.NEXT_ACTION_NONE:
+        return True
+    if view.get("blocking") is True:
+        return True
+    return False
+
+
+def run_guided_start_session(
+    root_path: str = ".",
+    *,
+    input_fn=input,
+    output_fn=print,
+    interactive=None,
+    action_handlers=None,
+) -> int:
+    if interactive is None:
+        interactive = is_interactive_terminal()
+
+    try:
+        if not interactive:
+            view = build_start_guided_view(root_path)
+            _emit(output_fn, render_guided_workflow_view(view), end="")
+            return 0
+
+        previous_attempt_signature = None
+        for _iteration in range(MAX_GUIDED_ITERATIONS):
+            view = build_start_guided_view(root_path)
+            signature = _guided_view_signature(view)
+            _emit(output_fn, render_guided_workflow_view(view), end="")
+
+            if previous_attempt_signature == signature:
+                _emit(output_fn)
+                _emit(output_fn, _GUIDED_SESSION_WAITING)
+                return 0
+
+            if _should_stop_without_prompt(view):
+                return 0
+
+            choice = _read_guided_session_choice(input_fn=input_fn, output_fn=output_fn)
+            if choice == "exit":
+                _emit(output_fn, _GUIDED_SESSION_ENDED)
+                return 0
+
+            result = handle_recommended_action(
+                view,
+                root_path=root_path,
+                confirm_fn=lambda **kwargs: confirm_recommended_action(**kwargs, input_fn=input_fn),
+                action_handlers=action_handlers,
+            )
+            _emit(output_fn)
+            _emit(output_fn, render_action_result(result), end="")
+
+            status = result.get("status")
+            if status == ACTION_STATUS_FAILED:
+                return 1
+            if status != ACTION_STATUS_COMPLETED:
+                return 0
+
+            previous_attempt_signature = signature
+            _emit(output_fn)
+
+        _emit(output_fn, _GUIDED_SESSION_LIMIT_REACHED)
+        return 0
+    except ValueError as error:
+        _emit(output_fn, "Strata")
+        _emit(output_fn)
+        _emit(output_fn, "Start could not continue.")
+        _emit(output_fn, str(error))
+        _emit(output_fn)
+        _emit(output_fn, "Next step")
+        _emit(output_fn, "Resolve the state issue")
+        return 1
+
+
 def build_start_guided_view(root_path: str = ".") -> dict[str, object]:
     root = Path(root_path)
     if not root.exists():
@@ -404,8 +545,15 @@ def build_start_guided_view(root_path: str = ".") -> dict[str, object]:
     )
 
 
-def write_start_command(root_path: str = ".", *, continue_action: bool = False, input_fn=input) -> int:
+def write_start_command(root_path: str = ".", *, continue_action: bool = False, input_fn=input, interactive=None) -> int:
     try:
+        if not continue_action:
+            return run_guided_start_session(
+                root_path,
+                input_fn=input_fn,
+                interactive=interactive,
+            )
+
         view = build_start_guided_view(root_path)
         print(render_guided_workflow_view(view, include_next_action=not continue_action), end="")
         if continue_action:

@@ -99,6 +99,25 @@ def _action_result(**overrides) -> dict[str, object]:
     return result
 
 
+@contextlib.contextmanager
+def patched_guided_views(views: list[dict[str, object]]):
+    original = start_command.build_start_guided_view
+    calls = []
+    remaining = list(views)
+
+    def fake_build_start_guided_view(root):
+        calls.append(root)
+        if len(remaining) > 1:
+            return remaining.pop(0)
+        return remaining[0]
+
+    start_command.build_start_guided_view = fake_build_start_guided_view
+    try:
+        yield calls
+    finally:
+        start_command.build_start_guided_view = original
+
+
 def test_strata_start_remains_registered_once():
     source = inspect.getsource(cli_module)
 
@@ -108,9 +127,11 @@ def test_strata_start_remains_registered_once():
 def test_start_is_described_as_recommended_normal_entry_point():
     lines = dict(cli_help._main_workflow_lines())
 
-    assert lines["strata start [path]"] == "Show the current workflow status and one recommended next step."
+    assert lines["strata start [path]"] == (
+        "Open the guided workflow. In an interactive terminal, Strata stays open and offers each next step."
+    )
     assert lines["strata start --continue [path]"] == (
-        "Attempt the recommended next step. Repository-changing actions still require confirmation."
+        "Attempt one recommended step and exit. Repository-changing actions still require confirmation."
     )
 
 
@@ -277,6 +298,337 @@ def test_normal_start_does_not_execute_actions():
 
         assert exit_code == 0
         assert "Action result" not in output
+
+
+def test_interactive_start_enters_guided_loop():
+    calls = []
+    with patched_guided_views([
+        _guided_view(),
+        _guided_view(stage="complete", next_action="none", next_action_label="No action needed"),
+    ]):
+        exit_code, output = capture_output(
+            start_command.run_guided_start_session,
+            ".",
+            input_fn=lambda _prompt: "",
+            interactive=True,
+            action_handlers={"review_changes": lambda root: calls.append(root) or 0},
+        )
+
+    assert exit_code == 0
+    assert calls == ["."]
+    assert "Action result" in output
+    assert "Complete" in output
+
+
+def test_non_interactive_start_remains_status_only():
+    calls = []
+    with patched_guided_views([_guided_view()]):
+        exit_code, output = capture_output(
+            start_command.run_guided_start_session,
+            ".",
+            interactive=False,
+            action_handlers={"review_changes": lambda root: calls.append(root) or 0},
+        )
+
+    assert exit_code == 0
+    assert calls == []
+    assert "Action result" not in output
+    assert "The AI response is ready for review." in output
+
+
+def test_interactive_terminal_detection_requires_stdin_and_stdout_tty():
+    class FakeStream:
+        def __init__(self, value: bool):
+            self.value = value
+
+        def isatty(self):
+            return self.value
+
+    assert start_command.is_interactive_terminal(stdin=FakeStream(True), stdout=FakeStream(True)) is True
+    assert start_command.is_interactive_terminal(stdin=FakeStream(False), stdout=FakeStream(True)) is False
+    assert start_command.is_interactive_terminal(stdin=FakeStream(True), stdout=FakeStream(False)) is False
+
+
+def test_enter_continues_guided_session():
+    calls = []
+    with patched_guided_views([
+        _guided_view(),
+        _guided_view(stage="complete", next_action="none", next_action_label="No action needed"),
+    ]):
+        exit_code, _ = capture_output(
+            start_command.run_guided_start_session,
+            ".",
+            input_fn=lambda _prompt: "",
+            interactive=True,
+            action_handlers={"review_changes": lambda root: calls.append(root) or 0},
+        )
+
+    assert exit_code == 0
+    assert calls == ["."]
+
+
+def test_y_continues_guided_session():
+    calls = []
+    with patched_guided_views([
+        _guided_view(),
+        _guided_view(stage="complete", next_action="none", next_action_label="No action needed"),
+    ]):
+        exit_code, _ = capture_output(
+            start_command.run_guided_start_session,
+            ".",
+            input_fn=lambda _prompt: "y",
+            interactive=True,
+            action_handlers={"review_changes": lambda root: calls.append(root) or 0},
+        )
+
+    assert exit_code == 0
+    assert calls == ["."]
+
+
+def test_yes_continues_guided_session():
+    calls = []
+    with patched_guided_views([
+        _guided_view(),
+        _guided_view(stage="complete", next_action="none", next_action_label="No action needed"),
+    ]):
+        exit_code, _ = capture_output(
+            start_command.run_guided_start_session,
+            ".",
+            input_fn=lambda _prompt: "yes",
+            interactive=True,
+            action_handlers={"review_changes": lambda root: calls.append(root) or 0},
+        )
+
+    assert exit_code == 0
+    assert calls == ["."]
+
+
+def test_stop_choices_exit_normally_without_action():
+    for value in ("n", "no", "q", "quit", "exit"):
+        calls = []
+        with patched_guided_views([_guided_view()]):
+            exit_code, output = capture_output(
+                start_command.run_guided_start_session,
+                ".",
+                input_fn=lambda _prompt, value=value: value,
+                interactive=True,
+                action_handlers={"review_changes": lambda root: calls.append(root) or 0},
+            )
+
+        assert exit_code == 0
+        assert calls == []
+        assert "Guided session ended." in output
+
+
+def test_invalid_input_does_not_execute_action_and_shows_guidance():
+    responses = iter(["maybe", "n"])
+    calls = []
+    with patched_guided_views([_guided_view()]):
+        exit_code, output = capture_output(
+            start_command.run_guided_start_session,
+            ".",
+            input_fn=lambda _prompt: next(responses),
+            interactive=True,
+            action_handlers={"review_changes": lambda root: calls.append(root) or 0},
+        )
+
+    assert exit_code == 0
+    assert calls == []
+    assert "Enter y to continue, n to stop, or q to quit." in output
+
+
+def test_one_action_runs_per_iteration_and_state_is_reloaded():
+    calls = []
+    first = _guided_view(headline="First view.")
+    second = _guided_view(
+        stage="awaiting_ai_response",
+        headline="Second view.",
+        summary="External work is needed.",
+        next_action="deliver_prompt",
+        next_action_label="Copy the prompt",
+    )
+    with patched_guided_views([first, second]):
+        exit_code, output = capture_output(
+            start_command.run_guided_start_session,
+            ".",
+            input_fn=lambda _prompt: "",
+            interactive=True,
+            action_handlers={"review_changes": lambda root: calls.append(root) or 0},
+        )
+
+    assert exit_code == 0
+    assert calls == ["."]
+    assert "First view." in output
+    assert "Second view." in output
+    assert "Copy the prepared request into your AI tool." in output
+
+
+def test_complete_workflow_exits_without_prompting():
+    prompts = []
+    with patched_guided_views([
+        _guided_view(stage="complete", next_action="none", next_action_label="No action needed")
+    ]):
+        exit_code, output = capture_output(
+            start_command.run_guided_start_session,
+            ".",
+            input_fn=lambda prompt: prompts.append(prompt) or "",
+            interactive=True,
+        )
+
+    assert exit_code == 0
+    assert prompts == []
+    assert "Action result" not in output
+
+
+def test_next_action_none_exits_without_prompting():
+    prompts = []
+    with patched_guided_views([_guided_view(next_action="none", next_action_label="No action needed")]):
+        exit_code, _ = capture_output(
+            start_command.run_guided_start_session,
+            ".",
+            input_fn=lambda prompt: prompts.append(prompt) or "",
+            interactive=True,
+        )
+
+    assert exit_code == 0
+    assert prompts == []
+
+
+def test_manual_ai_transfer_action_shows_guidance_and_exits():
+    with patched_guided_views([
+        _guided_view(next_action="deliver_prompt", next_action_label="Copy the prompt")
+    ]):
+        exit_code, output = capture_output(
+            start_command.run_guided_start_session,
+            ".",
+            input_fn=lambda _prompt: "",
+            interactive=True,
+        )
+
+    assert exit_code == 0
+    assert "Copy the prepared request into your AI tool." in output
+    assert output.count("Action result") == 1
+
+
+def test_blocking_state_does_not_execute_destructive_action():
+    calls = []
+    with patched_guided_views([
+        _guided_view(
+            stage="review_blocked",
+            next_action="apply_changes",
+            next_action_label="Apply the reviewed changes",
+            confirmation_required=True,
+            blocking=True,
+        )
+    ]):
+        exit_code, output = capture_output(
+            start_command.run_guided_start_session,
+            ".",
+            input_fn=lambda _prompt: "",
+            interactive=True,
+            action_handlers={"apply_changes": lambda root: calls.append(root) or 0},
+        )
+
+    assert exit_code == 0
+    assert calls == []
+    assert "Blocked" in output
+
+
+def test_failed_action_stops_loop_and_returns_nonzero():
+    calls = []
+    with patched_guided_views([_guided_view()]):
+        exit_code, output = capture_output(
+            start_command.run_guided_start_session,
+            ".",
+            input_fn=lambda _prompt: "",
+            interactive=True,
+            action_handlers={"review_changes": lambda root: calls.append(root) or 1},
+        )
+
+    assert exit_code == 1
+    assert calls == ["."]
+    assert "Action could not complete." in output
+
+
+def test_cancelled_apply_stops_without_further_actions():
+    prompts = iter(["", ""])
+    calls = []
+    with patched_guided_views([
+        _guided_view(
+            stage="ready_to_apply",
+            next_action="apply_changes",
+            next_action_label="Apply the reviewed changes",
+            confirmation_required=True,
+        )
+    ]):
+        exit_code, output = capture_output(
+            start_command.run_guided_start_session,
+            ".",
+            input_fn=lambda _prompt: next(prompts),
+            interactive=True,
+            action_handlers={"apply_changes": lambda root: calls.append(root) or 0},
+        )
+
+    assert exit_code == 0
+    assert calls == []
+    assert "Cancelled. No files were changed." in output
+
+
+def test_loop_prompt_does_not_replace_apply_confirmation():
+    prompts = []
+    with patched_guided_views([
+        _guided_view(
+            stage="ready_to_apply",
+            next_action="apply_changes",
+            next_action_label="Apply the reviewed changes",
+            confirmation_required=True,
+        ),
+        _guided_view(stage="complete", next_action="none", next_action_label="No action needed"),
+    ]):
+        exit_code, _ = capture_output(
+            start_command.run_guided_start_session,
+            ".",
+            input_fn=lambda prompt: prompts.append(prompt) or "y",
+            interactive=True,
+            action_handlers={"apply_changes": lambda _root: 0},
+        )
+
+    assert exit_code == 0
+    assert prompts == ["Continue with this step? [Y/n/q] ", "Apply the reviewed changes? [y/N] "]
+
+
+def test_unchanged_state_after_action_stops_loop():
+    with patched_guided_views([_guided_view()]):
+        exit_code, output = capture_output(
+            start_command.run_guided_start_session,
+            ".",
+            input_fn=lambda _prompt: "",
+            interactive=True,
+            action_handlers={"review_changes": lambda _root: 0},
+        )
+
+    assert exit_code == 0
+    assert "Strata is waiting for an external step before it can continue." in output
+
+
+def test_iteration_limit_prevents_infinite_loop():
+    views = [
+        _guided_view(headline=f"View {index}.", summary=f"Summary {index}.")
+        for index in range(start_command.MAX_GUIDED_ITERATIONS + 1)
+    ]
+    calls = []
+    with patched_guided_views(views):
+        exit_code, output = capture_output(
+            start_command.run_guided_start_session,
+            ".",
+            input_fn=lambda _prompt: "",
+            interactive=True,
+            action_handlers={"review_changes": lambda root: calls.append(root) or 0},
+        )
+
+    assert exit_code == 0
+    assert len(calls) == start_command.MAX_GUIDED_ITERATIONS
+    assert "Guided session stopped after too many steps." in output
 
 
 def test_one_continuation_mechanism_exists():
@@ -731,6 +1083,24 @@ TESTS = [
     test_completed_output_contains_no_next_action_section,
     test_apply_next_action_displays_confirmation_guidance,
     test_normal_start_does_not_execute_actions,
+    test_interactive_start_enters_guided_loop,
+    test_non_interactive_start_remains_status_only,
+    test_interactive_terminal_detection_requires_stdin_and_stdout_tty,
+    test_enter_continues_guided_session,
+    test_y_continues_guided_session,
+    test_yes_continues_guided_session,
+    test_stop_choices_exit_normally_without_action,
+    test_invalid_input_does_not_execute_action_and_shows_guidance,
+    test_one_action_runs_per_iteration_and_state_is_reloaded,
+    test_complete_workflow_exits_without_prompting,
+    test_next_action_none_exits_without_prompting,
+    test_manual_ai_transfer_action_shows_guidance_and_exits,
+    test_blocking_state_does_not_execute_destructive_action,
+    test_failed_action_stops_loop_and_returns_nonzero,
+    test_cancelled_apply_stops_without_further_actions,
+    test_loop_prompt_does_not_replace_apply_confirmation,
+    test_unchanged_state_after_action_stops_loop,
+    test_iteration_limit_prevents_infinite_loop,
     test_one_continuation_mechanism_exists,
     test_continue_attempts_exactly_one_recommended_action,
     test_apply_requires_confirmation_and_prompt_uses_y_no_default,

@@ -373,3 +373,29 @@ Part N does not store secrets in the repository.
 Part N does not add model/provider detection.
 
 Part N does not replace Part O adapter logic.
+
+## Post-Part-N Improvement - Continuous Guided Start Loop
+
+After Part N, `strata start` gained a small continuous guided session for
+interactive terminals. The command still uses the N1 guided decision contract,
+N2 state loading, N3 status/progress rendering, and N4 action execution and
+confirmation behavior.
+
+In an interactive terminal, `strata start` stays open after showing the current
+status and offers the next recommended step. Each loop iteration attempts at
+most one recommended action, then reloads workflow state before rendering the
+next status.
+
+Non-interactive use remains status-only, so CI, scripts, pipes, and captured
+test output do not block waiting for input.
+
+`strata start --continue` remains available as the one-action-and-exit path.
+
+Manual AI-transfer steps pause the guided session and ask the user to complete
+the external step before running `strata start` again.
+
+Repository-changing actions still require the existing explicit apply
+confirmation.
+
+The loop includes state-unchanged and iteration-limit safeguards to avoid
+repeating the same action indefinitely.
