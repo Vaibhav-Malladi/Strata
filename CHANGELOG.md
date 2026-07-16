@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.4.0 - 2026-07-16
+## 0.4.1 - 2026-07-16
 
 ### Added
 
@@ -30,6 +30,7 @@
 
 - Added release preparation notes, release limitations, and PyPI-safe README links.
 - Added user-operated release documentation for validation, build inspection, TestPyPI, production upload, production verification, tagging, and release creation.
+- Corrected CLI runtime wording to match Python 3.11, 3.12, and 3.13 support.
 
 ### Known limitations
 

@@ -71,7 +71,8 @@ def print_usage() -> None:
     print("  CLI command: strata")
     print("  Install: pipx install strata-repo-intel")
     print("  Alternative: python -m pip install --user strata-repo-intel")
-    print("  Strata requires Python 3.13+; analyzed projects may target older Python versions.")
+    print("  Strata requires Python 3.11 or newer; Python 3.13 is the recommended development environment.")
+    print("  Analyzed projects may target older Python versions.")
     print("  Add `.aidc/` to `.gitignore`; generated files may contain code excerpts or AI prompts.")
     print()
 

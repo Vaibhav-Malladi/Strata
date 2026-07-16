@@ -25,7 +25,7 @@ def test_distribution_name_and_console_script_are_distinct_and_correct():
 def test_strata_package_import_and_module_entrypoint():
     import strata
 
-    assert strata.__version__ == "0.4.0"
+    assert strata.__version__ == "0.4.1"
 
     result = subprocess.run(
         [sys.executable, "-m", "strata", "--help"],
@@ -76,11 +76,12 @@ def test_authoritative_versions_agree():
 
 def test_public_docs_use_honest_install_runtime_and_support_wording():
     readme = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
+    runtime_doc = (PROJECT_ROOT / "docs" / "runtime-compatibility.md").read_text(encoding="utf-8")
     help_text = (
         (PROJECT_ROOT / "strata" / "commands" / "cli_help.py").read_text(encoding="utf-8")
         + (PROJECT_ROOT / "strata" / "commands" / "help_topics.py").read_text(encoding="utf-8")
     )
-    public_text = readme + help_text
+    public_text = readme + runtime_doc + help_text
     readme_normalized = readme.lower()
     normalized = public_text.lower()
 
@@ -95,6 +96,10 @@ def test_public_docs_use_honest_install_runtime_and_support_wording():
     assert "strata settings" in public_text
     assert "Strata does not store API keys in the repository." in public_text
     assert "python 3.11 or newer" in readme_normalized
+    assert "python 3.11 or newer" in help_text.lower()
+    assert "python 3.11, 3.12, and 3.13" in normalized
+    assert "python 3.13 is the recommended development environment" in normalized
+    assert "python 3.13+" not in normalized
     assert "older python versions" in normalized
     assert "controlled real-repository uat" in normalized
     assert "static explanations" in normalized
