@@ -10,12 +10,19 @@ def print_guided_entrypoint(root: str = ".") -> None:
     print_banner(compact=False)
     print()
 
-    print(bold("New here?"))
+    print("Strata helps you understand a repository and safely work through AI-assisted code changes.")
+    print()
+
+    print(bold("Start here:"))
+    print("  strata start")
+    print("  Strata will show your current status and one recommended next step.")
+    print()
+
+    print(bold("Follow up:"))
     for line in [
-        "1. Run `strata start`",
-        "2. Run `strata setup ai`",
-        "   or `strata setup` for the legacy menu",
-        '3. Run `strata run "your task"`',
+        "Run `strata start --continue` when you want Strata to attempt that step.",
+        "Repository-changing actions still require confirmation.",
+        "Run `strata settings` whenever you want to change workflow preferences.",
         "If `strata` does not work in another terminal, run `strata doctor install`.",
     ]:
         print(f"  {line}")
@@ -26,12 +33,16 @@ def print_guided_entrypoint(root: str = ".") -> None:
         print(f"  {line}")
     print()
 
-    print(bold("Main workflow:"))
-    for index, (command, description) in enumerate(_main_workflow_lines(), start=1):
-        print(f"  {index}. {command}")
-        print(f"     {description}")
-        if index != 4:
-            print()
+    print(bold("Primary workflow:"))
+    for command, description in _primary_workflow_lines():
+        print(f"  {command}")
+        print(f"    {description}")
+    print()
+
+    print(bold("Settings:"))
+    for command, description in _settings_lines():
+        print(f"  {command}")
+        print(f"    {description}")
 
     print()
     print(bold("Current state"))
@@ -48,6 +59,13 @@ def print_usage() -> None:
     print_banner(compact=False)
     print()
 
+    print("Strata helps you understand a repository and safely work through AI-assisted code changes.")
+    print()
+    print("Start here:")
+    print("  strata start")
+    print("  Strata will show your current status and one recommended next step.")
+    print()
+
     print("Install and runtime:")
     print("  PyPI package: strata-repo-intel")
     print("  CLI command: strata")
@@ -62,8 +80,14 @@ def print_usage() -> None:
         print(f"  {line}")
     print()
 
-    print("Main workflow:")
-    for command, description in _main_workflow_lines():
+    print("Primary workflow:")
+    for command, description in _primary_workflow_lines():
+        print(f"  {command}")
+        print(f"    {description}")
+    print()
+
+    print("Settings:")
+    for command, description in _settings_lines():
         print(f"  {command}")
         print(f"    {description}")
     print()
@@ -105,19 +129,32 @@ def print_usage() -> None:
 
 
 def _main_workflow_lines() -> list[tuple[str, str]]:
+    return _primary_workflow_lines()
+
+
+def _primary_workflow_lines() -> list[tuple[str, str]]:
     return [
-        ("strata start [path]", "Set up Strata, build the repo snapshot cache, and understand this project."),
-        ('strata ask [--file <reference>]... "<task>" [path]', "Prepare context for your configured AI mode and collect a safe patch."),
-        ("strata review [path]", "Inspect and validate the patch before applying."),
-        ("strata apply [--yes] [--dry-run] [path]", "Validate or apply the generated patch."),
+        ("strata start [path]", "Show the current workflow status and one recommended next step."),
+        ("strata start --continue [path]", "Attempt the recommended next step. Repository-changing actions still require confirmation."),
+    ]
+
+
+def _settings_lines() -> list[tuple[str, str]]:
+    return [
+        ("strata settings", "View current workflow settings."),
+        ("strata settings set capability <value>", "Change capability selection: auto, unknown, weak, medium, strong."),
+        ("strata settings set surface <value>", "Change delivery surface: browser_copy, cli, vscode."),
+        ("strata settings set mode <value>", "Change workflow mode: manual, hybrid, auto."),
     ]
 
 
 def _connect_ai_overview_lines(include_help_hint: bool) -> list[str]:
     return [
-        "Run `strata setup` to choose how Strata talks to AI.",
-        "Run `strata setup ai` for the guided setup flow.",
-        "Strata stores only environment variable names for API keys.",
+        "Run `strata setup` for initial configuration and environment readiness.",
+        "Run `strata setup ai` for guided setup with safe credential handling.",
+        "You can change capability, delivery surface, or workflow mode later with `strata settings`.",
+        "Strata stores only environment variable names for API keys; secrets stay in your environment.",
+        "`strata settings` shows workflow preferences, not secret values.",
         "`strata setup --manual`",
         "  Browser AI: use ChatGPT, Claude, Gemini, or Copilot Chat.",
         "  Strata writes `.aidc/agent_prompt.md`; you paste it into the AI and save the returned diff as `.aidc/agent_patch.diff`.",
@@ -132,7 +169,7 @@ def _connect_ai_overview_lines(include_help_hint: bool) -> list[str]:
         "`strata setup --http`",
         "  Use an OpenAI-compatible HTTP API. Strata stores only the environment variable name for the key.",
         "  Strata can help save the key to your user environment on Windows.",
-        'Then run `strata doctor adapter`, `strata ask "fix bug"`, `strata review`, `strata apply --dry-run`, and `strata apply`.',
+        "Then run `strata doctor adapter` if you want a readiness check, and use `strata start` for the normal workflow.",
         *(
             [
                 "For step-by-step help, run `strata help setup`, `strata help ask`, or `strata help manual`.",
@@ -151,6 +188,9 @@ def _advanced_command_entries() -> list[tuple[str, str | None]]:
         ("strata routes [path]", None),
         ("strata diff [path]", None),
         ("strata patch [root]", None),
+        ('strata ask [--file <reference>]... "<task>" [path]', "Prepare context for your configured AI mode and collect a safe patch."),
+        ("strata review [path]", "Inspect and validate the patch before applying."),
+        ("strata apply [--yes] [--dry-run] [path]", "Validate or apply the generated patch."),
         ("strata execute", "Run the configured command adapter and produce .aidc/agent_patch.diff."),
         ("strata execute <root>", None),
         ("strata doctor adapter", None),
@@ -225,6 +265,7 @@ def _advanced_command_entries() -> list[tuple[str, str | None]]:
 def _workflow_root_forms() -> list[str]:
     return [
         'strata start <root>',
+        'strata start --continue <root>',
         'strata ask "<task>" <root>',
         "strata review <root>",
         "strata apply --dry-run <root>",

@@ -1,5 +1,7 @@
+import json
 from pathlib import Path
 
+import strata.core.user_settings as user_settings
 from strata.utils.secrets import looks_like_secret
 from strata.utils.output import (
     build_banner,
@@ -257,6 +259,20 @@ def _parse_value(key: str, value: str) -> object:
             )
 
         return timeout
+
+    if key == "user_settings":
+        if normalized.lower() in {"null", "none"}:
+            return None
+        try:
+            parsed = json.loads(normalized)
+        except json.JSONDecodeError as error:
+            raise ValueError(
+                "Invalid value for user_settings. Expected a JSON object matching the Strata user settings contract."
+            ) from error
+        try:
+            return user_settings.validate_user_settings(parsed)
+        except ValueError as error:
+            raise ValueError(f"Invalid value for user_settings. {error}") from error
 
     return _parse_bool(key, normalized)
 

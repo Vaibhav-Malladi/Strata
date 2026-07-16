@@ -26,6 +26,7 @@ from strata.commands.prepare_command import write_prepare_command
 from strata.commands.review_command import write_review_command
 from strata.commands.preflight_command import write_preflight
 from strata.commands.run_command import write_run_command
+from strata.commands.settings_command import write_settings_command, write_settings_set_command
 from strata.commands.start_command import write_start_command
 from strata.commands.setup_command import (
     setup_aider,
@@ -93,12 +94,10 @@ def main() -> int:
         return _exit_code(write_graph(root, force=force))
 
     if command == "start":
-        if len(args) == 1:
-            return _exit_code(write_start_command("."))
-        if len(args) == 2:
-            return _exit_code(write_start_command(args[1]))
-        print_usage()
-        return 1
+        return _exit_code(_handle_start_command(args[1:]))
+
+    if command == "settings":
+        return _exit_code(_handle_settings_command(args[1:]))
 
     if command == "ask":
         return _exit_code(write_ask_command(".", *args[1:]))
@@ -326,6 +325,41 @@ def _handle_apply_command(args: list[str]) -> int:
         return write_apply_dry_run_command(root)
 
     return write_apply_command(root, yes=yes)
+
+
+def _handle_start_command(args: list[str]) -> int:
+    continue_action = False
+    positionals: list[str] = []
+
+    for arg in args:
+        if arg == "--continue":
+            if continue_action:
+                print_usage()
+                return 1
+            continue_action = True
+            continue
+        if arg.startswith("-"):
+            print_usage()
+            return 1
+        positionals.append(arg)
+
+    if len(positionals) > 1:
+        print_usage()
+        return 1
+
+    root = positionals[0] if positionals else "."
+    return write_start_command(root, continue_action=continue_action)
+
+
+def _handle_settings_command(args: list[str]) -> int:
+    if not args:
+        return write_settings_command(".")
+
+    if len(args) == 3 and args[0] == "set":
+        return write_settings_set_command(args[1], args[2], ".")
+
+    print_usage()
+    return 1
 
 
 def _handle_ask_command(args: list[str]) -> int:

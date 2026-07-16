@@ -1,5 +1,6 @@
 import contextlib
 import sys
+from pathlib import Path
 
 import cli_help
 import cli_ui
@@ -57,6 +58,12 @@ def test_help_usage_mentions_all_ai_modes_and_beginner_topics():
     _assert_terms(
         output,
         "connect ai",
+        "primary workflow",
+        "settings:",
+        "strata start [path]",
+        "strata start --continue [path]",
+        "one recommended next step",
+        "repository-changing actions still require confirmation",
         "strata setup",
         "strata setup ai",
         "strata setup ai --check",
@@ -66,6 +73,13 @@ def test_help_usage_mentions_all_ai_modes_and_beginner_topics():
         "strata setup --command",
         "strata setup --codex-cli",
         "strata setup --aider",
+        "strata settings",
+        "strata settings set capability <value>",
+        "auto, unknown, weak, medium, strong",
+        "strata settings set surface <value>",
+        "browser_copy, cli, vscode",
+        "strata settings set mode <value>",
+        "manual, hybrid, auto",
         'strata ask [--file <reference>]... "<task>" [path]',
         "strata scan [path] [--force]",
         "strata status [path]",
@@ -113,6 +127,8 @@ def test_help_setup_topic_is_beginner_friendly():
         "strata setup --show",
         "strata doctor adapter",
         "user environment",
+        "strata settings",
+        "change preferences later",
     )
 
 
@@ -127,12 +143,12 @@ def test_help_manual_topic_is_step_by_step():
         "safest",
         "api key",
         "local model",
+        "strata start",
+        "one recommended next step",
         ".aidc/agent_prompt.md",
         ".aidc/agent_patch.diff",
-        "strata review",
-        "strata apply --dry-run",
-        "strata apply",
-        "strata gate",
+        "strata start --continue",
+        "confirm",
     )
     _assert_terms(output, ("chatgpt", "claude", "gemini", "copilot chat"))
 
@@ -151,10 +167,9 @@ def test_help_ollama_topic_is_step_by_step():
         "strata setup --ollama",
         "strata config set model",
         "strata doctor adapter",
-        "strata ask",
-        "strata review",
-        "strata apply --dry-run",
-        "strata apply",
+        "strata start",
+        "one recommended next step",
+        "confirm",
     )
 
 
@@ -340,7 +355,70 @@ def test_help_start_topic_mentions_beginner_entrypoint():
     exit_code, output = _run_cli("help", "start")
 
     assert exit_code == 0
-    _assert_terms(output, "beginner", "entrypoint", "scan", "snapshot cache", "setup", "ask", "review", "apply", "gate", "strata doctor install", "focused mode", "--force")
+    _assert_terms(
+        output,
+        "recommended workflow entry point",
+        "current status",
+        "progress",
+        "warnings",
+        "one recommended next step",
+        "does not execute actions",
+        "strata start --continue",
+        "at most one action",
+        "explicit confirmation",
+        "strata settings",
+        "strata setup",
+        "strata doctor install",
+    )
+
+
+def test_help_settings_topic_documents_supported_values():
+    exit_code, output = _run_cli("help", "settings")
+
+    assert exit_code == 0
+    _assert_terms(
+        output,
+        "settings",
+        "workflow preferences after setup",
+        "capability selection",
+        "delivery surface",
+        "workflow mode",
+        "does not show api keys",
+        "strata settings set capability auto",
+        "strata settings set capability unknown",
+        "strata settings set capability weak",
+        "strata settings set capability medium",
+        "strata settings set capability strong",
+        "strata settings set surface browser_copy",
+        "strata settings set surface cli",
+        "strata settings set surface vscode",
+        "strata settings set mode manual",
+        "strata settings set mode hybrid",
+        "strata settings set mode auto",
+        "setup is for initial configuration",
+    )
+
+
+def test_readme_documents_recommended_guided_workflow():
+    readme = (Path(__file__).resolve().parents[1] / "README.md").read_text(encoding="utf-8")
+
+    _assert_terms(
+        readme,
+        "recommended workflow",
+        "strata start",
+        "current status",
+        "next step",
+        "strata start --continue",
+        "confirm any repository-changing action",
+        "strata settings",
+        "settings can be changed later",
+        "strata settings set capability strong",
+        "strata settings set surface vscode",
+        "strata settings set mode hybrid",
+        "advanced commands",
+        "Strata does not store API keys in the repository",
+    )
+    assert "Strata stores API keys in the repository" not in readme
 
 
 def test_help_scan_topic_mentions_scan_states_and_force():
@@ -409,6 +487,8 @@ TESTS = [
     test_help_prepare_topic_mentions_budget_examples,
     test_help_gate_topic_mentions_reports_and_tests,
     test_help_start_topic_mentions_beginner_entrypoint,
+    test_help_settings_topic_documents_supported_values,
+    test_readme_documents_recommended_guided_workflow,
     test_help_scan_topic_mentions_scan_states_and_force,
     test_help_status_topic_mentions_scan_readiness,
     test_help_browser_alias_routes_to_manual,

@@ -486,7 +486,8 @@ def test_cli_module_entrypoint_smoke():
     )
 
     assert result.returncode == 0, result.stderr
-    assert "New here?" in result.stdout
+    assert "Start here:" in result.stdout
+    assert "one recommended next step" in result.stdout
     assert "Connect AI" in result.stdout
 
 
@@ -495,6 +496,8 @@ def test_cli_help_prefers_strata_commands():
 
     assert "Connect AI" in output
     assert "New here?" not in output
+    assert "Start here:" in output
+    assert "Strata will show your current status and one recommended next step." in output
     assert "strata setup" in output
     assert "strata setup ai" in output
     assert "strata setup ai --check" in output
@@ -504,7 +507,6 @@ def test_cli_help_prefers_strata_commands():
     assert "strata setup --command" in output
     assert "strata setup --codex-cli" in output
     assert "strata setup --aider" in output
-    assert 'strata ask "fix bug"' in output
     assert "strata help setup" in output
     assert "strata help ask" in output
     assert "strata help manual" in output
@@ -531,6 +533,10 @@ def test_cli_help_prefers_strata_commands():
     assert 'strata prepare "<task>" <root>' in output
     assert 'strata run "<task>"' in output
     assert 'strata run --dry-run "<task>"' in output
+    assert "strata settings" in output
+    assert "strata settings set capability <value>" in output
+    assert "strata settings set surface <value>" in output
+    assert "strata settings set mode <value>" in output
     assert "strata apply --dry-run" in output
     assert "strata apply --dry-run <root>" in output
     assert "strata execute" in output
@@ -540,7 +546,7 @@ def test_cli_help_prefers_strata_commands():
     assert "strata doctor adapter <root>" in output
     assert "strata review" in output
     assert "strata review <root>" in output
-    assert output.index("Connect AI") < output.index("Main workflow")
+    assert output.index("Connect AI") < output.index("Primary workflow") < output.index("Settings:") < output.index("Advanced commands")
     assert "strata start" in output
     assert "strata setup" in output
     assert "strata setup ai" in output
@@ -549,7 +555,6 @@ def test_cli_help_prefers_strata_commands():
     assert "`strata setup --manual`" in output
     assert "`strata setup --ollama`" in output
     assert "`strata setup --http`" in output
-    assert "strata ask \"fix bug\"" in output
     assert "strata review" in output
     assert "strata apply --dry-run" in output
     assert "strata apply" in output

@@ -1,5 +1,6 @@
 import builtins
 import contextlib
+import json
 import sys
 import tempfile
 from pathlib import Path
@@ -69,6 +70,33 @@ def _write_prompt(root: Path) -> Path:
     return prompt_path
 
 
+def _write_run_state(root: Path, **overrides) -> None:
+    state = {
+        "schema_version": 1,
+        "task": "Fix auth guard",
+        "created_at": "2026-07-15T00:00:00Z",
+        "baseline_commit": "abc123",
+        "baseline_commit_attached": True,
+        "baseline_status": "attached",
+        "baseline_warning": None,
+        "in_scope_files": ["main.py"],
+        "expected_related_files": [],
+        "allowed_new_files": [],
+        "prompt_hash": "hash",
+        "adapter": "codex",
+        "patch_received": False,
+        "error": None,
+        "workspace_mode": "single_repo",
+        "workspace": None,
+        "cross_repo_references": [],
+        "internal_libraries": [],
+    }
+    state.update(overrides)
+    path = root / ".aidc" / "context" / "run_state.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(state), encoding="utf-8")
+
+
 def _save_config(root: Path, **overrides) -> None:
     config = default_config()
     config.update(overrides)
@@ -85,11 +113,20 @@ def test_help_lists_main_workflow_before_advanced_commands():
     _, output = capture_output(print_usage)
 
     assert "Connect AI" in output
-    assert "Main workflow:" in output
+    assert "Primary workflow:" in output
+    assert "Settings:" in output
     assert "Advanced commands:" in output
-    assert output.index("Connect AI") < output.index("Main workflow:") < output.index("Advanced commands:")
-    assert "repo snapshot cache" in output.lower()
+    assert output.index("Connect AI") < output.index("Primary workflow:") < output.index("Settings:") < output.index("Advanced commands:")
     assert "strata start [path]" in output
+    assert "strata start --continue [path]" in output
+    assert "recommended next step" in output.lower()
+    assert "status" in output.lower()
+    assert "Repository-changing actions still require confirmation." in output
+    assert "strata settings" in output
+    assert "strata settings set capability <value>" in output
+    assert "auto, unknown, weak, medium, strong" in output
+    assert "browser_copy, cli, vscode" in output
+    assert "manual, hybrid, auto" in output
     assert 'strata ask [--file <reference>]... "<task>" [path]' in output
     assert "strata start" in output
     assert "strata setup" in output
@@ -126,37 +163,18 @@ def test_start_reports_repo_readiness_and_intelligence():
             prompt_path=".aidc/agent_prompt.md",
         )
         _write_prompt(root)
+        _write_run_state(root, patch_received=True)
 
         exit_code, output = _run_cli(root, "start")
 
         assert exit_code == 0
-        assert "Start summary" in output
-        assert "Reading repository" in output
-        assert "Repo map ready" in output
-        assert "Snapshot cache" in output
-        assert "Full scan" in output
-        assert "missing" in output.lower()
-        assert "first-time setup" in output.lower()
-        assert "Graph" in output
-        assert ".aidc/graph.json" in output.replace("\\", "/")
-        assert "Files" in output
-        assert "Edges" in output
-        assert "Repo intelligence" in output
-        assert "Repo readiness" in output
-        assert "ready" in output
-        assert "strata scan" in output.lower()
-        assert "focused mode" in output.lower() or "full repo context" in output.lower()
-        assert "strata ask \"your task\"" in output
-        assert (root / ".aidc" / "graph.json").exists()
-        assert (root / ".aidc" / "cache" / "repo_snapshot.json").exists()
-
-        exit_code, output = _run_cli(root, "start")
-
-        assert exit_code == 0
-        assert "Snapshot cache" in output
-        assert "fresh" in output.lower()
-        assert "Changed since snapshot" in output
-        assert "Full scan" in output
+        assert "The AI response is ready for review." in output
+        assert "Next step" in output
+        assert "Review the proposed changes" in output
+        assert output.count("Next step") == 1
+        assert "strata ask" not in output
+        assert not (root / ".aidc" / "graph.json").exists()
+        assert not (root / ".aidc" / "cache" / "repo_snapshot.json").exists()
 
 
 def test_start_without_config_shows_connect_ai_guidance():
@@ -167,18 +185,14 @@ def test_start_without_config_shows_connect_ai_guidance():
         exit_code, output = _run_cli(root, "start")
 
         assert exit_code == 0
-        assert "Connect AI" in output
-        assert "Snapshot cache" in output
-        assert "Full scan" in output
-        assert "focused mode" in output.lower() or "full repo context needs" in output.lower()
-        assert "strata scan" in output.lower()
-        assert "strata setup" in output
-        assert "strata setup --manual" in output
-        assert "browser AI" in output
-        assert "strata ask \"your task\"" in output
+        assert "Set up Strata before continuing." in output
+        assert "Next step" in output
+        assert "Set up Strata" in output
+        assert output.count("Next step") == 1
+        assert "strata setup --manual" not in output
 
 
-def test_start_reports_interrupted_full_scan_marker():
+def test_start_ignores_old_interrupted_full_scan_marker():
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
         _create_repo(root)
@@ -197,13 +211,12 @@ def test_start_reports_interrupted_full_scan_marker():
         exit_code, output = _run_cli(root, "start")
 
         assert exit_code == 0
-        assert "interrupted" in output.lower()
-        assert "previous scan did not finish" in output.lower()
-        assert "full repo context" in output.lower()
-        assert "strata scan" in output.lower()
+        assert "Strata is ready to prepare project context." in output
+        assert "interrupted" not in output.lower()
+        assert "strata scan" not in output.lower()
 
 
-def test_start_reports_stale_snapshot_cache_after_repo_change():
+def test_start_does_not_refresh_snapshot_cache_after_repo_change():
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
         _create_repo(root)
@@ -222,9 +235,9 @@ def test_start_reports_stale_snapshot_cache_after_repo_change():
         exit_code, output = _run_cli(root, "start")
 
         assert exit_code == 0
-        assert "Snapshot cache" in output
-        assert "stale" in output.lower()
-        assert "Changed since snapshot" in output
+        assert "Strata is ready to prepare project context." in output
+        assert "Snapshot cache" not in output
+        assert "Changed since snapshot" not in output
 
 
 def test_ask_prompt_file_manual_mode_writes_prompt_and_recommends_review():
