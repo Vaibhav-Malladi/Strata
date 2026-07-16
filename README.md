@@ -52,13 +52,79 @@ iwr https://raw.githubusercontent.com/Vaibhav-Malladi/Strata/main/install-strata
 powershell -ExecutionPolicy Bypass -File .\install-strata.ps1
 ```
 
-For local development from a checkout:
+### Installation Options
+
+Install the published package for the current user:
+
+```powershell
+python -m pip install --user strata-repo-intel
+```
+
+For local development from a cloned repository:
+
+```powershell
+python -m pip install -e .
+```
+
+Windows users may also use the repository-local installer:
+
+```powershell
+.\install.ps1
+```
+
+If Windows installs the `strata` command into the user scripts directory, reopen PowerShell or VS Code after installation so the updated `PATH` is detected. On older python versions, confirm that the Python user scripts directory is on `PATH`.
+
+After installation, the normal workflow is:
+
+```powershell
+strata start
+```
+
+For a small explicitly budgeted context pack:
+
+```powershell
+strata context --budget small "your task"
+```
+
+For local development from a checkout, `py` is also supported:
 
 ```powershell
 py -m pip install -e .
 strata doctor install
 strata start
 ```
+
+## Recommended Workflow
+
+The recommended workflow is the guided path:
+
+```powershell
+strata start
+```
+
+To resume an interrupted or previously prepared session:
+
+```powershell
+strata start --continue
+```
+
+Strata shows the current status and next recommended action during the guided workflow. Review the proposed scope and confirm any repository-changing action before Strata applies changes.
+
+## Settings
+
+Use `strata settings` to review or change your workflow configuration. settings can be changed later, so initial setup choices are not permanent.
+
+Examples:
+
+```powershell
+strata settings set capability strong
+strata settings set surface vscode
+strata settings set mode hybrid
+```
+
+The guided workflow is the recommended path. advanced commands remain available for users who need direct control over context generation, review, apply, diagnostics, or verification.
+
+Strata does not store API keys in the repository. It helps users configure keys in their own machine or user environment.
 
 Generated Strata files live under `.aidc/`. Add `.aidc/` to the analyzed repository's `.gitignore`; context packs, prompts, patches, and reports may contain code excerpts or task details.
 
