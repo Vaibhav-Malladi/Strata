@@ -4,6 +4,8 @@ This checklist separates local artifact validation, optional TestPyPI verificati
 
 Replace `<VERSION>` with the finalized package version.
 
+Strata's runtime requirement is Python 3.11 or newer. Python 3.11, 3.12, and 3.13 are supported; Python 3.13 is the recommended development environment.
+
 ## 1. Synchronize and validate
 
 ```powershell

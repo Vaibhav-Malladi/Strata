@@ -26,7 +26,7 @@ Workspace and journey intelligence can connect related repositories and trace ap
 
 ## Quick Start
 
-The PyPI package is `strata-repo-intel`; the CLI command is `strata`. Strata requires Python 3.11 or newer; Python 3.13 is the recommended development environment. The repositories it analyzes can target older runtimes.
+The PyPI package is `strata-repo-intel`; the CLI command is `strata`. Strata requires Python 3.11 or newer; Python 3.11, 3.12, and 3.13 are supported, and Python 3.13 is the recommended development environment. The repositories it analyzes can target older runtimes.
 
 Recommended install on Windows PowerShell:
 

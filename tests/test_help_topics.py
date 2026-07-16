@@ -234,11 +234,13 @@ def test_help_doctor_topic_mentions_install_diagnostics():
         "setup ai",
         "strata-repo-intel",
         "pipx install strata-repo-intel",
-        "python 3.13",
+        "python 3.11 or newer",
+        "python 3.13 is the recommended development environment",
         "older python versions",
         ".aidc/",
         ".gitignore",
     )
+    assert "python 3.13+" not in output.lower()
 
 
 def test_help_install_alias_routes_to_doctor_topic():
@@ -424,6 +426,21 @@ def test_readme_documents_recommended_guided_workflow():
     assert "Strata stores API keys in the repository" not in readme
 
 
+def test_readme_and_runtime_compatibility_document_supported_python_versions():
+    root = Path(__file__).resolve().parents[1]
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    runtime_doc = (root / "docs" / "runtime-compatibility.md").read_text(encoding="utf-8")
+
+    for text in (readme, runtime_doc):
+        _assert_terms(
+            text,
+            "Python 3.11 or newer",
+            "Python 3.11, 3.12, and 3.13",
+            "Python 3.13 is the recommended development environment",
+        )
+        assert "Python 3.13+" not in text
+
+
 def test_help_scan_topic_mentions_scan_states_and_force():
     exit_code, output = _run_cli("help", "scan")
 
@@ -492,6 +509,7 @@ TESTS = [
     test_help_start_topic_mentions_beginner_entrypoint,
     test_help_settings_topic_documents_supported_values,
     test_readme_documents_recommended_guided_workflow,
+    test_readme_and_runtime_compatibility_document_supported_python_versions,
     test_help_scan_topic_mentions_scan_states_and_force,
     test_help_status_topic_mentions_scan_readiness,
     test_help_browser_alias_routes_to_manual,

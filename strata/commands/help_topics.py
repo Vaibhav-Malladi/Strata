@@ -366,7 +366,7 @@ def _render_doctor_help() -> None:
             "The PyPI package is `strata-repo-intel`; the CLI command is `strata`.",
             "Preferred install: `pipx install strata-repo-intel`.",
             "Alternative: `python -m pip install --user strata-repo-intel`.",
-            "The current Strata runtime requires Python 3.13 or newer.",
+            "Strata requires Python 3.11 or newer; Python 3.13 is the recommended development environment.",
             "Analyzed projects may target older Python versions because Strata reads and scans their files.",
         ],
     )

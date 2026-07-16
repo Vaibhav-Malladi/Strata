@@ -566,6 +566,9 @@ def test_cli_help_prefers_strata_commands():
     assert "apply" in output.lower()
     assert "PyPI package: strata-repo-intel" in output
     assert "CLI command: strata" in output
+    assert "Python 3.11 or newer" in output
+    assert "Python 3.13 is the recommended development environment" in output
+    assert "Python 3.13+" not in output
     assert "If `strata` is unavailable" in output
     assert "py cli.py scan [path]" not in output
 
