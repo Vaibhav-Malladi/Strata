@@ -117,3 +117,54 @@ reports, alter configuration, or discover repositories.
 Q3 does not extract cross-repository source references.
 It does not compare shared contracts and does not add workspace evidence to AI
 context.
+
+## Q4 - Cross-Repository Reference Extraction
+
+Q4 adds selected-file extraction only for concrete cross-repository reference
+signals. Callers provide the repository ID, repository root, and bounded
+selected paths; Q4 does not recursively discover files or choose candidates
+automatically.
+
+Reference records cover a bounded vocabulary: `localhost_url`,
+`absolute_http_url`, `iframe_src`, `post_message_send`, `message_listener`,
+`api_base_url`, `environment_url`, `route_constant`, and `shared_constant`.
+Each record stores repository ID, normalized source path, raw and normalized
+value, confidence, bounded Q3-compatible evidence, optional symbol, optional
+line number, optional target repository ID, optional target hint, and
+JSON-ready metadata.
+
+Extraction is lightweight and language-aware for Python, JavaScript,
+TypeScript, React JSX/TSX, Angular templates, HTML, Go, JSON, TOML, simple
+YAML key/value lines, and `.env` files. It detects localhost and absolute
+HTTP-family URLs, literal and bound iframe sources, postMessage senders,
+message listeners, API and environment URL constants, route-like constants,
+and shared string constants only when names indicate cross-repository
+relevance.
+
+Target matching is deterministic and local. Q4 may match references against
+configured repository URLs or unique configured ports, leaves ambiguous or
+unknown matches unset, and never uses network calls or DNS resolution.
+
+Confidence is deterministic and capped by evidence quality. Literal URLs and
+exact configured target matches are strongest, host/port matches are bounded,
+dynamic expressions and wildcard postMessage origins are low confidence, and
+ambiguous target matches produce diagnostics instead of target assignments.
+
+Q4 applies selected-file, byte, reference, per-file reference, and diagnostic
+caps. It emits stable diagnostics for unsafe paths, symlink escapes,
+unsupported files, read or decode failures, malformed JSON or TOML,
+conservative YAML parsing, caps, ambiguous or unknown targets, wildcard
+postMessage origins, unresolved dynamic references, and secret redaction.
+
+Secret-like values, secret-named configuration fields, credentialed URLs,
+tokens, passwords, authorization values, cookies, and private keys are skipped
+or redacted; raw secret values are not stored in reference metadata or
+evidence.
+
+Q4 can convert targeted references into Q3-compatible relationship hints for
+API calls, iframe embeds, postMessage sends, and message receives. Q3 remains
+responsible for merging and precedence.
+
+Q4 does not build the workspace dependency graph or traverse relationships.
+Q4 does not compare shared contracts, report mismatches, generate reports, or
+write configuration. Q4 does not add findings to AI context.
