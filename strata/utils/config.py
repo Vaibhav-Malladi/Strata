@@ -28,6 +28,7 @@ DEFAULT_CONFIG = {
     "auto_snapshot": True,
     "auto_verify": True,
     "require_gate_pass_before_commit": True,
+    "user_settings": None,
 }
 
 _ALLOWED_MODES = {"manual", "hybrid", "auto"}
@@ -133,6 +134,8 @@ def validate_config(config: Mapping[str, Any]) -> dict:
             normalized[canonical_key] = _validate_timeout_seconds(canonical_key, value)
         elif canonical_key in _SAFETY_FLAGS:
             normalized[canonical_key] = _validate_bool(canonical_key, value)
+        elif canonical_key == "user_settings":
+            normalized[canonical_key] = _validate_user_settings_payload(value)
         else:
             raise ValueError(f"Unsupported config key: {key}")
 
@@ -219,6 +222,16 @@ def _validate_bool(key: str, value: Any) -> bool:
     if type(value) is not bool:
         raise ValueError(f"{key} must be a boolean")
     return value
+
+
+def _validate_user_settings_payload(value: Any) -> dict[str, Any] | None:
+    if value is None:
+        return None
+
+    if not isinstance(value, Mapping):
+        raise ValueError("user_settings must be a mapping")
+
+    return _normalize_json_value(value, "user_settings")
 
 
 def _normalize_json_value(value: Any, path: str) -> Any:

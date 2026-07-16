@@ -10,7 +10,7 @@ primary next action at a time.
 - N2 - One Primary Guided Command - implemented.
 - N3 - Progress and Status Presentation - implemented.
 - N4 - Confirmations, Recovery, and Next Actions - implemented.
-- N5 - Settings Change Workflow - not implemented.
+- N5 - Settings Change Workflow - implemented.
 - N6 - Help Text, Documentation, and Integration Polish - not implemented.
 
 ## N1 Contract
@@ -152,7 +152,7 @@ presentation, add progress bars, persist sessions, or modify settings.
 
 N3 improves presentation and progress.
 
-N4 will implement confirmations and recovery behavior.
+N4 implements confirmations and recovery behavior.
 
 ## N3 Progress Presentation
 
@@ -279,3 +279,63 @@ N4 does not execute more than one action.
 N4 does not add a command menu.
 
 N4 does not implement settings changes.
+
+## N5 Settings Change Workflow
+
+N5 adds one secondary maintenance command for changing workflow settings after
+setup:
+
+- `strata settings`
+- `strata settings set <setting> <value>`
+
+`strata settings` shows the current supported workflow settings in plain
+language, including the config file location, capability selection, delivery
+surface, workflow mode, and one next action. Missing config uses existing
+defaults and does not create `.aidc/config.json`.
+
+N5 supports changing one setting at a time:
+
+- `capability`: `auto`, `unknown`, `weak`, `medium`, `strong`
+- `surface`: `browser_copy`, `cli`, `vscode`
+- `mode`: `manual`, `hybrid`, `auto`
+
+The user-facing setting names map to O7 fields:
+
+- `capability` -> `capability_selection`
+- `surface` -> `delivery_surface`
+- `mode` -> existing config `mode`
+
+Successful updates show the setting label, old value, new value, saved config
+path, and exactly one next action. No-op updates do not rewrite unnecessarily;
+they report that the setting is already configured and return normal
+completion.
+
+N5 reuses the existing `.aidc/config.json` persistence path. O7 user settings
+are stored under the existing config authority in the `user_settings` slot, and
+unrelated config values are preserved. Existing `profile_overrides` are
+preserved but not exposed as normal settings.
+
+Capability and delivery-surface validation is delegated to O7 helpers such as
+`default_user_settings`, `validate_user_settings`, and `update_user_settings`.
+Workflow mode validation reuses the existing config contract. Invalid setting
+names or values return concise non-zero errors, do not show stack traces, and
+do not perform partial writes.
+
+N5 does not create a second settings format.
+
+N5 does not expose low-level capability-profile internals such as
+`max_recommended_files`, `instruction_adherence`, or `diff_reliability`.
+
+N5 does not store secrets.
+
+N5 does not detect model brands.
+
+N5 does not add onboarding screens.
+
+N5 does not replace `strata start` as the primary workflow command.
+
+N5 does not add large interactive menus, confirmation prompts, provider
+registries, environment-variable mutation, model calls, or action dispatch
+changes.
+
+N6 will cover broader help text, documentation, and integration polish.

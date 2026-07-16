@@ -171,6 +171,8 @@ def _advanced_command_entries() -> list[tuple[str, str | None]]:
         ("strata setup --http", None),
         ("strata setup --ollama", None),
         ("strata setup --show", None),
+        ("strata settings", "View current workflow settings."),
+        ("strata settings set <setting> <value>", "Change one workflow setting."),
         ("strata config [root]", None),
         ("strata config init [root]", None),
         ("strata config set <key> <value> [root]", None),
