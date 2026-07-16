@@ -32,6 +32,8 @@ _HELP_TOPIC_ALIASES = {
     "install": "doctor",
     "gate": "gate",
     "start": "start",
+    "settings": "settings",
+    "setting": "settings",
     "scan": "scan",
     "status": "status",
 }
@@ -53,7 +55,7 @@ def print_help_topic(topic: str) -> int:
 
 
 def _render_setup_help() -> None:
-    _print_intro("Setup chooses how Strata talks to AI.")
+    _print_intro("Setup handles initial configuration and environment readiness.")
     _print_lines(
         "Quick picks",
         [
@@ -67,6 +69,15 @@ def _render_setup_help() -> None:
             "`strata setup --command` - any custom CLI command.",
             "`strata setup --http` - an OpenAI-compatible HTTP API; Strata stores only the environment variable name for the key.",
             "Strata can help save the key to your user environment on Windows.",
+        ],
+    )
+    _print_lines(
+        "Change preferences later",
+        [
+            "`strata settings` - review workflow preferences.",
+            "`strata settings set capability <value>` - change capability selection.",
+            "`strata settings set surface <value>` - change delivery surface.",
+            "`strata settings set mode <value>` - change workflow mode.",
         ],
     )
     _print_lines(
@@ -84,15 +95,15 @@ def _render_manual_help() -> None:
         "Beginner flow",
         [
             "Run `strata setup --manual`.",
-            'Run `strata ask "fix bug"`.',
-            "Open `.aidc/agent_prompt.md`.",
+            "Run `strata start`.",
+            "Follow the one recommended next step.",
+            "When Strata prepares a prompt, open `.aidc/agent_prompt.md`.",
             "Paste it into ChatGPT, Claude, Gemini, or Copilot Chat.",
             "Ask for only a unified diff, with no markdown fences.",
             "Save the returned diff as `.aidc/agent_patch.diff`.",
-            "Run `strata review`.",
-            "Run `strata apply --dry-run`.",
-            "Run `strata apply`.",
-            "Run your project tests, then `strata gate`.",
+            "Run `strata start` again, or `strata start --continue` when ready.",
+            "Confirm any repository-changing action.",
+            "Run your project tests before committing.",
         ],
     )
 
@@ -108,10 +119,9 @@ def _render_ollama_help() -> None:
             "Run `strata setup --ollama`.",
             "If needed, set the exact model tag: `strata config set model qwen2.5-coder:14b`.",
             "Run `strata doctor adapter`.",
-            'Then run `strata ask "fix bug"`.',
-            "Run `strata review`.",
-            "Run `strata apply --dry-run`.",
-            "Run `strata apply`.",
+            "Then run `strata start`.",
+            "Follow the one recommended next step.",
+            "Confirm any repository-changing action.",
         ],
     )
     _print_lines(
@@ -343,7 +353,7 @@ def _render_status_help() -> None:
         "Use it",
         [
             "Run `strata status` to check generated files and scan freshness.",
-            "Run `strata start` if you want the beginner entrypoint with setup guidance.",
+            "Run `strata start` for the recommended workflow entry point.",
         ],
     )
 
@@ -414,33 +424,60 @@ def _render_gate_help() -> None:
 
 
 def _render_start_help() -> None:
-    _print_intro("Start is the beginner entrypoint after Strata is installed in a project.")
+    _print_intro("Start is the recommended workflow entry point after Strata is installed in a project.")
     _print_lines(
-        "It helps you",
+        "Status only",
         [
-            "Scan the repository.",
-            "Build the repo snapshot cache.",
-            "Detect when files changed while Strata was scanning.",
-            "See whether the full repo context is fresh, stale, missing, or interrupted.",
-            "Check whether setup is ready.",
-            "Move toward setup, ask, review, apply, and gate.",
+            "`strata start` shows the current status, progress, warnings, and one recommended next step.",
+            "It does not execute actions.",
+            "It does not apply repository changes.",
         ],
     )
     _print_lines(
-        "Scan readiness",
+        "Continue",
         [
-            "Run `strata scan` to refresh repo context.",
-            "Run `strata scan --force` to ignore a fresh cache and rebuild.",
-            "Focused mode still works when the scan is missing or stale.",
+            "`strata start --continue` attempts the recommended next step.",
+            "It attempts at most one action.",
+            "Repository-changing actions still require explicit confirmation.",
         ],
     )
     _print_lines(
-        "If Strata is not on PATH",
+        "Related",
         [
-            "Run `strata doctor install`.",
-            "Then rerun `strata start` from the project directory.",
+            "`strata settings` changes workflow preferences later.",
+            "`strata setup` handles initial configuration and environment readiness.",
+            "`strata doctor install` checks PATH and local install wiring.",
         ],
     )
+
+
+def _render_settings_help() -> None:
+    _print_intro("Settings lets you review or change workflow preferences after setup.")
+    _print_lines(
+        "View",
+        [
+            "`strata settings`",
+            "Shows capability selection, delivery surface, workflow mode, and the config path.",
+            "It does not show API keys or secret values.",
+        ],
+    )
+    _print_lines(
+        "Change one setting",
+        [
+            "`strata settings set capability auto`",
+            "`strata settings set capability unknown`",
+            "`strata settings set capability weak`",
+            "`strata settings set capability medium`",
+            "`strata settings set capability strong`",
+            "`strata settings set surface browser_copy`",
+            "`strata settings set surface cli`",
+            "`strata settings set surface vscode`",
+            "`strata settings set mode manual`",
+            "`strata settings set mode hybrid`",
+            "`strata settings set mode auto`",
+        ],
+    )
+    _print_intro("Setup is for initial configuration; settings is for changing preferences later.")
 
 
 def _print_intro(text: str) -> None:
@@ -479,4 +516,5 @@ _HELP_TOPIC_RENDERERS = {
     "doctor": _render_doctor_help,
     "gate": _render_gate_help,
     "start": _render_start_help,
+    "settings": _render_settings_help,
 }

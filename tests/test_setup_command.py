@@ -649,7 +649,8 @@ def test_cli_help_includes_setup():
     assert "strata setup --http" in output
     assert "strata setup --ollama" in output
     assert "strata setup --show" in output
-    assert 'strata ask "fix bug"' in output
+    assert "strata start" in output
+    assert "strata settings" in output
     assert 'strata review' in output
     assert 'strata apply --dry-run' in output
     assert "strata help setup" in output

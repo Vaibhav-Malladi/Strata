@@ -29,6 +29,8 @@ The preview analyzers are confidence-labeled and best-effort. JavaScript and Typ
 
 ## What Strata provides
 
+- `strata start` shows the current guided workflow status and one recommended next step.
+- `strata settings` reviews or changes workflow preferences after setup.
 - `strata context` compiles a focused context pack for a task.
 - `strata ask` prepares context for the configured AI adapter and collects a patch.
 - `strata run` guides context preparation, patch collection, and review.
@@ -117,7 +119,33 @@ From the repository you want Strata to understand:
 
 ```powershell
 strata start
-strata setup
+strata start --continue
+```
+
+Strata shows your current status, progress, warnings when present, and one recommended next step.
+Run `strata start --continue` when you want Strata to attempt that step.
+Repository-changing actions still require confirmation.
+
+## Recommended workflow
+
+1. Run `strata start`.
+2. Read the current status and next step.
+3. Run `strata start --continue` when you want Strata to attempt that step.
+4. Confirm any repository-changing action.
+5. Use `strata settings` whenever you want to change workflow preferences.
+
+Settings can be changed later:
+
+```powershell
+strata settings
+strata settings set capability strong
+strata settings set surface vscode
+strata settings set mode hybrid
+```
+
+Advanced commands remain available for direct workflows:
+
+```powershell
 strata ask --budget small "fix the failing login test"
 strata review
 strata apply --dry-run
@@ -129,7 +157,7 @@ For a no-key browser workflow:
 
 ```powershell
 strata setup --manual
-strata ask "fix a small bug"
+strata start
 ```
 
 Strata writes `.aidc/agent_prompt.md`. Give that prompt to your AI tool, save its unified diff as `.aidc/agent_patch.diff`, then review before applying.
@@ -223,7 +251,10 @@ strata setup
 strata doctor adapter
 ```
 
-Do not store API keys in repository files. Put keys in the user environment and configure Strata with the environment variable name:
+`strata setup` is for initial configuration and environment readiness.
+`strata settings` is for reviewing or changing workflow preferences later.
+
+Strata does not store API keys in the repository. Put keys in the user environment and configure Strata with the environment variable name:
 
 ```powershell
 $env:OPENAI_API_KEY="your-key-here"
@@ -286,6 +317,8 @@ Other commands may create graph, snapshot, cache, verification, or direct-edit r
 strata help
 strata help context
 strata start
+strata start --continue
+strata settings
 strata scan
 strata context --budget small "task"
 strata ask --file app --budget small "task"

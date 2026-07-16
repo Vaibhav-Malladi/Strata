@@ -353,7 +353,7 @@ def test_exactly_one_next_action_is_shown_after_update():
 def test_start_remains_the_primary_entry_point():
     _, output = capture_output(cli_help.print_usage)
 
-    assert output.index("strata start [--continue] [path]") < output.index("strata settings")
+    assert output.index("Start here:\n  strata start\n  Strata will show your current status and one recommended next step.") < output.index("Settings:\n  strata settings")
 
 
 def test_no_api_key_or_secret_value_is_displayed():

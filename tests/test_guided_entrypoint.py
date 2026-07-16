@@ -73,11 +73,15 @@ def test_cli_no_args_shows_guided_entrypoint_before_advanced_commands():
         _assert_terms(
             output,
             "strata",
-            "new here?",
+            "start here:",
+            "follow up:",
             "strata start",
+            "strata start --continue",
+            "one recommended next step",
+            "repository-changing actions still require confirmation",
+            "strata settings",
             "strata setup",
             "strata setup ai",
-            "strata run",
             "strata doctor install",
             "connect ai",
             "strata setup ai",
@@ -87,17 +91,13 @@ def test_cli_no_args_shows_guided_entrypoint_before_advanced_commands():
             "strata setup --command",
             "strata setup --codex-cli",
             "strata setup --aider",
-            "main workflow",
+            "primary workflow",
+            "settings:",
             "current state",
             "next:",
             "advanced:",
-            "strata ask",
-            "strata review",
-            "strata apply",
         )
-        assert output.index("New here?") < output.index("Connect AI") < output.index("Main workflow") < output.index("Advanced:")
-        assert output.index("strata setup") < output.index("strata ask")
-        assert output.index("strata setup ai") < output.index("strata run")
+        assert output.index("Start here:") < output.index("Connect AI") < output.index("Primary workflow") < output.index("Advanced:")
         assert "strata config set api_key_env OPENAI_API_KEY" not in output
         assert "strata run --type <task_type>" not in output
 
@@ -105,11 +105,17 @@ def test_cli_no_args_shows_guided_entrypoint_before_advanced_commands():
 def test_cli_help_lists_main_workflow_first_and_keeps_advanced_reference():
     _, output = capture_output(print_usage)
 
-    _assert_terms(output, "connect ai", "main workflow", "usage:", "advanced commands", "install help")
-    assert output.index("Connect AI") < output.index("Main workflow") < output.index("Advanced commands") < output.index("Install help")
+    _assert_terms(output, "connect ai", "primary workflow", "settings:", "usage:", "advanced commands", "install help")
+    assert output.index("Connect AI") < output.index("Primary workflow") < output.index("Settings:") < output.index("Advanced commands") < output.index("Install help")
     _assert_terms(
         output,
-        "strata start [--continue] [path]",
+        "strata start [path]",
+        "strata start --continue [path]",
+        "status",
+        "one recommended next step",
+        "repository-changing actions still require confirmation",
+        "strata settings",
+        "strata settings set capability <value>",
         'strata ask [--file <reference>]... "<task>" [path]',
         "strata start",
         "strata setup",

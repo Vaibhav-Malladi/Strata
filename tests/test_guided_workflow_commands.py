@@ -113,11 +113,20 @@ def test_help_lists_main_workflow_before_advanced_commands():
     _, output = capture_output(print_usage)
 
     assert "Connect AI" in output
-    assert "Main workflow:" in output
+    assert "Primary workflow:" in output
+    assert "Settings:" in output
     assert "Advanced commands:" in output
-    assert output.index("Connect AI") < output.index("Main workflow:") < output.index("Advanced commands:")
-    assert "strata start [--continue] [path]" in output
+    assert output.index("Connect AI") < output.index("Primary workflow:") < output.index("Settings:") < output.index("Advanced commands:")
+    assert "strata start [path]" in output
+    assert "strata start --continue [path]" in output
     assert "recommended next step" in output.lower()
+    assert "status" in output.lower()
+    assert "Repository-changing actions still require confirmation." in output
+    assert "strata settings" in output
+    assert "strata settings set capability <value>" in output
+    assert "auto, unknown, weak, medium, strong" in output
+    assert "browser_copy, cli, vscode" in output
+    assert "manual, hybrid, auto" in output
     assert 'strata ask [--file <reference>]... "<task>" [path]' in output
     assert "strata start" in output
     assert "strata setup" in output

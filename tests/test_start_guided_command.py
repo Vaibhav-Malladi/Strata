@@ -108,7 +108,10 @@ def test_strata_start_remains_registered_once():
 def test_start_is_described_as_recommended_normal_entry_point():
     lines = dict(cli_help._main_workflow_lines())
 
-    assert lines["strata start [--continue] [path]"] == "Continue with Strata's recommended next step."
+    assert lines["strata start [path]"] == "Show the current workflow status and one recommended next step."
+    assert lines["strata start --continue [path]"] == (
+        "Attempt the recommended next step. Repository-changing actions still require confirmation."
+    )
 
 
 def test_command_uses_n1_guided_view():

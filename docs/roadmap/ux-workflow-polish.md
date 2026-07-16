@@ -11,7 +11,9 @@ primary next action at a time.
 - N3 - Progress and Status Presentation - implemented.
 - N4 - Confirmations, Recovery, and Next Actions - implemented.
 - N5 - Settings Change Workflow - implemented.
-- N6 - Help Text, Documentation, and Integration Polish - not implemented.
+- N6 - Help Text, Documentation, and Integration Polish - implemented.
+
+Part N is complete.
 
 ## N1 Contract
 
@@ -338,4 +340,36 @@ N5 does not add large interactive menus, confirmation prompts, provider
 registries, environment-variable mutation, model calls, or action dispatch
 changes.
 
-N6 will cover broader help text, documentation, and integration polish.
+## N6 Help Text, Documentation, And Integration Polish
+
+N6 finishes Part N by making the user-facing workflow read as one coherent
+product path:
+
+- `strata start` is the primary guided command.
+- `strata start` shows current status, progress, warnings, and one recommended
+  next step without executing actions.
+- `strata start --continue` attempts at most one recommended next step.
+- Repository-changing actions still require confirmation.
+- `strata settings` lets users review and change workflow preferences after
+  setup.
+- Top-level help separates primary workflow, settings, and advanced commands.
+- README documents the recommended guided workflow and compact advanced-command
+  examples.
+
+N6 also clarifies the setup/settings relationship:
+
+- `strata setup` is for initial configuration and environment readiness.
+- `strata settings` is for changing capability selection, delivery surface, or
+  workflow mode later.
+- Strata stores only environment variable names for API keys; secrets stay in
+  the user's environment.
+
+Part N does not remove advanced commands.
+
+Part N does not bypass apply safety.
+
+Part N does not store secrets in the repository.
+
+Part N does not add model/provider detection.
+
+Part N does not replace Part O adapter logic.

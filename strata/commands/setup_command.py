@@ -24,11 +24,8 @@ from strata.utils.config import config_path, load_config, save_config, validate_
 
 _NEXT_STEPS = [
     "strata doctor adapter",
-    'strata run "your task"',
-    'strata ask "fix bug"',
-    "strata review",
-    "strata apply --dry-run",
-    "strata apply",
+    "strata start",
+    "strata settings",
 ]
 
 _CANCEL_CHOICES = {"q", "quit", "cancel"}
@@ -768,10 +765,11 @@ def _print_setup_summary(root: str, config: dict, result: dict, title: str) -> N
         )
         print_next_steps(
             [
-                "Run `strata setup` if you want to choose a different AI mode.",
+                "Run `strata settings` if you want to change workflow preferences later.",
+                "Run `strata setup` if you want to choose a different AI connection mode.",
                 'Open `.aidc/agent_prompt.md` and ask for a unified diff.',
                 "Save the returned diff to `.aidc/agent_patch.diff`.",
-                'Then run `strata review`, then `strata apply --dry-run`.',
+                "Then run `strata start` again.",
             ]
         )
     else:
@@ -793,7 +791,7 @@ def _setup_show_next_steps(config: dict, config_exists: bool) -> list[str]:
         return [
             "Run `strata setup` to choose an AI mode.",
             "Or run `strata setup --manual` for browser/manual AI.",
-            'Then run `strata ask "your task"`.',
+            "Then run `strata start`.",
         ]
 
     if adapter == "prompt_file":
@@ -1010,8 +1008,8 @@ def _guided_http_base_url_default(config: dict) -> str:
 def _guided_ai_next_steps() -> list[str]:
     return [
         "Run `strata doctor adapter`.",
-        'Run `strata run "your task"`.',
-        'Then run `strata ask "your task"` if you want a patch-first workflow.',
+        "Run `strata start`.",
+        "Run `strata settings` if you want to change workflow preferences later.",
     ]
 
 
