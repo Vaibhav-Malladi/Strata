@@ -60,6 +60,7 @@ import test_workspace_graph
 import test_workspace_context
 import test_workspace_readiness
 import test_workspace_integration
+import test_user_journey
 import test_workflow_planner
 import test_config_command
 import test_context_command
@@ -227,6 +228,7 @@ TEST_MODULES = [
     test_workspace_context,
     test_workspace_readiness,
     test_workspace_integration,
+    test_user_journey,
     test_workflow_planner,
     test_config_command,
     test_context_command,
