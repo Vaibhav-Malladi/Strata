@@ -232,3 +232,116 @@ Mega Batch A still does not trace backend handlers and services beyond route
 detection, trace database or session logic, assemble complete workspace
 journeys, rank journey alternatives, integrate journeys with AI context
 budgets, add CLI commands, or finish Part P.
+
+## P5 - Backend Journey Tracing
+
+P5 continues supplied backend route steps through explicitly selected backend
+files. It supports Python, Go, JavaScript, and TypeScript using static
+relationships only. Python uses AST-backed function discovery where possible;
+Go and JS/TS use bounded regex extraction consistent with the approximate
+frontend and backend conventions already used by Strata.
+
+P5 can identify backend handlers, validation helpers, authentication and
+authorization helpers, service or business-logic calls, database/repository
+access, cache access, queue publishing, external service calls, and response
+construction. Classification is deterministic and name/path based, so
+confidence is capped when evidence is only lexical. Dynamic dispatch,
+unresolved symbols, unsupported files, source failures, depth caps, step caps,
+and transition caps are represented as diagnostics or P1 gaps rather than
+confirmed steps.
+
+P5 remains selected-file only. It does not run Python code, `go list`, package
+resolution, npm tooling, dependency injection, or backend runtime frameworks.
+
+## P6 - Cross-Repository Journey Assembly
+
+P6 combines already-produced fragments from P2 through P5 into a deterministic
+end-to-end journey. It is a pure assembler: it does not rerun entry-point
+detection, frontend tracing, API-boundary linking, backend tracing, workspace
+graph construction, or source extraction.
+
+Assembly preserves repository identity, evidence, confidence, gaps,
+diagnostics, and explicit information. Matching step and transition identities
+deduplicate through the P1 builder. Conflicting records produce diagnostics
+instead of silently replacing earlier records. Assembly supports supplied
+frontend-to-backend API boundaries, host/iframe boundaries, postMessage
+boundaries, shared-service fragments, external boundaries, and queue-like
+fragments when callers provide explicit evidence.
+
+P6 derives a bounded logical sequence from directed transitions. Cycles are
+diagnosed and traversal is bounded. Unreachable fragments remain included and
+labeled. Response-path links are added only when supplied evidence already
+connects backend response steps to frontend completion steps; otherwise a gap
+is preserved.
+
+## P7 - Ranking And Budgeted Journey Context
+
+P7 ranks supplied journeys and builds compact journey context candidates. It
+does not write canonical context artifacts and does not create a second budget.
+Part I remains the token firewall for `.aidc/context/strata_context.md` and
+`.aidc/context/context_pack.json`.
+
+Ranking is deterministic and task-aware. Signals include exact task and entry
+matches, explicit paths and symbols, route or URL matches, high-confidence
+steps, repository span, complete frontend-to-backend coverage, auth/validation
+or data significance, and gap severity. Safety-significant gaps such as
+authorization uncertainty, ambiguous API targets, missing repositories, and
+redaction-related warnings remain eligible for representation even when a
+journey is partial.
+
+P7 computes a static critical path. The path favors entry points, frontend
+handlers, API requests, workspace boundaries, backend routes, handlers,
+auth/validation, service/business logic, data or external calls, responses, and
+frontend completion. It is an explanatory path, not a guaranteed runtime trace.
+
+Journey representation downgrades deterministically from full compact journey
+to reduced summary, critical path only, identity/entry only, and finally
+skipped. The default journey allocation is bounded to 25 percent of the usable
+input budget supplied by Part I. Reserved output tokens and safety margin are
+preserved, omitted counts and estimated token savings are recorded, and
+downgrade-before-skip behavior is explicit.
+
+The Markdown representation contains a bounded `User journey context` section
+with requested action, critical path, relevant repositories, important gaps,
+confidence/limitations, and budget summary. The JSON representation carries the
+same compact data for machine-readable context assembly.
+
+## P8 - Readiness, Synthetic Coverage, And Final Documentation
+
+P8 aggregates supplied stage outputs into journey readiness without rerunning
+the stages. Statuses are `ready`, `partial`, `blocked`, `not_found`,
+`unsupported`, and `unavailable`, with deterministic precedence. Stage summaries
+record status, step counts, transition counts, gap counts, diagnostic counts,
+warning/error counts, and truncation counts.
+
+Safe fallback is explicit. Normal repository context and workspace context stay
+available when journey intelligence is partial, unavailable, or unsupported.
+Journey failures do not corrupt canonical context, ambiguous transitions are
+not promoted to confirmed edges, no files or config are changed, and no patches
+are applied.
+
+P8 adds compact synthetic fixture coverage for Angular-to-Python, React-to-Go,
+Express, iframe, postMessage, ambiguous API targets, dynamic frontend binding,
+dynamic backend dispatch, missing backend repositories, auth uncertainty,
+cycles, large evidence and token pressure, sensitive values, single-repository
+journeys, and unsupported patterns.
+
+## Final Part P Data Flow
+
+```text
+Journey request
+-> entry-point detection
+-> frontend trace
+-> API/message/iframe boundary
+-> backend trace
+-> cross-repository assembly
+-> ranking and critical path
+-> budgeted journey representation
+-> readiness and diagnostics
+-> canonical Strata context
+```
+
+Part P journeys are static explanations, not runtime traces. Part P does not
+execute application code, instrument browsers, make network requests, clone
+public repositories, run package managers, guarantee every dynamic framework
+path, automatically patch repositories, or complete real-repository UAT.

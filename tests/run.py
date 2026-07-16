@@ -64,6 +64,11 @@ import test_user_journey
 import test_journey_entry_points
 import test_journey_frontend
 import test_journey_api_boundary
+import test_journey_backend
+import test_journey_assembly
+import test_journey_context
+import test_journey_readiness
+import test_journey_integration
 import test_workflow_planner
 import test_config_command
 import test_context_command
@@ -235,6 +240,11 @@ TEST_MODULES = [
     test_journey_entry_points,
     test_journey_frontend,
     test_journey_api_boundary,
+    test_journey_backend,
+    test_journey_assembly,
+    test_journey_context,
+    test_journey_readiness,
+    test_journey_integration,
     test_workflow_planner,
     test_config_command,
     test_context_command,
