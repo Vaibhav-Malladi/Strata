@@ -115,13 +115,14 @@ P1 does not:
 P1 defines contracts, deterministic identities, bounds, diagnostics, summaries,
 confidence, and evidence foundations.
 
-P2 will add entry-point candidate extraction for supported frontend surfaces.
+P2 adds selected-file entry-point candidate extraction for supported frontend
+surfaces.
 
-P3 will trace frontend event handlers, component methods, services, state
-updates, routes, API clients, iframe sends, and message sends.
+P3 adds selected-file frontend tracing for event handlers, component methods,
+service-like calls, state updates, navigation, and API request steps.
 
-P4 will connect frontend boundaries to backend routes and workspace
-relationships using Part Q evidence.
+P4 adds selected-file frontend-to-backend API boundary linking using backend
+route extraction and optional Part Q relationship evidence.
 
 P5 will trace backend route handlers through services, authorization,
 validation, business logic, persistence, queues, and external services.
@@ -136,5 +137,98 @@ protections.
 P8 will add user-facing presentation, diagnostics explanations, and guided
 workflow surfaces after the journey contracts and tracing behavior are stable.
 
-Part P is not complete after P1. P1 only establishes the contracts future
-batches will populate.
+Part P is not complete after Mega Batch A. P1-P4 establish contracts,
+selected-file entry detection, selected-file frontend tracing, and selected-file
+API boundary linking; later batches still need backend trace depth, context
+integration, ranking, and user-facing presentation.
+
+## P2 - User-Action Entry-Point Detection
+
+P2 detects likely journey starting points from explicitly selected frontend
+files. The caller supplies repository ID, repository root, and selected paths;
+P2 does not choose files automatically and does not recursively scan a
+repository.
+
+Supported selected file types are HTML, Angular templates, JavaScript,
+TypeScript, JSX, TSX, and JSON. P2 looks for lightweight static signals:
+
+- button and link text
+- form submit bindings
+- Angular `(click)`, `(submit)`, and keyboard handlers
+- `routerLink` and `href` route hints
+- React `onClick`, `onSubmit`, `onChange`, and keyboard handlers
+- JSX route declarations
+- named and exported JS/TS symbols
+- message event listeners and senders
+- explicit request paths, symbols, route hints, and UI hints
+
+Matching is deterministic and lexical. Exact explicit symbols, selected paths,
+UI labels, and route hints outrank handler-name and keyword overlap. Dynamic
+template bindings are reported as diagnostics rather than resolved
+speculatively.
+
+P2 reads only bounded selected files, skips symlinks, rejects paths outside the
+repository root, caps file count and bytes per file, redacts concise evidence,
+and emits P1-compatible `JourneyEntryPoint` records.
+
+## P3 - Frontend Flow Tracing
+
+P3 traces frontend flow from supplied P2 entry points through explicitly
+selected frontend files. It produces a P1 `UserJourneyResult` with frontend
+steps, directed transitions, gaps, diagnostics, and deterministic summaries.
+
+Supported lightweight relationships include:
+
+- Angular template event binding to component method
+- component method to local or service-like function
+- service function to `HttpClient` request
+- React event handler to local function
+- handler to API helper, `fetch`, axios-like call, or `HttpClient`
+- state setter and `dispatch` updates
+- simple navigation calls
+- direct JS/TS function calls
+
+P3 does not execute hooks, infer runtime component trees, implement full Angular
+dependency injection, resolve arbitrary imports, or trace backend logic.
+Computed calls and unresolved symbols become safe gaps such as
+`dynamic_call_unresolved`, `symbol_not_found`, or `step_cap_reached`.
+
+Default bounds keep tracing conservative: selected files only, 512 KB per file,
+100 steps, 200 transitions, trace depth 8, and 12 outgoing links per step.
+
+## P4 - Frontend-To-Backend API Boundary Linking
+
+P4 links frontend API request steps to likely backend routes from explicitly
+selected backend files or already supplied route-like data. It consumes P3
+steps and transitions, optional Part Q workspace graph data, known backend
+URLs, and known backend ports. It does not run workspace discovery or scan
+backend repositories broadly.
+
+Frontend request extraction uses P3 API request metadata when available,
+including literal HTTP method, URL, and normalized route path from `fetch`,
+axios-like calls, Angular `HttpClient`, and simple API helper methods.
+
+Backend route extraction is selected-file only and supports:
+
+- Python FastAPI and Flask-style decorators
+- simple Django `path(...)` declarations
+- Go `http.HandleFunc` and common router method/path registrations
+- Express-style `app.get/post/put/delete/patch` and `router.*` declarations
+
+Route matching uses HTTP method, normalized route path, parameterized route
+segments, known backend URLs, known ports, and optional Part Q `calls_api`
+workspace graph edges. Exact method and route matches are strongest.
+Parameterized route matches are degraded and diagnosed. Ambiguous routes,
+unknown targets, mismatched ports, or missing backend routes become diagnostics
+and gaps instead of speculative cross-repository edges.
+
+When a match is strong enough, P4 adds an `api_request` continuation,
+`workspace_boundary` step, `backend_route` step, and cross-repository
+transitions such as `sends_request`, `crosses_repository`, `routes_to`, and
+`receives_request`. The boundary transitions attach the Part Q `calls_api`
+relationship type where appropriate.
+
+Mega Batch A still does not trace backend handlers and services beyond route
+detection, trace database or session logic, assemble complete workspace
+journeys, rank journey alternatives, integrate journeys with AI context
+budgets, add CLI commands, or finish Part P.

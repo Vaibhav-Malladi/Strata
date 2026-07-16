@@ -61,6 +61,9 @@ import test_workspace_context
 import test_workspace_readiness
 import test_workspace_integration
 import test_user_journey
+import test_journey_entry_points
+import test_journey_frontend
+import test_journey_api_boundary
 import test_workflow_planner
 import test_config_command
 import test_context_command
@@ -229,6 +232,9 @@ TEST_MODULES = [
     test_workspace_readiness,
     test_workspace_integration,
     test_user_journey,
+    test_journey_entry_points,
+    test_journey_frontend,
+    test_journey_api_boundary,
     test_workflow_planner,
     test_config_command,
     test_context_command,
