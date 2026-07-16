@@ -426,19 +426,20 @@ def _render_gate_help() -> None:
 def _render_start_help() -> None:
     _print_intro("Start is the recommended workflow entry point after Strata is installed in a project.")
     _print_lines(
-        "Status only",
+        "Guided session",
         [
             "`strata start` shows the current status, progress, warnings, and one recommended next step.",
-            "It does not execute actions.",
-            "It does not apply repository changes.",
+            "In an interactive terminal, Strata stays open and offers each next step.",
+            "Safe progress happens one recommended action at a time.",
+            "Manual AI-transfer steps pause the session until you complete the external step.",
+            "Repository-changing actions still require explicit confirmation.",
         ],
     )
     _print_lines(
-        "Continue",
+        "One-step mode",
         [
-            "`strata start --continue` attempts the recommended next step.",
-            "It attempts at most one action.",
-            "Repository-changing actions still require explicit confirmation.",
+            "`strata start --continue` attempts one recommended step and exits.",
+            "Use it for scripted or one-step workflows.",
         ],
     )
     _print_lines(
