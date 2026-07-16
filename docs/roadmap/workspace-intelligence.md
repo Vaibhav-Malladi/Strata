@@ -168,3 +168,59 @@ responsible for merging and precedence.
 Q4 does not build the workspace dependency graph or traverse relationships.
 Q4 does not compare shared contracts, report mismatches, generate reports, or
 write configuration. Q4 does not add findings to AI context.
+
+## Q5 - Shared-Contract Comparison and Diagnostics
+
+Q5 adds deterministic shared-contract comparison between configured Q1
+`shared_contracts` and already-extracted Q4 reference records. Q5 accepts
+workspace configuration, reference records, and optional explicit location
+states from callers; Q5 reads no files directly, runs no extraction, discovers
+no repositories, and selects no files automatically.
+
+Q5 produces location-level and contract-level findings. Location findings
+record the configured contract name, repository ID, path, optional symbol,
+status, expected and allowed values, observed and normalized values, stable
+reference keys, confidence, bounded evidence, and diagnostics. Contract
+findings summarize the contract type, severity, normalization, derived status,
+all location findings, distinct observed values, confidence, evidence, and
+diagnostics.
+
+Supported outcomes are bounded: `consistent`, `inconsistent`, `missing`,
+`ambiguous`, `unreadable`, `skipped`, and `unsupported`. Contract-level status
+is derived with deterministic precedence so mismatches are not hidden by
+missing, skipped, unreadable, or unsupported locations.
+
+Normalization follows the Q1 vocabulary: `exact`, `case_insensitive`,
+`trimmed`, `url`, and `port`. URL normalization reuses Q4 loopback and
+credential handling, while port normalization requires explicit valid ports.
+Expected values remain canonical, allowed values are accepted alternatives,
+and different normalized values across configured locations are reported as
+cross-location disagreement.
+
+Q5 maps Q1 contract types to Q4 references conservatively: authentication
+headers, iframe URLs, API constants, route names, port numbers, message events,
+and custom contracts require matching repository IDs, exact normalized paths,
+and exact symbols when configured. Shared package contracts remain unsupported
+until package extraction exists.
+
+Confidence is deterministic and evidence is bounded. Exact repository,
+path, and symbol matches score highest; path-only matches are lower;
+ambiguous, missing, skipped, unreadable, or unsupported states carry explicit
+diagnostics.
+
+Sensitive configured or observed values are redacted. Secret-like values,
+tokens, passwords, API keys, private keys, cookies, and credentials are not
+serialized as normal comparison values.
+
+Q5 applies contract, location, observation, evidence, finding, and diagnostic
+caps. It emits stable diagnostics for missing locations, ambiguous
+observations, unreadable or skipped locations, unsupported comparisons,
+value mismatches, cross-location mismatches, incompatible reference types,
+missing symbols or paths, unsupported expected or allowed values,
+normalization failures, invalid ports or URLs, duplicate contracts or
+locations, evidence truncation, finding caps, diagnostic caps, and sensitive
+value redaction.
+
+Q5 changes no files, writes no configuration, and generates no reports.
+Q5 does not add findings to AI context. Q5 does not build a dependency graph
+or trace user journeys.

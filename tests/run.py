@@ -55,6 +55,7 @@ import test_workspace_config
 import test_workspace_discovery
 import test_workspace_relationships
 import test_workspace_references
+import test_workspace_contracts
 import test_workflow_planner
 import test_config_command
 import test_context_command
@@ -217,6 +218,7 @@ TEST_MODULES = [
     test_workspace_discovery,
     test_workspace_relationships,
     test_workspace_references,
+    test_workspace_contracts,
     test_workflow_planner,
     test_config_command,
     test_context_command,
