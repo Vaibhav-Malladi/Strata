@@ -1,0 +1,25 @@
+include README.md
+include LICENSE
+include CHANGELOG.md
+recursive-include docs *.md
+
+prune .aidc
+prune .codex
+prune .github
+prune .pytest_cache
+prune .venv
+prune .codex-venv
+prune *.egg-info
+prune build
+prune dist
+prune htmlcov
+prune __pycache__
+recursive-exclude * __pycache__
+recursive-exclude * *.py[cod]
+recursive-exclude * *.egg-info
+global-exclude .coverage
+global-exclude coverage.xml
+global-exclude .env
+global-exclude .env.*
+global-exclude .DS_Store
+global-exclude Thumbs.db

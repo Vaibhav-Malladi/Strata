@@ -26,7 +26,7 @@ Workspace and journey intelligence can connect related repositories and trace ap
 
 ## Quick Start
 
-The PyPI package is `strata-repo-intel`; the CLI command is `strata`. Strata itself requires Python 3.13 or newer. The repositories it analyzes can target older runtimes.
+The PyPI package is `strata-repo-intel`; the CLI command is `strata`. Strata requires Python 3.11 or newer; Python 3.13 is the recommended development environment. The repositories it analyzes can target older runtimes.
 
 Recommended install on Windows PowerShell:
 
@@ -203,13 +203,14 @@ Strata reduces context waste and review risk, but it does not eliminate hallucin
 
 ## Documentation
 
-- [Runtime compatibility](docs/runtime-compatibility.md)
-- [V6 release notes](docs/v6_release_notes.md)
-- [V7 roadmap](docs/v7_roadmap.md)
-- [Frontend intelligence roadmap](docs/roadmap/frontend-intelligence.md)
-- [Backend intelligence foundation](docs/roadmap/backend-intelligence-foundation.md)
-- [Workspace intelligence roadmap](docs/roadmap/workspace-intelligence.md)
-- [User journey intelligence roadmap](docs/roadmap/user-flow-journey-intelligence.md)
+- [Changelog](https://github.com/Vaibhav-Malladi/Strata/blob/main/CHANGELOG.md)
+- [Runtime compatibility](https://github.com/Vaibhav-Malladi/Strata/blob/main/docs/runtime-compatibility.md)
+- [V6 release notes](https://github.com/Vaibhav-Malladi/Strata/blob/main/docs/v6_release_notes.md)
+- [V7 roadmap](https://github.com/Vaibhav-Malladi/Strata/blob/main/docs/v7_roadmap.md)
+- [Frontend intelligence roadmap](https://github.com/Vaibhav-Malladi/Strata/blob/main/docs/roadmap/frontend-intelligence.md)
+- [Backend intelligence foundation](https://github.com/Vaibhav-Malladi/Strata/blob/main/docs/roadmap/backend-intelligence-foundation.md)
+- [Workspace intelligence roadmap](https://github.com/Vaibhav-Malladi/Strata/blob/main/docs/roadmap/workspace-intelligence.md)
+- [User journey intelligence roadmap](https://github.com/Vaibhav-Malladi/Strata/blob/main/docs/roadmap/user-flow-journey-intelligence.md)
 
 For CLI help, run:
 
@@ -231,4 +232,4 @@ Strata does not currently have a separate contributing guide. For now:
 
 ## License
 
-Strata is released under the [MIT License](LICENSE).
+Strata is released under the [MIT License](https://github.com/Vaibhav-Malladi/Strata/blob/main/LICENSE).
