@@ -268,3 +268,85 @@ truncation, graph caps, degraded contract edges, and detected cycles.
 Q6 reads no files, scans no repositories, runs no discovery, extracts no source
 references, compares no contracts, and performs no network calls. Q6 writes no graph files yet and does not generate a workspace report. Q6 does not modify workspace
 configuration, and Q6 does not add graph data to AI context. Q6 does not trace user journeys.
+
+## Q7 - Workspace Context-Budget and Part I Integration
+
+Q7 adds compact workspace context representations that can be supplied to the
+canonical Strata context pipeline without bypassing Part I. Repository,
+relationship, shared-contract, unresolved-relationship, and diagnostic
+summaries are selected with deterministic task relevance, bounded evidence,
+redaction, omitted counts, and a workspace budget decision summary.
+
+Part I remains the token firewall. Q7 inherits the caller's target context
+tokens, reserved output tokens, maximum context-pack tokens, and safety margin,
+then applies a conservative workspace allocation inside that budget. It
+downgrades lower-priority workspace entries to identity-only summaries before
+skipping them, records token-savings estimates, and never treats its estimates
+as exact tokenizer output.
+
+Q7 can render an optional `## Workspace context` section inside canonical
+Markdown and can attach machine-readable workspace data to a rendered context
+pack. When no workspace representation is supplied, existing single-repository
+context output remains unchanged.
+
+## Q8 - Workspace Diagnostics and Safe Failure
+
+Q8 aggregates supplied Q1-Q7 diagnostics, warnings, errors, skipped evidence,
+truncation, budget exhaustion, and stage failures into a deterministic
+readiness result. Supported readiness states are `ready`, `degraded`,
+`blocked`, `unavailable`, and `not_configured`.
+
+Stage status is tracked for configuration, discovery, relationship assessment,
+reference extraction, contract comparison, graph construction, and context
+representation. Q8 does not rerun any stage; it consumes supplied results and
+failure records only. A failure in one selected file, repository, or optional
+stage can degrade the workspace result while preserving single-repository
+fallback. Required repository failures, unavailable graph construction, and
+context-budget exhaustion are labeled explicitly.
+
+The readiness result includes bounded diagnostics, a safe-fallback summary, and
+one deterministic recommended action. It never changes workspace
+configuration, accepts discovery suggestions, applies patches, or presents
+partial workspace data as authoritative when the result is degraded or blocked.
+
+## Q9 - Synthetic Multi-Repository Integration
+
+Q9 adds compact synthetic workspace fixtures and integration coverage for the
+completed Part Q pipeline. The scenarios cover Angular-to-Python API calls,
+React-to-Go API calls, iframe embedding, postMessage send and receive
+relationships, shared-contract mismatches, missing configured repositories,
+ambiguous port ownership, directed dependency cycles, large evidence with
+budget protection, and sensitive-value redaction.
+
+The fixtures are intentionally small and local. Q9 does not clone public
+repositories, run package managers, perform DNS resolution, make network calls,
+or write graph/report files. The integration path uses explicit selected files
+and already-bounded public helpers from Q1-Q8.
+
+## Final Part Q Architecture
+
+Part Q now defines workspace configuration, bounded discovery suggestions,
+canonical role and relationship assessments, selected-file reference
+extraction, shared-contract comparison, dependency graph construction,
+budgeted workspace context representation, readiness diagnostics, and compact
+synthetic integration coverage.
+
+Data flow:
+
+```text
+Workspace config
+-> discovery suggestions
+-> role/relationship assessment
+-> selected-file reference extraction
+-> shared-contract comparison
+-> workspace graph
+-> budgeted workspace representation
+-> readiness/diagnostics
+-> canonical Strata context
+```
+
+Part I remains the token firewall and the only layer deciding what enters
+`strata_context.md` and `context_pack.json`. Part Q does not automatically
+rewrite repositories, does not automatically accept discovery suggestions, does
+not clone public repositories, does not perform real-repository UAT, and does
+not trace complete user journeys. Part P handles User Flow/Journey Intelligence after Workspace Intelligence is complete.

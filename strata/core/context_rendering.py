@@ -17,6 +17,7 @@ from strata.core.context_artifacts import (
     REPRESENTATION_TIER_WHOLE_FILE,
     REPRESENTATION_TIERS,
 )
+import strata.utils.workspace_context as workspace_context_utils
 
 
 RENDERING_VARIANT_COMPACT = CONTEXT_VARIANT_COMPACT
@@ -35,6 +36,7 @@ RENDERED_CONTEXT_FIELD_ORDER = (
     "instructions",
     "files",
     "relationships",
+    "workspace_context",
     "budget",
     "omissions",
     "metadata",
@@ -97,6 +99,7 @@ def render_context_pack(
     omissions: list[dict[str, object]] = []
     files = _render_files(context_pack, profile, variant, omissions)
     relationships = _render_relationships(context_pack, variant, omissions)
+    workspace_context = _render_workspace_context(context_pack, omissions)
     budget = _render_budget(context_pack, profile, files, relationships)
 
     result = {
@@ -113,8 +116,11 @@ def render_context_pack(
             "canonical_input": True,
             "rendered_file_count": len(files),
             "rendered_relationship_count": len(relationships),
+            "rendered_workspace_context": bool(workspace_context),
         },
     }
+    if workspace_context:
+        result["workspace_context"] = workspace_context
     _validate_json_ready(result)
     return result
 
@@ -130,6 +136,9 @@ def render_context_pack_markdown(rendered_pack) -> str:
     lines.extend(_markdown_instructions(rendered_pack.get("instructions")))
     lines.extend(_markdown_files(rendered_pack.get("files")))
     lines.extend(_markdown_relationships(rendered_pack.get("relationships")))
+    if isinstance(rendered_pack.get("workspace_context"), Mapping):
+        lines.extend(workspace_context_utils.render_workspace_context_markdown(rendered_pack["workspace_context"]).rstrip().splitlines())
+        lines.append("")
     lines.extend(_markdown_mapping("## Budget", rendered_pack.get("budget")))
     lines.extend(_markdown_omissions(rendered_pack.get("omissions")))
     return "\n".join(lines).rstrip() + "\n"
@@ -242,6 +251,23 @@ def _render_budget(
         "profile_file_limit": profile.max_recommended_files,
         "budget_data_present": bool(canonical),
     }
+
+
+def _render_workspace_context(
+    context_pack: Mapping,
+    omissions: list[dict[str, object]],
+) -> dict[str, object]:
+    workspace_context = context_pack.get("workspace_context")
+    if workspace_context is None:
+        return {}
+    if not isinstance(workspace_context, Mapping):
+        omissions.append(_omission(OMISSION_KIND_UNSUPPORTED_ITEM_SHAPE, 1, "Malformed workspace context was not rendered."))
+        return {}
+    try:
+        return workspace_context_utils.workspace_context_to_dict(workspace_context)
+    except Exception:
+        omissions.append(_omission(OMISSION_KIND_UNSUPPORTED_ITEM_SHAPE, 1, "Malformed workspace context was not rendered."))
+        return {}
 
 
 def _instruction_blocks(variant: str) -> list[dict[str, str]]:

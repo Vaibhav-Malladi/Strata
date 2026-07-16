@@ -57,6 +57,9 @@ import test_workspace_relationships
 import test_workspace_references
 import test_workspace_contracts
 import test_workspace_graph
+import test_workspace_context
+import test_workspace_readiness
+import test_workspace_integration
 import test_workflow_planner
 import test_config_command
 import test_context_command
@@ -221,6 +224,9 @@ TEST_MODULES = [
     test_workspace_references,
     test_workspace_contracts,
     test_workspace_graph,
+    test_workspace_context,
+    test_workspace_readiness,
+    test_workspace_integration,
     test_workflow_planner,
     test_config_command,
     test_context_command,
