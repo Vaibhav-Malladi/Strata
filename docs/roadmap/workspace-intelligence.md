@@ -224,3 +224,47 @@ value redaction.
 Q5 changes no files, writes no configuration, and generates no reports.
 Q5 does not add findings to AI context. Q5 does not build a dependency graph
 or trace user journeys.
+
+## Q6 - Workspace Dependency Graph
+
+Q6 adds a deterministic workspace dependency graph combiner built from already
+supplied Q1 configuration, accepted Q2 discovery suggestions, Q3 role and
+relationship assessments, Q4 relationship hints, and Q5 shared-contract
+findings. It defines repository nodes, relationship edges, a graph result
+contract, stable schema versioning, deterministic serialization, bounded
+evidence, diagnostics, and summary counts.
+
+Repository nodes preserve configured repository identity, display name, path,
+role, ports, and URLs as authoritative data. Q3 role assessments and accepted
+Q2 discovery suggestions may enrich nodes with confidence, bounded evidence,
+warnings, and safe metadata, but discovery does not silently create configured
+repositories unless the caller explicitly accepts discovered nodes for graph
+construction.
+
+Relationship edges preserve the Q1 and Q3 relationship vocabulary: API calls,
+package imports, iframe embeds, sent and received messages, shared contracts,
+generic dependencies, and proxies. Explicit configured relationships remain
+high-confidence explicit edges, matching inferred evidence can enrich them
+without lowering confidence, directional reverse edges stay separate, and
+`shares_contract_with` is treated as a symmetric edge with normalized ordering.
+
+Q5 contract findings may create or enrich conservative
+`shares_contract_with` edges only when a configured contract is present in at
+least two known repositories. Inconsistent contracts remain visible as degraded
+shared-contract edges with warnings and diagnostics; missing, unsupported, or
+single-repository findings do not become strong cross-repository graph edges.
+Contract names may be attached, but sensitive configured or observed values are
+not exposed.
+
+Q6 detects directed dependency cycles and strongly connected components using
+dependency-relevant relationships. Symmetric shared-contract edges are excluded
+from directed cycle detection, and received-message edges are serialized without
+double-counting complementary send/receive cycles. The graph also reports
+isolated repositories, dependency roots, dependency leaves, unresolved
+relationships, caps, and stable diagnostics for unknown targets, unsupported
+relationship types, self-relationships, duplicate identities or paths, evidence
+truncation, graph caps, degraded contract edges, and detected cycles.
+
+Q6 reads no files, scans no repositories, runs no discovery, extracts no source
+references, compares no contracts, and performs no network calls. Q6 writes no graph files yet and does not generate a workspace report. Q6 does not modify workspace
+configuration, and Q6 does not add graph data to AI context. Q6 does not trace user journeys.
