@@ -25,7 +25,7 @@ def test_distribution_name_and_console_script_are_distinct_and_correct():
 def test_strata_package_import_and_module_entrypoint():
     import strata
 
-    assert strata.__version__ == "0.3.3"
+    assert strata.__version__ == "0.4.0"
 
     result = subprocess.run(
         [sys.executable, "-m", "strata", "--help"],
@@ -56,9 +56,22 @@ def test_readme_python_and_generated_output_metadata_are_configured():
     gitignore = (PROJECT_ROOT / ".gitignore").read_text(encoding="utf-8")
 
     assert project["readme"] == "README.md"
-    assert project["requires-python"] == ">=3.13"
+    assert project["requires-python"] == ">=3.11"
     assert project["license"] == "MIT"
+    assert "Programming Language :: Python :: 3.11" in project["classifiers"]
+    assert "Programming Language :: Python :: 3.12" in project["classifiers"]
+    assert "Programming Language :: Python :: 3.13" in project["classifiers"]
     assert ".aidc/" in gitignore
+    assert ".codex-venv/" in gitignore
+    assert ".env.*" in gitignore
+
+
+def test_authoritative_versions_agree():
+    pyproject = _load_pyproject()
+
+    import strata
+
+    assert pyproject["project"]["version"] == strata.__version__
 
 
 def test_public_docs_use_honest_install_runtime_and_support_wording():
@@ -68,25 +81,74 @@ def test_public_docs_use_honest_install_runtime_and_support_wording():
         + (PROJECT_ROOT / "strata" / "commands" / "help_topics.py").read_text(encoding="utf-8")
     )
     public_text = readme + help_text
+    readme_normalized = readme.lower()
     normalized = public_text.lower()
 
     assert "the pypi package is `strata-repo-intel`; the cli command is `strata`" in normalized
     assert "pipx install strata-repo-intel" in public_text
     assert "python -m pip install --user strata-repo-intel" in public_text
-    assert "python 3.13" in normalized
+    assert "python -m pip install -e ." in public_text
+    assert "install.ps1" in public_text
+    assert "strata start" in public_text
+    assert "strata start --continue" in public_text
+    assert 'strata context --budget small "your task"' in public_text
+    assert "strata settings" in public_text
+    assert "Strata does not store API keys in the repository." in public_text
+    assert "python 3.11 or newer" in readme_normalized
     assert "older python versions" in normalized
-    assert "experimental/preview" in normalized
-    assert "regex/convention" in normalized
+    assert "controlled real-repository uat" in normalized
+    assert "static explanations" in normalized
+    assert "dynamic framework" in normalized
     assert "add `.aidc/` to `.gitignore`" in normalized
     assert "python -m strata" not in normalized
     assert "py -m strata" not in normalized
 
 
-def test_publish_workflow_checks_tag_tests_and_built_distribution():
+def test_project_urls_are_verified_absolute_repository_urls():
+    project = _load_pyproject()["project"]
+    urls = project["urls"]
+
+    assert urls["Homepage"] == "https://github.com/Vaibhav-Malladi/Strata"
+    assert urls["Repository"] == "https://github.com/Vaibhav-Malladi/Strata"
+    assert urls["Issues"] == "https://github.com/Vaibhav-Malladi/Strata/issues"
+    assert urls["Documentation"] == "https://github.com/Vaibhav-Malladi/Strata#documentation"
+    assert urls["Changelog"] == "https://github.com/Vaibhav-Malladi/Strata/blob/main/CHANGELOG.md"
+
+
+def test_release_metadata_and_manifest_exclude_generated_artifacts():
+    pyproject = _load_pyproject()
+    project = pyproject["project"]
+    manifest = (PROJECT_ROOT / "MANIFEST.in").read_text(encoding="utf-8")
+
+    assert project["license"] == "MIT"
+    assert project["license-files"] == ["LICENSE"]
+    assert "License :: OSI Approved :: MIT License" not in project["classifiers"]
+    assert "include LICENSE" in manifest
+    assert "include README.md" in manifest
+    assert "include CHANGELOG.md" in manifest
+    assert (PROJECT_ROOT / "CHANGELOG.md").is_file()
+    assert (PROJECT_ROOT / "docs" / "releasing.md").is_file()
+
+    for pattern in (
+        "prune .aidc",
+        "prune .codex-venv",
+        "prune .pytest_cache",
+        "prune *.egg-info",
+        "prune build",
+        "prune dist",
+        "global-exclude .env.*",
+    ):
+        assert pattern in manifest
+
+
+def test_publish_workflow_checks_tag_tests_build_and_trusted_publishing():
     workflow = (PROJECT_ROOT / ".github" / "workflows" / "publish.yml").read_text(
         encoding="utf-8"
     )
 
+    assert "Publish to PyPI" in workflow
+    assert "id-token: write" in workflow
+    assert "environment: pypi" in workflow
     assert 'prefix = "refs/tags/v"' in workflow
     assert 'tomllib.load(file)["project"]["version"]' in workflow
     assert "Tag/version mismatch" in workflow
@@ -94,6 +156,7 @@ def test_publish_workflow_checks_tag_tests_and_built_distribution():
     assert "python -m pip install --upgrade build twine" in workflow
     assert "python -m build" in workflow
     assert "python -m twine check dist/*" in workflow
+    assert "pypa/gh-action-pypi-publish@release/v1" in workflow
 
 
 def test_compatibility_workflow_tests_source_without_publishing():
@@ -130,7 +193,10 @@ TESTS = [
     test_strata_package_import_and_module_entrypoint,
     test_all_runtime_top_level_modules_are_packaged,
     test_readme_python_and_generated_output_metadata_are_configured,
+    test_authoritative_versions_agree,
     test_public_docs_use_honest_install_runtime_and_support_wording,
-    test_publish_workflow_checks_tag_tests_and_built_distribution,
+    test_project_urls_are_verified_absolute_repository_urls,
+    test_release_metadata_and_manifest_exclude_generated_artifacts,
+    test_publish_workflow_checks_tag_tests_build_and_trusted_publishing,
     test_compatibility_workflow_tests_source_without_publishing,
 ]

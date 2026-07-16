@@ -7,6 +7,7 @@ __pycache__/
 # Virtual environments
 .venv/
 venv/
+.codex-venv/
 
 # Strata generated output
 .aidc/
@@ -14,9 +15,19 @@ venv/
 # Python packaging output
 build/
 dist/
+*.egg-info/
+
+# Test and coverage output
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
 
 # Editor/system files
 .vscode/
 .DS_Store
 Thumbs.db
-*.egg-info/
+
+# Local secrets and environment files
+.env
+.env.*

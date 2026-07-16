@@ -4,14 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "strata-repo-intel"
-version = "0.3.3"
+version = "0.4.0"
 description = "Local-first, budget-aware repository context compiler for safer AI-assisted coding."
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.11"
 authors = [
     { name = "Vaibhav Malladi" }
 ]
 license = "MIT"
+license-files = ["LICENSE"]
 keywords = [
     "repository-intelligence",
     "ai-coding",
@@ -24,6 +25,8 @@ classifiers = [
     "Environment :: Console",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Operating System :: OS Independent",
     "Topic :: Software Development",
@@ -37,6 +40,8 @@ dependencies = [
 Homepage = "https://github.com/Vaibhav-Malladi/Strata"
 Repository = "https://github.com/Vaibhav-Malladi/Strata"
 Issues = "https://github.com/Vaibhav-Malladi/Strata/issues"
+Documentation = "https://github.com/Vaibhav-Malladi/Strata#documentation"
+Changelog = "https://github.com/Vaibhav-Malladi/Strata/blob/main/CHANGELOG.md"
 
 [project.scripts]
 strata = "strata.cli:main"
