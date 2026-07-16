@@ -51,6 +51,7 @@ import test_ollama_adapter
 import test_doctor_command
 import test_patch_applier
 import test_workflow_config
+import test_workspace_config
 import test_workflow_planner
 import test_config_command
 import test_context_command
@@ -209,6 +210,7 @@ TEST_MODULES = [
     test_doctor_command,
     test_patch_applier,
     test_workflow_config,
+    test_workspace_config,
     test_workflow_planner,
     test_config_command,
     test_context_command,

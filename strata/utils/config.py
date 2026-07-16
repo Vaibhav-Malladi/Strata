@@ -9,6 +9,7 @@ from typing import Any
 
 from agent_adapters import validate_adapter_name
 from secret_redaction import validate_env_var_name
+import strata.utils.workspace_config as workspace_config
 from strata.utils.artifacts import write_artifact_json
 
 CONFIG_DIR_NAME = ".aidc"
@@ -29,6 +30,7 @@ DEFAULT_CONFIG = {
     "auto_verify": True,
     "require_gate_pass_before_commit": True,
     "user_settings": None,
+    "workspace": None,
 }
 
 _ALLOWED_MODES = {"manual", "hybrid", "auto"}
@@ -136,6 +138,8 @@ def validate_config(config: Mapping[str, Any]) -> dict:
             normalized[canonical_key] = _validate_bool(canonical_key, value)
         elif canonical_key == "user_settings":
             normalized[canonical_key] = _validate_user_settings_payload(value)
+        elif canonical_key == "workspace":
+            normalized[canonical_key] = _validate_workspace_payload(value)
         else:
             raise ValueError(f"Unsupported config key: {key}")
 
@@ -232,6 +236,15 @@ def _validate_user_settings_payload(value: Any) -> dict[str, Any] | None:
         raise ValueError("user_settings must be a mapping")
 
     return _normalize_json_value(value, "user_settings")
+
+
+def _validate_workspace_payload(value: Any) -> dict[str, Any] | None:
+    if value is None:
+        return None
+    try:
+        return workspace_config.validate_workspace_config(value)
+    except workspace_config.WorkspaceConfigError as error:
+        raise ValueError(f"Invalid workspace config: {error}") from error
 
 
 def _normalize_json_value(value: Any, path: str) -> Any:
