@@ -74,3 +74,46 @@ Q2 does not perform deep cross-repository source scanning. It does not extract
 runtime URLs, iframe sources, postMessage usage, route names, shared constants,
 or API references, and it does not compare shared contracts, build a dependency
 graph, write reports, or add workspace evidence to AI context.
+
+## Q3 - Repository Roles And Relationship Evidence Contracts
+
+Q3 defines canonical role assessments and canonical relationship candidates for
+combining Q1 configuration with already-produced Q2 discovery suggestions or
+caller-supplied inferred relationship hints.
+
+Role assessments use the Q1 repository-role vocabulary and record repository
+ID, role, origin, confidence, bounded evidence, warnings, and optional suggested
+role. Explicit configured non-unknown roles remain authoritative. Explicit
+`unknown` roles remain safe defaults while discovered or inferred evidence may
+be retained as suggestions.
+
+Relationship candidates use the Q1 relationship-type vocabulary and record
+source repository ID, target repository ID, relationship type, origin,
+confidence, bounded evidence, warnings, and optional description. Explicit
+configured relationships take precedence over inferred candidates. Matching
+inferred evidence may enrich an explicit relationship, while conflicting
+inferred relationship types produce diagnostics instead of replacing explicit
+configuration.
+
+Q3 uses deterministic deduplication identities. Directional relationships use
+`source_repository_id`, `target_repository_id`, and `relationship_type`.
+`shares_contract_with` is treated as symmetric for duplicate detection only;
+directional types such as `calls_api`, `imports_package`, `depends_on`,
+`sends_messages_to`, and `receives_messages_from` remain direction-sensitive.
+
+Evidence is confidence-aware and bounded. Evidence items record signal type,
+source repository, source path, summary, strength, optional target repository,
+optional referenced path, and bounded metadata. Role evidence and relationship
+evidence caps produce stable truncation diagnostics rather than silently
+discarding information.
+
+Q3 adds conflict and ambiguity diagnostics for unknown repository references,
+conflicting role evidence, conflicting relationships, duplicate relationships,
+self-relationships, missing targets, unsupported types, evidence truncation,
+candidate caps, and diagnostic caps.
+
+Q3 does not build a dependency graph, traverse relationships, write workspace
+reports, alter configuration, or discover repositories.
+Q3 does not extract cross-repository source references.
+It does not compare shared contracts and does not add workspace evidence to AI
+context.
