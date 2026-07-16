@@ -3,6 +3,7 @@ from pathlib import Path
 from subprocess import SubprocessError
 
 from strata.utils.shell import run_argv
+import strata.utils.workspace_context as workspace_context_utils
 
 
 CONTEXT_ARTIFACT_PATH = ".aidc/context/strata_context.md"
@@ -232,6 +233,7 @@ def render_strata_context(
     dependency_traces: str | list | tuple | dict | None = None,
     internal_library_apis: str | list | tuple | dict | None = None,
     cross_repo_external_references: str | list | tuple | dict | None = None,
+    workspace_context: dict | None = None,
     budget_summary: dict | None = None,
     scope_guard: str | list | tuple | None = None,
     warnings: str | list | tuple | None = None,
@@ -248,6 +250,9 @@ def render_strata_context(
     _append_section(lines, "## Dependency Traces", dependency_traces)
     _append_section(lines, "## Internal Library APIs", internal_library_apis)
     _append_section(lines, "## Cross-Repo / External App References", cross_repo_external_references)
+    if workspace_context is not None:
+        lines.extend(workspace_context_utils.render_workspace_context_markdown(workspace_context).rstrip().splitlines())
+        lines.append("")
     lines.append(REPOSITORY_CONTENT_END)
     lines.append("")
 
