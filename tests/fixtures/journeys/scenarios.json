@@ -1,0 +1,19 @@
+{
+  "scenarios": [
+    "angular_login_python_backend",
+    "react_save_go_backend",
+    "express_backend_flow",
+    "host_iframe_flow",
+    "postmessage_request_response",
+    "ambiguous_api_target",
+    "dynamic_frontend_binding",
+    "dynamic_backend_dispatch",
+    "missing_backend_repository",
+    "auth_uncertainty",
+    "journey_cycle",
+    "large_evidence_token_protection",
+    "sensitive_values",
+    "single_repository_journey",
+    "unsupported_pattern"
+  ]
+}
