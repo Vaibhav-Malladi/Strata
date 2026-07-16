@@ -1,5 +1,6 @@
 import contextlib
 import inspect
+import io
 import json
 import sys
 import tempfile
@@ -8,8 +9,17 @@ from pathlib import Path
 import strata.commands.cli as cli_module
 import strata.commands.cli_help as cli_help
 import strata.commands.start_command as start_command
-from tests.helpers import capture_output, change_directory
+from tests.helpers import change_directory
 from workflow_config import default_config, save_config
+
+
+def capture_output(function, *args, **kwargs):
+    output = io.StringIO()
+
+    with contextlib.redirect_stdout(output):
+        result = function(*args, **kwargs)
+
+    return result, output.getvalue()
 
 
 @contextlib.contextmanager
@@ -74,6 +84,21 @@ def _guided_view(**overrides) -> dict[str, object]:
     return view
 
 
+def _action_result(**overrides) -> dict[str, object]:
+    result = {
+        "action": "review_changes",
+        "status": "completed",
+        "executed": True,
+        "message": "Action completed.",
+        "next_action": "view_results",
+        "next_action_label": "Run `strata start` again to refresh the workflow.",
+        "blocking": False,
+        "recovery": None,
+    }
+    result.update(overrides)
+    return result
+
+
 def test_strata_start_remains_registered_once():
     source = inspect.getsource(cli_module)
 
@@ -83,7 +108,7 @@ def test_strata_start_remains_registered_once():
 def test_start_is_described_as_recommended_normal_entry_point():
     lines = dict(cli_help._main_workflow_lines())
 
-    assert lines["strata start [path]"] == "Continue with Strata's recommended next step."
+    assert lines["strata start [--continue] [path]"] == "Continue with Strata's recommended next step."
 
 
 def test_command_uses_n1_guided_view():
@@ -234,11 +259,267 @@ def test_apply_next_action_displays_confirmation_guidance():
     assert "Confirmation will be required before repository files are changed." in output
 
 
-def test_apply_is_not_executed():
-    source = inspect.getsource(start_command)
+def test_normal_start_does_not_execute_actions():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        _write_run_state(root, _run_state(patch_received=True))
+        original = start_command.handle_recommended_action
+        start_command.handle_recommended_action = lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("action should not execute")
+        )
+        try:
+            exit_code, output = capture_output(start_command.write_start_command, str(root))
+        finally:
+            start_command.handle_recommended_action = original
 
-    assert "write_apply_command" not in source
-    assert "apply_patch" not in source
+        assert exit_code == 0
+        assert "Action result" not in output
+
+
+def test_one_continuation_mechanism_exists():
+    source = inspect.getsource(cli_module)
+
+    assert source.count("--continue") == 1
+
+
+def test_continue_attempts_exactly_one_recommended_action():
+    view = _guided_view()
+    calls = []
+    original_build = start_command.build_start_guided_view
+    original_handle = start_command.handle_recommended_action
+    start_command.build_start_guided_view = lambda _root: view
+    start_command.handle_recommended_action = lambda guided_view, **kwargs: calls.append((guided_view, kwargs)) or _action_result()
+    try:
+        exit_code, output = capture_output(start_command.write_start_command, ".", continue_action=True)
+    finally:
+        start_command.build_start_guided_view = original_build
+        start_command.handle_recommended_action = original_handle
+
+    assert exit_code == 0
+    assert len(calls) == 1
+    assert calls[0][0] == view
+    assert "Action result" in output
+    assert _next_section_count(output) == 1
+
+
+def test_apply_requires_confirmation_and_prompt_uses_y_no_default():
+    prompts = []
+
+    allowed = start_command.confirm_recommended_action(
+        action="apply_changes",
+        confirmation_required=True,
+        input_fn=lambda prompt: prompts.append(prompt) or "y",
+    )
+
+    assert allowed is True
+    assert prompts == ["Apply the reviewed changes? [y/N] "]
+
+
+def test_explicit_y_and_yes_proceed():
+    for value in ("y", "yes"):
+        assert start_command.confirm_recommended_action(
+            action="apply_changes",
+            confirmation_required=True,
+            input_fn=lambda _prompt, value=value: value,
+        ) is True
+
+
+def test_empty_no_and_invalid_input_cancel_conservatively():
+    for value in ("", "n", "no", "maybe"):
+        assert start_command.confirm_recommended_action(
+            action="apply_changes",
+            confirmation_required=True,
+            input_fn=lambda _prompt, value=value: value,
+        ) is False
+
+
+def test_cancellation_does_not_execute_apply_and_returns_normal_result():
+    calls = []
+    result = start_command.handle_recommended_action(
+        _guided_view(
+            stage="ready_to_apply",
+            next_action="apply_changes",
+            next_action_label="Apply the reviewed changes",
+            confirmation_required=True,
+        ),
+        confirm_fn=lambda **_kwargs: False,
+        action_handlers={"apply_changes": lambda _root: calls.append("apply") or 0},
+    )
+
+    assert result["status"] == "cancelled"
+    assert result["executed"] is False
+    assert calls == []
+    assert result["message"] == "Cancelled. No files were changed."
+
+
+def test_start_continue_cancellation_returns_normal_completion():
+    view = _guided_view(
+        stage="ready_to_apply",
+        next_action="apply_changes",
+        next_action_label="Apply the reviewed changes",
+        confirmation_required=True,
+    )
+    original_build = start_command.build_start_guided_view
+    start_command.build_start_guided_view = lambda _root: view
+    try:
+        exit_code, output = capture_output(start_command.write_start_command, ".", continue_action=True, input_fn=lambda _prompt: "")
+    finally:
+        start_command.build_start_guided_view = original_build
+
+    assert exit_code == 0
+    assert "Cancelled. No files were changed." in output
+    assert _next_section_count(output) == 1
+
+
+def test_non_confirmation_actions_do_not_prompt():
+    prompts = []
+
+    assert start_command.confirm_recommended_action(
+        action="review_changes",
+        confirmation_required=False,
+        input_fn=lambda prompt: prompts.append(prompt) or "",
+    ) is True
+    assert prompts == []
+
+
+def test_blocking_state_prevents_destructive_execution():
+    calls = []
+    result = start_command.handle_recommended_action(
+        _guided_view(
+            stage="review_blocked",
+            next_action="apply_changes",
+            next_action_label="Apply the reviewed changes",
+            confirmation_required=True,
+            blocking=True,
+        ),
+        confirm_fn=lambda **_kwargs: True,
+        action_handlers={"apply_changes": lambda _root: calls.append("apply") or 0},
+    )
+
+    assert result["status"] == "blocked"
+    assert result["executed"] is False
+    assert calls == []
+
+
+def test_manual_ai_actions_are_not_executed():
+    for action in ("deliver_prompt", "provide_ai_response", "retry_ai_request"):
+        result = start_command.handle_recommended_action(
+            _guided_view(next_action=action, next_action_label="Manual action"),
+            action_handlers={action: lambda _root: (_ for _ in ()).throw(AssertionError("should not run"))},
+        )
+        assert result["status"] == "not_executed"
+        assert result["executed"] is False
+
+
+def test_existing_handler_is_called_at_most_once_and_success_completes():
+    calls = []
+    result = start_command.handle_recommended_action(
+        _guided_view(next_action="review_changes", next_action_label="Review the proposed changes"),
+        action_handlers={"review_changes": lambda root: calls.append(root) or 0},
+    )
+
+    assert calls == ["."]
+    assert result["status"] == "completed"
+    assert result["executed"] is True
+    assert result["next_action"] == "view_results"
+
+
+def test_handler_failure_returns_failed_status():
+    result = start_command.handle_recommended_action(
+        _guided_view(next_action="run_verification", next_action_label="Run verification"),
+        action_handlers={"run_verification": lambda _root: 1},
+    )
+
+    assert result["status"] == "failed"
+    assert result["executed"] is True
+    assert result["blocking"] is True
+
+
+def test_handler_exception_returns_failed_status_without_traceback():
+    result = start_command.handle_recommended_action(
+        _guided_view(next_action="review_changes", next_action_label="Review the proposed changes"),
+        action_handlers={"review_changes": lambda _root: (_ for _ in ()).throw(RuntimeError("boom"))},
+    )
+
+    assert result["status"] == "failed"
+    assert result["executed"] is False
+    assert "boom" in result["message"]
+
+
+def test_action_result_is_json_ready():
+    result = start_command.handle_recommended_action(
+        _guided_view(next_action="review_changes", next_action_label="Review the proposed changes"),
+        action_handlers={"review_changes": lambda _root: 0},
+    )
+
+    assert json.loads(json.dumps(result, allow_nan=False, sort_keys=True)) == result
+
+
+def test_guided_view_and_handler_mapping_are_not_mutated():
+    view = _guided_view(next_action="review_changes", next_action_label="Review the proposed changes")
+    handlers = {"review_changes": lambda _root: 0}
+    before = (json.loads(json.dumps(view)), dict(handlers))
+
+    start_command.handle_recommended_action(view, action_handlers=handlers)
+
+    assert view == before[0]
+    assert handlers == before[1]
+
+
+def test_recovery_guidance_is_deterministic():
+    first = start_command.handle_recommended_action(
+        _guided_view(
+            stage="review_blocked",
+            next_action="resolve_review_issues",
+            next_action_label="Fix the review issues",
+            blocking=True,
+        )
+    )
+    second = start_command.handle_recommended_action(
+        _guided_view(
+            stage="review_blocked",
+            next_action="resolve_review_issues",
+            next_action_label="Fix the review issues",
+            blocking=True,
+        )
+    )
+
+    assert first["recovery"] == second["recovery"] == "Resolve the review issues before applying."
+
+
+def test_render_action_result_keeps_exactly_one_next_action_visible():
+    output = start_command.render_action_result(
+        {
+            "action": "apply_changes",
+            "status": "cancelled",
+            "executed": False,
+            "message": "Cancelled. No files were changed.",
+            "next_action": "apply_changes",
+            "next_action_label": "Apply the reviewed changes",
+            "blocking": False,
+            "recovery": None,
+        }
+    )
+
+    assert _next_section_count(output) == 1
+    assert "Options" not in output
+    assert "Possible actions" not in output
+
+
+def test_apply_is_not_executed():
+    calls = []
+    start_command.handle_recommended_action(
+        _guided_view(
+            stage="ready_to_apply",
+            next_action="apply_changes",
+            next_action_label="Apply the reviewed changes",
+            confirmation_required=True,
+        ),
+        confirm_fn=lambda **_kwargs: False,
+        action_handlers={"apply_changes": lambda _root: calls.append("apply") or 0},
+    )
+
+    assert calls == []
 
 
 def test_warnings_are_shown_deterministically():
@@ -347,7 +628,7 @@ def test_existing_advanced_commands_remain_registered():
 def test_no_model_patch_apply_git_verification_or_delivery_action_is_invoked():
     source = inspect.getsource(start_command)
 
-    for forbidden in ("check_adapter", "write_apply", "write_verify", "execute_command", "run_argv", "git", "deliver"):
+    for forbidden in ("check_adapter", "execute_command", "run_argv", "subprocess", "clipboard", "browser", "model"):
         assert forbidden not in source
 
 
@@ -370,6 +651,7 @@ def test_new_internal_imports_use_direct_fully_qualified_module_imports():
 
     assert "import strata.core.guided_workflow as guided_workflow" in source
     assert "import strata.core.context_artifacts as context_artifacts" in source
+    assert "import strata.commands.apply_command as apply_command" in source
 
 
 def test_no_from_strata_core_import_module_form_exists():
@@ -395,6 +677,27 @@ def test_cli_routes_start_to_guided_command():
         assert exit_code == 0
         assert "The AI response is ready for review." in output
         assert _next_section_count(output) == 1
+
+
+def test_cli_routes_start_continue_to_guided_command():
+    calls = []
+    original = cli_module.write_start_command
+    cli_module.write_start_command = lambda root, **kwargs: calls.append((root, kwargs)) or 0
+    try:
+        with change_argv(["cli.py", "start", "--continue", "repo"]):
+            exit_code, _output = capture_output(cli_module.main)
+    finally:
+        cli_module.write_start_command = original
+
+    assert exit_code == 0
+    assert calls == [("repo", {"continue_action": True})]
+
+
+def test_existing_apply_safety_behavior_remains_unchanged():
+    source = inspect.getsource(start_command)
+
+    assert "apply_command.write_apply_command(root_path, yes=True)" in source
+    assert "force" not in source.lower()
 
 
 def test_plain_text_fallback_is_readable_without_ansi_assumptions():
@@ -424,6 +727,24 @@ TESTS = [
     test_non_complete_output_contains_exactly_one_next_action_section,
     test_completed_output_contains_no_next_action_section,
     test_apply_next_action_displays_confirmation_guidance,
+    test_normal_start_does_not_execute_actions,
+    test_one_continuation_mechanism_exists,
+    test_continue_attempts_exactly_one_recommended_action,
+    test_apply_requires_confirmation_and_prompt_uses_y_no_default,
+    test_explicit_y_and_yes_proceed,
+    test_empty_no_and_invalid_input_cancel_conservatively,
+    test_cancellation_does_not_execute_apply_and_returns_normal_result,
+    test_start_continue_cancellation_returns_normal_completion,
+    test_non_confirmation_actions_do_not_prompt,
+    test_blocking_state_prevents_destructive_execution,
+    test_manual_ai_actions_are_not_executed,
+    test_existing_handler_is_called_at_most_once_and_success_completes,
+    test_handler_failure_returns_failed_status,
+    test_handler_exception_returns_failed_status_without_traceback,
+    test_action_result_is_json_ready,
+    test_guided_view_and_handler_mapping_are_not_mutated,
+    test_recovery_guidance_is_deterministic,
+    test_render_action_result_keeps_exactly_one_next_action_visible,
     test_apply_is_not_executed,
     test_warnings_are_shown_deterministically,
     test_multiple_warnings_do_not_create_multiple_primary_actions,
@@ -441,5 +762,7 @@ TESTS = [
     test_no_from_strata_core_import_module_form_exists,
     test_package_layering_invariant_has_no_new_violation,
     test_cli_routes_start_to_guided_command,
+    test_cli_routes_start_continue_to_guided_command,
+    test_existing_apply_safety_behavior_remains_unchanged,
     test_plain_text_fallback_is_readable_without_ansi_assumptions,
 ]

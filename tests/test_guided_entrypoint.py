@@ -109,7 +109,7 @@ def test_cli_help_lists_main_workflow_first_and_keeps_advanced_reference():
     assert output.index("Connect AI") < output.index("Main workflow") < output.index("Advanced commands") < output.index("Install help")
     _assert_terms(
         output,
-        "strata start [path]",
+        "strata start [--continue] [path]",
         'strata ask [--file <reference>]... "<task>" [path]',
         "strata start",
         "strata setup",

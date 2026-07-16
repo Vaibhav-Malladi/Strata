@@ -9,7 +9,7 @@ primary next action at a time.
 - N1 - Guided Workflow UX Contract - implemented.
 - N2 - One Primary Guided Command - implemented.
 - N3 - Progress and Status Presentation - implemented.
-- N4 - Confirmations, Recovery, and Next Actions - not implemented.
+- N4 - Confirmations, Recovery, and Next Actions - implemented.
 - N5 - Settings Change Workflow - not implemented.
 - N6 - Help Text, Documentation, and Integration Polish - not implemented.
 
@@ -134,9 +134,9 @@ N2 output is intentionally basic plain text:
 - the N1 headline
 - the N1 summary
 - deterministic warnings when present
-- one `Next:` line for non-complete workflows
+- one `Next step` section for non-complete workflows
 
-When the N1 view is complete, N2 omits the `Next:` line and does not invent a
+When the N1 view is complete, N2 omits the `Next step` section and does not invent a
 follow-up action. When N1 marks an action as confirmation-required, N2 displays
 confirmation guidance but does not perform the action.
 
@@ -206,3 +206,76 @@ N3 does not prompt for confirmation.
 N3 does not redesign scan progress.
 
 N3 only improves guided workflow presentation.
+
+## N4 Confirmations And Recovery
+
+N4 keeps plain `strata start` status-only. It shows the guided status,
+progress, warnings, and one recommended next step without executing the action.
+
+N4 adds one continuation path:
+
+- `strata start --continue`
+- `strata start --continue <root>`
+
+The continuation path attempts exactly the single action selected by N1. It
+does not add a command menu, action picker, or multi-action workflow.
+
+N4 classifies the existing N1 action vocabulary into bounded categories:
+
+- informational: `run_setup`, `prepare_context`, `resolve_review_issues`,
+  `view_results`, `none`
+- delegatable: `review_changes`, `run_verification`
+- destructive: `apply_changes`
+- unsupported for now: `deliver_prompt`, `provide_ai_response`,
+  `retry_ai_request`
+
+Delegatable actions reuse existing command handlers directly. N4 does not shell
+out to `python -m strata` or duplicate review, verification, or apply logic.
+
+`apply_changes` always requires explicit confirmation:
+
+```text
+Apply the reviewed changes? [y/N]
+```
+
+Only `y` or `yes` proceeds. Empty input, `n`, `no`, and unrecognized input
+cancel conservatively. Cancellation is normal command completion, does not
+change repository files, and says:
+
+```text
+Cancelled. No files were changed.
+```
+
+Manual AI-transfer actions are not executed. N4 gives one concise instruction,
+such as copying the prepared request into the AI tool, pasting the AI response
+back into Strata, or sending the corrected request manually.
+
+Action attempts return a deterministic JSON-ready result with:
+
+- `action`
+- `status`
+- `executed`
+- `message`
+- `next_action`
+- `next_action_label`
+- `blocking`
+- `recovery`
+
+Stable statuses are `not_executed`, `cancelled`, `completed`, `blocked`, and
+`failed`.
+
+Recovery guidance is bounded and concise. Examples include committing or
+stashing a dirty worktree before applying, preparing missing context, recreating
+malformed state, resolving review issues, and reviewing verification reports.
+
+N4 does not bypass apply safety.
+
+N4 does not call AI models.
+
+N4 does not access the clipboard or browser.
+
+N4 does not execute more than one action.
+
+N4 does not add a command menu.
+
+N4 does not implement settings changes.

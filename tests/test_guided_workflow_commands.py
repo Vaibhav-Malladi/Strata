@@ -116,7 +116,7 @@ def test_help_lists_main_workflow_before_advanced_commands():
     assert "Main workflow:" in output
     assert "Advanced commands:" in output
     assert output.index("Connect AI") < output.index("Main workflow:") < output.index("Advanced commands:")
-    assert "strata start [path]" in output
+    assert "strata start [--continue] [path]" in output
     assert "recommended next step" in output.lower()
     assert 'strata ask [--file <reference>]... "<task>" [path]' in output
     assert "strata start" in output
